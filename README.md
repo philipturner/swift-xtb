@@ -19,3 +19,6 @@ Dependencies:
 - OpenMP
 - BLAS
 - LAPACK
+
+Requirements:
+- macOS or Windows (for now)
