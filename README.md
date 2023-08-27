@@ -1,6 +1,6 @@
-# Nanomechanical Quantum Chemistry
+# Density Functional Theory
 
-My experiments with performance-portable DFT algorithms
+Experiments with performance-portable DFT algorithms
 
 Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms.
 - [Effectively universal XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
