@@ -4,6 +4,8 @@
 
 C++ implementation of performance-portable DFT algorithms, eventually to be GPU-accelerated with Metal and OpenCL.
 
+## Technical Details
+
 Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms.
 - [Effectively universal XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - Removes entire libraries dedicated to handwritten XC heuristics
