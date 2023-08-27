@@ -12,7 +12,7 @@ Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maxi
   - Removes the need for FFTs, both an additional library dependency and a bottleneck
 
 Dependencies:
-- C++
+- C++, Clang, Bash
 - Pseudopod (from INQ)
 - OpenMP
 - BLAS
