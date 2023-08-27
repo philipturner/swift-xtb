@@ -13,12 +13,12 @@ Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maxi
   - Removes orbital basis sets, drastically simplifying the conceptual complexity
   - Removes the need for FFTs, both an additional library dependency and a bottleneck
 
+Requirements:
+- macOS or Windows (for now)
+
 Dependencies:
 - C++, Clang, Bash
 - Pseudopod (from INQ)
 - OpenMP
 - BLAS
 - LAPACK
-
-Requirements:
-- macOS or Windows (for now)
