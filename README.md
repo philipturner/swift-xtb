@@ -12,7 +12,7 @@ Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maxi
   - Removes the need for FFTs, both an additional library dependency and a bottleneck
 
 Dependencies:
-- INQ
+- Pseudopod (from INQ)
 - OpenMP
 - BLAS
 - LAPACK
