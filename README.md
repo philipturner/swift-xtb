@@ -13,7 +13,9 @@ Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maxi
   - Removes orbital basis sets, drastically simplifying the conceptual complexity
   - Removes the need for FFTs, both an additional library dependency and a bottleneck
 
-Requirements:
+## Requirements
+
+Operating System:
 - macOS or Windows (for now)
 
 Dependencies:
