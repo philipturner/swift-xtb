@@ -3,11 +3,11 @@
 My experiments with performance-portable DFT algorithms
 
 Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms.
-- Effectively universal XC functional (2021)
+- [Effectively universal XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - Removes entire libraries dedicated to handwritten XC heuristics
-- Dynamic precision for eigensolvers (2023)
+- [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Unsure which eigensolvers are applicable to finite difference method. If LOBPCG is, use LOBPCG II.
-- Real-space method achieving compute cost parity with plane-wave method (2023)
+- [Real-space method achieving compute cost parity with plane-wave method](https://arxiv.org/pdf/2303.01937.pdf) (2023)
   - Removes orbital basis sets, drastically simplifying the conceptual complexity
   - Removes the need for FFTs, both an additional library dependency and a bottleneck
 
