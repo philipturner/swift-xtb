@@ -1,5 +1,7 @@
 # Density Functional Theory
 
+> This repository is a work in progress.
+
 C++ implementation of performance-portable DFT algorithms, eventually to be GPU-accelerated with Metal and OpenCL.
 
 Goal: Combine a few recent breakthroughs in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms.
