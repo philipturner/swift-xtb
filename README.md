@@ -22,7 +22,7 @@ Operating System:
 
 Dependencies:
 - C++, Clang, Bash
-- Pseudopod (from INQ)
+- Pseudopod
 - OpenMP
 - BLAS
 - LAPACK
