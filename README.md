@@ -1,8 +1,8 @@
 # Density Functional Theory
 
-> This repository is a work in progress.
+> This will be moved to https://github.com/philipturner/molecular-renderer.
 
-C++ implementation of performance-portable DFT algorithms, eventually to be GPU-accelerated with Metal and OpenCL.
+Implementation of performance-portable DFT algorithms, eventually to be GPU-accelerated with Metal and OpenCL.
 
 ## Technical Details
 
@@ -21,7 +21,7 @@ Operating System:
 - macOS or Windows (for now)
 
 Dependencies:
-- C++, Clang, Bash
+- Clang, Bash
 - Pseudopod
 - OpenMP
 - BLAS
