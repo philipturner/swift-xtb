@@ -1,6 +1,8 @@
 # Density Functional Theory
 
-Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
+Short-Term Goal: Wrap the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in an ergonomic Swift API.
+
+Long-Term Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
