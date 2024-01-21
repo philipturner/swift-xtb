@@ -1,13 +1,24 @@
 # Density Functional Theory
 
-Short-Term Goal: Wrap the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in an ergonomic Swift API.
+Short-Term Goal: Reimplement the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in Swift.
 
-Long-Term Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
+Long-Term Goal: Modify the code with algorithmic improvements and GPU acceleration.
+
+## Short-Term Goal
+
+Work Breakdown Structure:
+- Wrap the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in an ergonomic Swift API.
+- Translate the package to Swift, while calling into Python libraries for the bulk of the calculations.
+- Remove all Python dependencies. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
+
+## Long-Term Goal
+
+Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
   - Reduces the number of FFTs, a bottleneck that dominates computation time.
-  - Most DFT libraries (Gaussian, GAMESS, TeraChem) uses the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
+  - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
 - [Universal XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - More accurate than the B3LYP functional used for mechanosynthesis research, or at least not significantly worse.
   - The XC functional is often 90% of the maintenance and complexity of a DFT codebase. DeepMind's neural network makes the XC code ridiculously simple.
