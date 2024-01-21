@@ -24,4 +24,4 @@ Combine a few recent advances in quantum chemistry. Do this with maximum possibl
   - The XC functional is often 90% of the maintenance and complexity of a DFT codebase. DeepMind's neural network makes the XC code ridiculously simple.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
-  - Use a similar solver described there, except replacing LOBPCG with LOBPCG II. This reduces bottlenecks from eigendecomposition (`eigh`) by 27x.
+  - Use a solver similar to GOSPEL, except replacing LOBPCG with LOBPCG II. This reduces the cost of eigendecomposition (`eigh`) by 27x.
