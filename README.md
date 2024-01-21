@@ -9,7 +9,7 @@ Long-Term Goal: Modify the code with algorithmic improvements and GPU accelerati
 Work Breakdown Structure:
 - Wrap the Python package in an ergonomic Swift API.
 - Translate the package to Swift, while calling into Python libraries for the bulk of the calculations.
-- Remove all Python dependencies. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
+- Remove as many Python dependencies as possible. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
 
 ## Long-Term Goal
 
