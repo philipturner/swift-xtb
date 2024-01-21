@@ -7,7 +7,7 @@ Long-Term Goal: Modify the code with algorithmic improvements and GPU accelerati
 ## Short-Term Goal
 
 Work Breakdown Structure:
-- Wrap the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in an ergonomic Swift API.
+- Wrap the Python package in an ergonomic Swift API.
 - Translate the package to Swift, while calling into Python libraries for the bulk of the calculations.
 - Remove all Python dependencies. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
 
