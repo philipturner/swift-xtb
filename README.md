@@ -11,7 +11,7 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - The XC functional is often 90% of the maintenance and complexity of a DFT codebase. DeepMind's neural network makes the XC code ridiculously simple.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
-  - Use a solver similar to GOSPEL, except replacing LOBPCG with LOBPCG II. This reduces the cost of eigendecomposition (`eigh`) by 27x.
+  - Use steepest descent instead of LOBPCG. If mixed precision doesn't work, migrate to LOBPCG II.
 - No pseudopotentials
   - Find an alternative method to increase the grid resolution in atom cores.
   - Most structures in MNT are carbon and hydrogen. The increase in electron count is often less than 2x. 
