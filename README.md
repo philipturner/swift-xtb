@@ -1,20 +1,6 @@
 # Density Functional Theory
 
-Short-Term Goal: Reimplement the [GOSPEL](https://gitlab.com/jhwoo15/gospel) Python package in Swift.
-
-Long-Term Goal: Modify the code with algorithmic improvements and GPU acceleration.
-
-## Short-Term Goal
-
-Work Breakdown Structure:
-- Use GOSPEL in a DFT study and confirm correct behavior.
-- Wrap the Python package in an ergonomic Swift API.
-- Translate the package to Swift, while calling into Python libraries for the bulk of the calculations.
-- Remove as many Python dependencies as possible. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
-
-## Long-Term Goal
-
-Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
+Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
@@ -26,3 +12,7 @@ Combine a few recent advances in quantum chemistry. Do this with maximum possibl
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Use a solver similar to GOSPEL, except replacing LOBPCG with LOBPCG II. This reduces the cost of eigendecomposition (`eigh`) by 27x.
+- No pseudopotentials
+  - Find an alternative method to increase the grid resolution in atom cores.
+  - Most structures in MNT are carbon and hydrogen. The increase in electron count is often less than 2x. 
+  - The DM21 functional isn't optimized for high-Z atoms anyway.
