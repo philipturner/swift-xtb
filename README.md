@@ -16,3 +16,6 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Find an alternative method to increase the grid resolution in atom cores.
   - Most structures in MNT are carbon and hydrogen. The increase in electron count is often less than 2x. 
   - The DM21 functional isn't optimized for high-Z atoms anyway.
+- SI system
+  - No unit conversions from the user interface to the internal representation
+  - Nanometer, zeptojoule, picosecond
