@@ -7,6 +7,7 @@ Long-Term Goal: Modify the code with algorithmic improvements and GPU accelerati
 ## Short-Term Goal
 
 Work Breakdown Structure:
+- Use GOSPEL in a DFT study and confirm correct behavior.
 - Wrap the Python package in an ergonomic Swift API.
 - Translate the package to Swift, while calling into Python libraries for the bulk of the calculations.
 - Remove as many Python dependencies as possible. Examine the most costly portions of the codebase and rewrite them in vectorized Swift code.
