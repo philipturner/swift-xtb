@@ -1,6 +1,6 @@
 # Density Functional Theory
 
-Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the entirety of the computation to OpenCL and Metal.
+Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to the simplicity, the entirety of the code can ported to OpenCL/Metal, with GPU-driven command dispatching.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
@@ -12,7 +12,8 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Use the DM21mu variant, based on peer reviews of the limitations of DM21.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
-  - Remove the LOBPCG; a 12th-order multigrid already solves the eigenproblem 
+  - Remove the LOBPCG; a 12th-order multigrid already solves the eigenproblem
+  - Attempt to reach convergence without subspace diagonalization
 - No pseudopotentials
   - Find an alternative method to increase the grid resolution in atom cores.
   - Most structures in MNT are carbon and hydrogen. The increase in electron count is often less than 2x. 
