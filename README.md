@@ -9,7 +9,7 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
 - [DeepMind 2021 functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - More accurate than the B3LYP functional used for mechanosynthesis research, or at least not significantly worse.
   - The XC functional is often 90% of the maintenance and complexity of a DFT codebase. DeepMind's neural network makes the XC code ridiculously simple.
-  - Expose both DM21 and DM21mu to the API, based on peer reviews of the limitations of DM21.
+  - Use the DM21 variant, based on peer reviews of the limitations of DM21.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Use steepest descent instead of LOBPCG. If mixed precision doesn't work, migrate to LOBPCG II.
