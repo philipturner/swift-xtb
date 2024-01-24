@@ -2,7 +2,7 @@
 
 Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
 
-- Real-space formalism (multigrid)
+- Real-space formalism (12th order multigrid)
   - Removes orbital basis sets, drastically simplifying the functional form.
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
