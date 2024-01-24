@@ -1,6 +1,6 @@
 # Density Functional Theory
 
-Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to the simplicity, the entirety of the code can ported to OpenCL/Metal, with GPU-driven command dispatching.
+Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to the simplicity, all of the code can ported to OpenCL/Metal, with GPU-driven command dispatching.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
