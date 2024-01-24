@@ -2,7 +2,7 @@
 
 Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Then, port the most compute-intensive parts to OpenCL.
 
-- Real-space formalism (12th order multigrid)
+- Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
@@ -12,7 +12,7 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Use the DM21mu variant, based on peer reviews of the limitations of DM21.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
-  - Use steepest descent instead of LOBPCG. If mixed precision doesn't work, migrate to LOBPCG II.
+  - Remove the LOBPCG; a 12th-order multigrid already solves the eigenproblem 
 - No pseudopotentials
   - Find an alternative method to increase the grid resolution in atom cores.
   - Most structures in MNT are carbon and hydrogen. The increase in electron count is often less than 2x. 
