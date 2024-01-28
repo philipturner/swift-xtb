@@ -15,3 +15,4 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Remove the LOBPCG; a 12th-order multigrid already solves the eigenproblem.
   - Attempt to reach convergence without subspace diagonalization.
 - Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling.
+  - Loosely constrain each orbital fragment to have the same probability.
