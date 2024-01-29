@@ -12,7 +12,6 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Implement all major XC functionals from scratch, without external dependencies.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
-  - Remove the LOBPCG; a 12th-order multigrid already solves the eigenproblem.
-  - Attempt to reach convergence without subspace diagonalization.
+  - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
 - Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling.
   - Loosely constrain each orbital fragment to have the same probability.
