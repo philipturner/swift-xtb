@@ -19,3 +19,42 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
   - Core electrons matter to properly calculate relativistic effects.
   - Pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
   - Restrict usage to Z <= 36. Use a simple, first-order [relativistic correction](https://www.sciencedirect.com/science/article/abs/pii/S016612800000662X) that only holds for low-Z elements.
+
+## Finite Differencing Formulas
+
+Variable-resolution orbitals require asymmetric finite differencing. Custom finite difference coefficients were derived for the boundaries between multigrid levels.
+
+<div align="center">
+
+### Symmetric Second-Order
+
+$h^2 f_i'' + \frac{h^4}{12} f_i'''' = f_{i-1} - 2f_i + f_{i+1}$
+
+### Symmetric Fourth-Order
+
+$h^2 f_i'' = \frac{4}{3}(f_{i-1} - 2f_i + f_{i+1}) - \frac{1}{12}(f_{i-2} - 2f_i + f_{i+2})$
+
+### Asymmetric First-Order
+
+$c_- = \frac{1}{h_-}$
+
+$c_+ = \frac{1}{h_+}$
+
+$\frac{h_- + h_+}{2}f_i'' + O(h^2)f_i''' + O(h^3)f_i'''' = c_-f_{i-1} + c_+f_{i+1} - (c_- + c_+)f_i$
+
+### Asymmetric Second-Order
+
+$c_- = \frac{1}{h_-}$
+
+$c_1 = \frac{-2h_-^2 + 8h_+^2}{6h_+^3}$
+
+
+$c_2 = \frac{h_-^2 - h_+^2}{6h_+^3}$
+
+$(\frac{h_-}{2} + \frac{h_-^2}{6h_+} + \frac{h_+}{3})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
+
+### Doubly Asymmetric Second-Order
+
+TODO: Derive the formula for the case where the +1 sample is fine, but the -1 and +2 samples are coarse.
+
+</div>
