@@ -28,7 +28,7 @@ Exchange-correlation functionals and dispersion corrections should be implemente
 - Provide D4 dispersion corrections as a standalone Swift library.
   - Module Name: `D4`
 
-## Finite Differencing Formulas
+## Finite Differencing
 
 Variable-resolution orbitals require asymmetric finite differencing. Custom finite difference coefficients were derived for the boundaries between multigrid levels.
 
