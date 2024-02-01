@@ -27,6 +27,7 @@ Exchange-correlation functionals and dispersion corrections should be implemente
   - Facilitate computation of matrix multiplications in a user-specified external library (BLAS, MFA, cuDNN, clBLAST).
 - Provide D4 dispersion corrections as a standalone Swift library.
   - Module Name: `D4`
+- The `DFT` module still encapsulates the computation of exact exchange terms. There is a means to restrict compute cost to a subset of the scene.
 
 ## Finite Differencing
 
