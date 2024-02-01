@@ -1,6 +1,6 @@
 # Density Functional Theory
 
-Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to its simplicity, all of the code can be ported to OpenCL.
+Overview:
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
@@ -11,10 +11,15 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
+  - Perform 100% of computations in FP32, with compensated summation when necessary
 - No pseudopotentials
   - Core electrons matter to properly calculate relativistic effects.
   - Pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
   - Restrict usage to Z <= 36. Use a simple, first-order [relativistic correction](https://www.sciencedirect.com/science/article/abs/pii/S016612800000662X) that only holds for low-Z elements.
+- No external dependencies except OpenCL
+  - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions
+  - Apple silicon conforms through [AIR workaround](https://github.com/philipturner/opencl-metal-stdlib)
+  - Nvidia might require injecting PTX assembly
 
 ## Exchange-Correlation
 
@@ -24,7 +29,7 @@ Exchange-correlation functionals and dispersion corrections should be implemente
   - Module Name: `DM21`
   - More accurate than the B3LYP functional used for mechanosynthesis research.
   - Provide both the DM21 and DM21mu variants, based on independent reviews of DM21.
-  - Facilitate computation of matrix multiplications in a user-specified external library (BLAS, MFA, cuDNN, clBLAST).
+  - Compute matrix multiplications in vendor-specific library (Accelerate, MFA, cuBLAS, clBLAST, etc.).
 - Provide D4 dispersion corrections as a standalone Swift library.
   - Module Name: `D4`
 - The `DFT` module still encapsulates the computation of exact exchange terms. There is a means to restrict compute cost to a subset of the scene.
@@ -62,6 +67,8 @@ $c_2 = \frac{h_-^2 - h_+^2}{6h_+^3}$
 
 $(\frac{h_-}{2} + \frac{h_-^2 + 2h_+^2}{6h_+})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
 
+$O(h^3) = \frac{1}{12}(\frac{h_-^3}{2} + \frac{ h_+^2 (7h_-^2 - 4h_+^2) }{6h_+})$
+
 ### Doubly Asymmetric Second-Order
 
 $c_- = \frac{1}{h_-}$
@@ -72,6 +79,6 @@ $c_2 = \frac{h_-^2 - h_1^2}{(h_1 + h_2)(2h_1h_2 + h_2^2)}$
 
 $(\frac{h_-}{2} + \frac{h_-^2 + h_1^2 + h_1h_2}{4h_1 + 2h_2})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
 
-$O(h^3) = \frac{1}{12}(\frac{h_1^3}{2} + \frac{h_-^2 (3h_1^2 + 3h_1h_2 + h_2^2) - h_1^2 (h_1 + h_2)^2 }{4h_1 + 2h_2})$
+$O(h^3) = \frac{1}{12}(\frac{h_-^3}{2} + \frac{h_-^2 (3h_1^2 + 3h_1h_2 + h_2^2) - h_1^2 (h_1 + h_2)^2 }{4h_1 + 2h_2})$
 
 </div>
