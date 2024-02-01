@@ -11,14 +11,22 @@ Goal: Combine a few recent advances in quantum chemistry. Do this with maximum p
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
-- [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
-  - More accurate than the B3LYP functional used for mechanosynthesis research.
-  - Provide both the DM21 and DM21mu variants, based on independent reviews of DM21.
-  - Provide both D3 and D4 dispersion corrections as the only external dependencies.
 - No pseudopotentials
   - Core electrons matter to properly calculate relativistic effects.
   - Pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
   - Restrict usage to Z <= 36. Use a simple, first-order [relativistic correction](https://www.sciencedirect.com/science/article/abs/pii/S016612800000662X) that only holds for low-Z elements.
+
+## Exchange-Correlation
+
+Exchange-correlation functionals and dispersion corrections should be implemented in separate Swift modules. There should be a plugin-like interface for computing the XC and dispersion terms. This architecture allows different potentials to be applied to different areas of the scene. For example, running a compute-intensive potential on a small fraction of the atoms. One could also choose different potentials for metallic and organic matter.
+
+- [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
+  - Module Name: `DM21`
+  - More accurate than the B3LYP functional used for mechanosynthesis research.
+  - Provide both the DM21 and DM21mu variants, based on independent reviews of DM21.
+  - Facilitate computation of matrix multiplications in a user-specified external library (BLAS, MFA, cuDNN, clBLAST).
+- Provide D4 dispersion corrections as a standalone Swift library.
+  - Module Name: `D4`
 
 ## Finite Differencing Formulas
 
