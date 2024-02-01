@@ -1,6 +1,6 @@
 # Density Functional Theory
 
-Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to its simplicity, all of the code can be ported to OpenCL and Metal.
+Goal: Combine a few recent advances in quantum chemistry. Do this with maximum possible CPU utilization and the simplest possible algorithms. Due to its simplicity, all of the code can be ported to OpenCL.
 
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
@@ -55,15 +55,23 @@ $\frac{h_- + h_+}{2}f_i'' + O(h^2)f_i''' + O(h^3)f_i'''' = c_-f_{i-1} + c_+f_{i+
 
 $c_- = \frac{1}{h_-}$
 
-$c_1 = \frac{-2h_-^2 + 8h_+^2}{6h_+^3}$
+$c_1 = \frac{4h_+^2 - h_-^2}{3h_+^3}$
 
 
 $c_2 = \frac{h_-^2 - h_+^2}{6h_+^3}$
 
-$(\frac{h_-}{2} + \frac{h_-^2}{6h_+} + \frac{h_+}{3})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
+$(\frac{h_-}{2} + \frac{h_-^2 + 2h_+^2}{6h_+})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
 
 ### Doubly Asymmetric Second-Order
 
-TODO: Derive the formula for the case where the +1 sample is fine, but the -1 and +2 samples are coarse.
+$c_- = \frac{1}{h_-}$
+
+$c_1 = \frac{(h_1 + h_2)^2 - h_-^2}{h_1 (2h_1h_2 + h_2^2)}$
+
+$c_2 = \frac{h_-^2 - h_1^2}{(h_1 + h_2)(2h_1h_2 + h_2^2)}$
+
+$(\frac{h_-}{2} + \frac{h_-^2 + h_1^2 + h_1h_2}{4h_1 + 2h_2})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
+
+$O(h^3) = \frac{1}{12}(\frac{h_1^3}{2} + \frac{h_-^2 (3h_1^2 + 3h_1h_2 + h_2^2) - h_1^2 (h_1 + h_2)^2 }{4h_1 + 2h_2})$
 
 </div>
