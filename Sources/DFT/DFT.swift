@@ -8,61 +8,38 @@
 
 import OpenCL
 
-// TODO: Rewrite the multigrid API. The descriptor now stores the same data
-// as the actual object. Try to avoid the descriptor paradigm in this library.
-// You can initialize the 'SelfConsistentField' in a declarative manner, only
-// requiring an OpenCL context in the initializer. The RAM can be initialized
-// to 8 bytes. This API design is more expressive.
-
-struct MultiGridLevelDescriptor {
-  var origin: SIMD3<Int> = .zero
-  
-  var spacing: Float = 1
-  
-  var size: SIMD3<Int> = .zero
-  
-  // perhaps offset within the larger OpenCL buffer allocation, which removes
-  // the need to create a separate CLBuffer for every allocation (cheaper)
-  
-  init() {
-    
-  }
-}
-
-// Primitive data type used everywhere in the framework. Reallocated quite
-// frequently.
+// Primitive data type used everywhere in the framework.
 // - occupancy encoded into the 32 bits per cell
 // - data sourced from other levels is marked with flag bits
-// - 20 bits of mantissa (6 decimal places)
-struct MultiGridLevel {
-  // spacing (power of 2 Bohr)
+// - 20 bits of mantissa (s1e8m19)
+//   - 6 decimal places for wavefunction
+//   - doesn't limit precision, because sums are in FP32, and every group of
+//     ~32 elements is Kahan summed
+//
+// OpenCL representation:
+//
+// typedef struct {
+//   uint address;
+//   float spacing;
+//   int3 origin;
+//   uint3 size;
+// } MultiGridLevel;
+public struct MultiGridLevel {
+  // RAM address (in 4-byte words)
+  public var address: UInt32 = .zero
+  
+  // spacing (power-2 multiple of Bohr)
+  public var spacing: Float = 1
+  
   // origin (as even integer multiple of 'spacing' away from .zero)
-  // size (as even integer)
-  // OpenCL buffer of 'float'
-  //
-  // OpenCL representation:
-  //
-  // typedef struct {
-  //   int3 origin;
-  //   float spacing;
-  //   uint3 size;
-  //   global uint* contents; // may required a preceding GPU kernel to force
-  //                             the GPU address into the structure?
-  //                          // perhaps create a massive 4 GB buffer and
-  //                             sub-allocate from that on the CPU, making
-  //                             pointers 32-bit
-  //                             - expand to 16 GB and user-specified allocation
-  //                               size by increasing computer word size from
-  //                               8 bits to 32 bits
-  //                             - the first argument of every GPU kernel is
-  //                               global uint* RAM
-  //                          // TODO: can we fetch the GPU address via a GPU
-  //                             kernel, read on the CPU, and insert into data
-  //                             structures for a subsequent GPU kernel?
-  // } MultiGridLevel;
-  init(descriptor: MultiGridLevelDescriptor) {
-    
-  }
+  public var origin: SIMD3<Int32> = .zero
+  
+  // allocated size (as even integer)
+  // - Not every voxel within this volume is iterated over. It is just an
+  //   efficient way to manage the memory.
+  public var size: SIMD3<UInt32> = .zero
+  
+  public init() {}
 }
 
 public struct RAM {
@@ -70,18 +47,17 @@ public struct RAM {
   public var cpuAddress: UnsafeMutableRawPointer
   public var gpuAddress: UInt64
   
-  public init(context: CLContext, size: Int) {
-    let buffer = CLBuffer(context: context, flags: .readWrite, size: size)
+  public init(queue: CLCommandQueue, size: Int) {
+    // 16 GB is the maximum around of 4-byte words addressable with 32 bits.
+    guard size >= 0, size <= 16 * 1024 * 1024 * 1024 else {
+      fatalError("Size was invalid.")
+    }
+    let buffer = CLBuffer(
+      context: queue.context!, flags: .readWrite, size: size)
     guard let buffer else {
       fatalError("Could not initialize OpenCL buffer.")
     }
     self.buffer = buffer
-    
-    // Create a temporary command queue.
-    guard let device = context.devices?.first,
-          let queue = CLCommandQueue(context: context, device: device) else {
-      fatalError("Could not create queue.")
-    }
     self.cpuAddress = try! queue.enqueueMap(
       buffer, flags: [.read, .write], offset: 0, size: size)
     
@@ -98,13 +74,14 @@ public struct RAM {
       ((global PointerCapsule*)RAM)[0] = capsule;
     }
     """
-    guard let program = CLProgram(context: context, source: source) else {
+    guard let program = CLProgram(
+      context: queue.context!, source: source) else {
       fatalError("Could not create program.")
     }
     do {
       try program.build()
     } catch {
-      let log = program.buildLog(device: device)
+      let log = program.buildLog(device: queue.device!)
       fatalError("Build error: \(log ?? "n/a")")
     }
     guard let kernels = program.createKernels(), kernels.count == 1 else {
@@ -122,4 +99,38 @@ public struct RAM {
   }
 }
 
-// struct SelfConsistentField - like a context, coordinates everything
+public class SelfConsistentField {
+  @usableFromInline
+  var _queue: CLCommandQueue?
+  
+  @usableFromInline
+  var _ram: RAM?
+  
+  public init() {
+    
+  }
+}
+
+extension SelfConsistentField {
+  public var queue: CLCommandQueue {
+    @_transparent
+    get {
+      return _queue!
+    }
+    @_transparent
+    set {
+      _queue = newValue
+    }
+  }
+  
+  public var ram: RAM {
+    @_transparent
+    get {
+      return _ram!
+    }
+    @_transparent
+    set {
+      _ram = newValue
+    }
+  }
+}
