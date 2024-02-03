@@ -8,6 +8,12 @@
 
 import OpenCL
 
+// TODO: Rewrite the multigrid API. The descriptor now stores the same data
+// as the actual object. Try to avoid the descriptor paradigm in this library.
+// You can initialize the 'SelfConsistentField' in a declarative manner, only
+// requiring an OpenCL context in the initializer. The RAM can be initialized
+// to 8 bytes. This API design is more expressive.
+
 struct MultiGridLevelDescriptor {
   var origin: SIMD3<Int> = .zero
   
@@ -45,6 +51,11 @@ struct MultiGridLevel {
   //                          // perhaps create a massive 4 GB buffer and
   //                             sub-allocate from that on the CPU, making
   //                             pointers 32-bit
+  //                             - expand to 16 GB and user-specified allocation
+  //                               size by increasing computer word size from
+  //                               8 bits to 32 bits
+  //                             - the first argument of every GPU kernel is
+  //                               global uint* RAM
   //                          // TODO: can we fetch the GPU address via a GPU
   //                             kernel, read on the CPU, and insert into data
   //                             structures for a subsequent GPU kernel?
@@ -53,3 +64,62 @@ struct MultiGridLevel {
     
   }
 }
+
+public struct RAM {
+  public var buffer: CLBuffer
+  public var cpuAddress: UnsafeMutableRawPointer
+  public var gpuAddress: UInt64
+  
+  public init(context: CLContext, size: Int) {
+    let buffer = CLBuffer(context: context, flags: .readWrite, size: size)
+    guard let buffer else {
+      fatalError("Could not initialize OpenCL buffer.")
+    }
+    self.buffer = buffer
+    
+    // Create a temporary command queue.
+    guard let device = context.devices?.first,
+          let queue = CLCommandQueue(context: context, device: device) else {
+      fatalError("Could not create queue.")
+    }
+    self.cpuAddress = try! queue.enqueueMap(
+      buffer, flags: [.read, .write], offset: 0, size: size)
+    
+    // Compile the kernel for writing the GPU address.
+    let source = """
+    typedef struct {
+      global uint* RAM;
+    } PointerCapsule;
+    
+    // Store the GPU address in the first few bytes of RAM.
+    kernel void copyAddress(global uint* RAM) {
+      PointerCapsule capsule;
+      capsule.RAM = RAM;
+      ((global PointerCapsule*)RAM)[0] = capsule;
+    }
+    """
+    guard let program = CLProgram(context: context, source: source) else {
+      fatalError("Could not create program.")
+    }
+    do {
+      try program.build()
+    } catch {
+      let log = program.buildLog(device: device)
+      fatalError("Build error: \(log ?? "n/a")")
+    }
+    guard let kernels = program.createKernels(), kernels.count == 1 else {
+      fatalError("Could not create kernel.")
+    }
+    
+    // Encode the kernel.
+    let kernel = kernels[0]
+    try! kernel.setArgument(buffer, index: 0)
+    try! queue.enqueueKernel(kernel, globalSize: CLNDRange(width: 1))
+    try! queue.finish()
+    
+    let gpuAddressPointer = cpuAddress.assumingMemoryBound(to: UInt64.self)
+    gpuAddress = gpuAddressPointer.pointee
+  }
+}
+
+// struct SelfConsistentField - like a context, coordinates everything
