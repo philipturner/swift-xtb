@@ -11,15 +11,15 @@ Overview:
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
-  - Perform 100% of computations in FP32, with compensated summation when necessary
+  - Perform 100% of computations in FP32, with compensated summation when necessary.
 - No pseudopotentials
   - Core electrons matter to properly calculate relativistic effects.
   - Pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
   - Restrict usage to Z <= 36. Use a simple, first-order [relativistic correction](https://www.sciencedirect.com/science/article/abs/pii/S016612800000662X) that only holds for low-Z elements.
 - No external dependencies except OpenCL
-  - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions
-  - Apple silicon conforms through [AIR workaround](https://github.com/philipturner/opencl-metal-stdlib)
-  - Nvidia might require injecting PTX assembly
+  - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions.
+  - Apple silicon conforms through [AIR workaround](https://github.com/philipturner/opencl-metal-stdlib).
+  - Nvidia might require injecting PTX assembly.
 
 ## Exchange-Correlation
 
