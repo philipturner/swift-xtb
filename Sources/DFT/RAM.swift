@@ -1,46 +1,11 @@
-
-// Where to start?
-// - Pick anything that's a reasonable name for a wavefunction data structure.
-// - Lay out the sparse internal representation that will eventually be ported
-//   to GPU.
-// - Add some unit tests that query the expectation values of the different
-//   hydrogen orbitals.
+//
+//  RAM.swift
+//
+//
+//  Created by Philip Turner on 2/4/24.
+//
 
 import OpenCL
-
-// Primitive data type used everywhere in the framework.
-// - occupancy encoded into the 32 bits per cell
-// - data sourced from other levels is marked with flag bits
-// - 20 bits of mantissa (s1e8m19)
-//   - 6 decimal places for wavefunction
-//   - doesn't limit precision, because sums are in FP32, and every group of
-//     ~32 elements is Kahan summed
-//
-// OpenCL representation:
-//
-// typedef struct {
-//   uint address;
-//   float spacing;
-//   int3 origin;
-//   uint3 size;
-// } MultiGridLevel;
-public struct MultiGridLevel {
-  // RAM address (in 4-byte words)
-  public var address: UInt32 = .zero
-  
-  // spacing (power-2 multiple of Bohr)
-  public var spacing: Float = 1
-  
-  // origin (as even integer multiple of 'spacing' away from .zero)
-  public var origin: SIMD3<Int32> = .zero
-  
-  // allocated size (as even integer)
-  // - Not every voxel within this volume is iterated over. It is just an
-  //   efficient way to manage the memory.
-  public var size: SIMD3<UInt32> = .zero
-  
-  public init() {}
-}
 
 public struct RAM {
   public var buffer: CLBuffer
@@ -96,41 +61,5 @@ public struct RAM {
     
     let gpuAddressPointer = cpuAddress.assumingMemoryBound(to: UInt64.self)
     gpuAddress = gpuAddressPointer.pointee
-  }
-}
-
-public class SelfConsistentField {
-  @usableFromInline
-  var _queue: CLCommandQueue?
-  
-  @usableFromInline
-  var _ram: RAM?
-  
-  public init() {
-    
-  }
-}
-
-extension SelfConsistentField {
-  public var queue: CLCommandQueue {
-    @_transparent
-    get {
-      return _queue!
-    }
-    @_transparent
-    set {
-      _queue = newValue
-    }
-  }
-  
-  public var ram: RAM {
-    @_transparent
-    get {
-      return _ram!
-    }
-    @_transparent
-    set {
-      _ram = newValue
-    }
   }
 }

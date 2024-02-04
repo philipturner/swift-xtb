@@ -17,8 +17,6 @@ let package = Package(
             targets: ["DFT"]),
     ],
     dependencies: [
-      .package(url: "https://github.com/apple/swift-atomics", .upToNextMajor(from: "1.2.0")),
-      .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
       .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
     ],
     targets: [
@@ -27,8 +25,6 @@ let package = Package(
         .target(
             name: "DFT",
             dependencies: [
-              .product(name: "Atomics", package: "swift-atomics"),
-              .product(name: "Numerics", package: "swift-numerics"),
               .product(name: "OpenCL", package: "swift-opencl"),
             ]),
         .testTarget(
