@@ -58,9 +58,9 @@ public struct MultiGridLevel {
 //   - the local memory protocol can easily be upgraded to subgroup shuffles
 //   - single global atomic counter that's accessed serially
 //   - exception: block summation happens at SIMD execution width granularity
-// - Proactively encode GPU commands for a fixed number of multigrid levels,
-// - Have the GPU automatically generate a multigrid for an atomic orbital, or
-//   bail out if it runs out of memory.
+// - Proactively encode GPU commands for a fixed number of multigrid levels.
+// - Deliverable: Have the GPU automatically generate a multigrid for an atomic
+//   orbital, or bail out if it runs out of memory.
 
 struct MultiGrid {
   var levels: UnsafeMutablePointer<MultiGridLevel> // pointer to GPU RAM
