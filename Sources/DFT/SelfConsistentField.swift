@@ -14,6 +14,10 @@ public class SelfConsistentField {
   @usableFromInline
   var _ram: RAM?
   
+  /// The number of statically allocated GPU threads to use for computations.
+  /// This should be slightly over the GPU's occupancy.
+  public var gpuThreadCount: Int = 0
+  
   public init() {
     
   }

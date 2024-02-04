@@ -5,8 +5,11 @@ import OpenCL
 final class SelfConsistentFieldTests: XCTestCase {
   func testMultiGridLevel() throws {
     let field = SelfConsistentField()
+    field.gpuThreadCount = Int(DFTTests.queue.device!.maxComputeUnits!) * 512
     field.queue = DFTTests.queue
     field.ram = RAM(queue: field.queue, size: 1024)
+    XCTAssertGreaterThan(field.gpuThreadCount, 2_000)
+    XCTAssertLessThan(field.gpuThreadCount, 1_000_000)
     
     var level = MultiGridLevel()
     level.address = 100
