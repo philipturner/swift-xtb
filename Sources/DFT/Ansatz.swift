@@ -12,8 +12,6 @@ import OpenCL
 // - On the GPU, allocate 7 floats per thread of local memory. This is the
 //   stack for computing Laguerre polynomials. It provides enough room for
 //   superheavy elements in the eighth period.
-// - This can be extended with a relativistic correction once we do
-//   relativity.
 // - We'll need to slightly modify it for core electrons. It only handles
 //   the valence electrons for now, to reproduce experimental data.
 /*
