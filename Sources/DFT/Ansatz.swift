@@ -9,11 +9,14 @@ import OpenCL
 
 // For reference: an implementation of the ansatz that reproduces atomic
 // radii very well.
-// - On the GPU, allocate 7 floats per thread of local memory. This is the
-//   stack for computing Laguerre polynomials. It provides enough room for
-//   superheavy elements in the eighth period.
+// - Don't store a stack for the Laguerre polynomials. Just the last two
+//   terms.
 // - We'll need to slightly modify it for core electrons. It only handles
 //   the valence electrons for now, to reproduce experimental data.
+// - Make the bottom term scale with Z_eff = Z_inner + sqrt(Z_valence).
+//   Use sqrt-scaling to emulate subshell screening as well. See whether
+//   that reproduces ion core radii.
+//   - This task can be done without creating the GPU code.
 /*
  func createGeometry() -> [Entity] {
    for Z in 1...118 {
