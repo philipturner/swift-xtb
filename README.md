@@ -13,9 +13,9 @@ Overview:
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
   - Perform 100% of computations in FP32, with compensated summation when necessary.
 - No pseudopotentials
+  - Fixed pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results. Find a general-purpose alternative that generates pseudopotentials at runtime.
+  - Exact calculation of relativistic effects.
   - Core electrons matter to properly calculate relativistic effects.
-  - Pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
-  - Restrict usage to Z <= 36. Use a simple, first-order [relativistic correction](https://www.sciencedirect.com/science/article/abs/pii/S016612800000662X) that only holds for low-Z elements.
 - No external dependencies except OpenCL
   - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions.
   - Apple silicon conforms through [AIR workaround](https://github.com/philipturner/opencl-metal-stdlib).
@@ -23,16 +23,22 @@ Overview:
 
 ## Exchange-Correlation
 
-Exchange-correlation functionals and dispersion corrections should be implemented in separate Swift modules. There should be a plugin-like interface for computing the XC and dispersion terms. This architecture allows different potentials to be applied to different areas of the scene. For example, running a compute-intensive potential on a small fraction of the atoms. One could also choose different potentials for metallic and organic matter.
+Exchange-correlation functionals and dispersion corrections should be implemented in separate Swift modules. There should be a programmable interface for computing the XC and dispersion terms. The workflow should not require a dependency on LibXC.
 
 - [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - Module Name: `DM21`
   - More accurate than the B3LYP functional used for mechanosynthesis research.
-  - Provide both the DM21 and DM21mu variants, based on independent reviews of DM21.
-  - Compute matrix multiplications in vendor-specific library (Accelerate, MFA, cuBLAS, clBLAST, etc.).
+  - Provide all four DM21 variants.
+  - Run matrix multiplications in vendor-specific libraries (Accelerate, MFA, cuBLAS, clBLAST, etc.).
 - Provide D4 dispersion corrections as a standalone Swift library.
   - Module Name: `D4`
-- The `DFT` module encapsulates the computation of exact exchange terms. There is still a way to restrict compute cost to a subset of the scene.
+  - Create a Bash script that downloads a Fortran compiler and builds the library from source.
+- The `DFT` module encapsulates the primitives for XC functionals.
+  - Density in each spin channel.
+  - First and second derivatives of density in each spin channel.
+  - Kinetic energy density in each spin channel.
+  - Exact exchange, with a range separation parameter. This may be requested multiple times with differing parameters.
+  - Encapsulates the PBE exchange and PBE correlation terms, as primitives for implementing either PBE or PBE0.
 
 ## Finite Differencing
 
