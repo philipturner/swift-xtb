@@ -6,7 +6,7 @@ Overview:
   - Removes orbital basis sets, drastically simplifying the functional form.
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
-- Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling.
+- Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling
   - Loosely constrain each orbital fragment to have the same probability.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
