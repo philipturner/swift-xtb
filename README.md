@@ -38,7 +38,6 @@ Exchange-correlation functionals and dispersion corrections should be implemente
   - First and second derivatives of density in each spin channel.
   - Kinetic energy density in each spin channel.
   - Exact exchange, with a range separation parameter. This may be requested multiple times with differing parameters.
-  - Encapsulates the PBE exchange and PBE correlation terms, as primitives for implementing either PBE or PBE0.
 
 ## Finite Differencing
 
