@@ -14,7 +14,6 @@ Overview:
   - Perform 100% of computations in FP32, with compensated summation when necessary.
 - No pseudopotentials
   - Fixed pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results. Find a general-purpose alternative that generates pseudopotentials at runtime.
-  - Exact calculation of relativistic effects.
   - Core electrons matter to properly calculate relativistic effects.
 - No external dependencies except OpenCL
   - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions.
@@ -87,3 +86,31 @@ $(\frac{h_-}{2} + \frac{h_-^2 + h_1^2 + h_1h_2}{4h_1 + 2h_2})f_i'' + O(h^3)f_i''
 $O(h^3) = \frac{1}{12}(\frac{h_-^3}{2} + \frac{h_-^2 (3h_1^2 + 3h_1h_2 + h_2^2) - h_1^2 (h_1 + h_2)^2 }{4h_1 + 2h_2})$
 
 </div>
+
+## Relativity Corrections
+
+Relativity corrections can only be computed in momentum space (plane-wave formalism). To be more efficient and sparse, this DFT library uses the real-space formalism. The best solution is a [rough approximation](https://doi.org/10.1088/1361-6404/ac0ecc).
+
+<div align="center">
+
+$H \Psi = E \Psi $
+
+$\left[-\frac{1}{2} \nabla^2 + V\right] \Psi = E \Psi$
+
+</div>
+
+The non-relativistic Schrodinger equation (above) transforms into the expression below.
+
+<div align="center">
+
+$H \Psi = E \Psi $
+
+$\left[-\frac{1}{\gamma + 1} \nabla^2 + V\right] \Psi = E \Psi$
+
+$\gamma = \sqrt{1 + \langle \Psi | \hat{p}^2 | \Psi \rangle / c^2}$
+
+</div>
+
+Below are the outputs of wavefunctions solved with this approximation.
+
+> TODO: Paste graph of orbital contractions for each hydrogen-like ion across the periodic table. Compare to the first-order approximation on Wikipedia. Next, compare the calculated orbital energies to the exact solution from [this source](https://doi.org/10.1038/s41598-020-71505-w).
