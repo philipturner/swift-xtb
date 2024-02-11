@@ -1,42 +1,35 @@
 # Density Functional Theory
 
 Overview:
-
 - Real-space formalism
   - Removes orbital basis sets, drastically simplifying the functional form.
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
 - Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling
   - Loosely constrain each orbital fragment to have the same probability.
+  - User specifies the probability density for orbital fragments at the 2x2x2 granularity, where the most expensive operations are performed.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.
-  - Perform 100% of computations in FP32, with compensated summation when necessary.
+  - Perform all computations in FP32, with compensated summation when necessary.
 - No pseudopotentials
-  - Fixed pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results. Find a general-purpose alternative that generates pseudopotentials at runtime.
   - Core electrons matter to properly calculate relativistic effects.
-- No external dependencies except OpenCL
-  - Requires conformance to the OpenCL 2 extension for sub-group shuffles and reductions.
-  - Apple silicon conforms through [AIR workaround](https://github.com/philipturner/opencl-metal-stdlib).
-  - Nvidia might require injecting PTX assembly.
-
-## Exchange-Correlation
-
-Exchange-correlation functionals and dispersion corrections should be implemented in separate Swift modules. There should be a programmable interface for computing the XC and dispersion terms. The workflow should not require a dependency on LibXC.
-
+  - Fixed pseudopotentials have a non-trivial coupling with the XC functional, complicating testing and trustworthiness of results.
+  - Generate numerical pseudopotentials at runtime, let the user recycle them for similar computations.
 - [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
-  - Module Name: `DM21`
   - More accurate than the B3LYP functional used for mechanosynthesis research.
-  - Provide all four DM21 variants.
-  - Run matrix multiplications in vendor-specific libraries (Accelerate, MFA, cuBLAS, clBLAST, etc.).
-- Provide D4 dispersion corrections as a standalone Swift library.
-  - Module Name: `D4`
-  - Create a Bash script that downloads a Fortran compiler and builds the library from source.
-- The `DFT` module encapsulates the primitives for XC functionals.
-  - Density in each spin channel.
-  - First and second derivatives of density in each spin channel.
-  - Kinetic energy density in each spin channel.
-  - Exact exchange, with a range separation parameter. This may be requested multiple times with differing parameters.
+  - Provide the following XC functionals to the user: exchange-only LDA, Hartree-Fock, DM21, DM21mu.
+  - Allow the dispersion component of correlation to be disabled, especially if the dylib can't be located.
+
+Dependencies:
+- DFT-D4
+  - PythonKit-style linking to avoid compiler issues.
+- DM21
+  - Weights embedded into source tree.
+- Metal (only on Apple platforms)
+  - MFA binary embedded into source tree, potentially with fused activations.
+- OpenCL
+  - SIMD-scoped shuffles through either Khronos extensions or assembly injection.
 
 ## Finite Differencing
 
@@ -111,3 +104,45 @@ $H \Psi = E \Psi $
 </div>
 
 > TODO: Compare the energies and contracted radii to the [exact solution](https://doi.org/10.1038/s41598-020-71505-w).
+
+## Screened Exchange
+
+DM21 is a range-separated exchange-correlation functional. The regular Fock exchange integral can be evaluated with a Poisson solver, but the range-separated term is more challenging. It cannot be directly solved in real-space efficiently.
+
+<div align="center">
+
+$e^{HF}(r) = -\frac{1}{2} \Sigma_i\Sigma_j\Psi_i(r)\Psi_j(r) \int\Psi_i(r')\Psi_j(r') \frac{1}{|r-r'|} d^{3}r'$
+
+$v^{HF}(r) = \int\Psi_i(r')\Psi_j(r') \frac{1}{|r-r'|} d^{3}r'$
+
+$\nabla^2 v^{HF}(r) = -4\pi \Psi_i(r)\Psi_j(r)$
+
+</div>
+
+A simple alternative is replacing the `erf`-type screening with `exp`-type screening. This version can be solved exactly with multigrids. The screening coefficient ($\omega$) is 0.4 Bohr<sup>-1</sup>.
+
+<div align="center">
+
+$v^{\omega HF}(r) = \int\Psi_i(r')\Psi_j(r') \frac{erf(\omega|r-r'|)}{|r-r'|} d^{3}r'$
+
+$v^{\omega HF}(r) \approx \int\Psi_i(r')\Psi_j(r') \frac{\exp(-\omega|r-r'|)}{|r-r'|} d^{3}r'$
+
+$(\nabla^2 - \omega^2) v^{\omega HF}(r) = -4\pi \Psi_i(r)\Psi_j(r)$
+
+</div>
+
+To improve accuracy, the screened function is approximated by a linear combination of three `exp`-type functions. The first is recycled from the regular exchange integral. The third is comparatively cheap. The [overall function](https://www.desmos.com/calculator/oyasyidilk) deviates from `erf` by less than 5%.
+
+<div align="center">
+
+$\frac{erf(\omega x)}{x} \approx \frac{1 - 1.4\exp(-2\omega x) - 0.4\exp(-4.3\omega x)}{x}$
+
+| Component | Poisson Equation | Cutoff |
+| :---: | :---: | :---: |
+| $\frac{1}{x}$ | $\nabla^2 v(r) = -4\pi \rho(r)$ | none |
+| $\frac{\exp(-2\omega x)}{x}$ | $(\nabla^2 - (2\omega)^2) v(r) = -4\pi \rho(r)$ | 4.3 Bohr |
+| $\frac{\exp(-4.3\omega x)}{x}$ | $(\nabla^2 - (4.3\omega)^2) v(r) = -4\pi \rho(r)$ | 2.15 Bohr |
+
+</div>
+
+To compute the `erf`-type potential, first solve each component function in an independent Poisson equation. Then, sum the components at each specific grid point. Integral computations beyond a cutoff radius are skipped to improve efficiency. The cutoffs make the function piecewise.
