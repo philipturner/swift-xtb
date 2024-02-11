@@ -100,8 +100,6 @@ $H \Psi = E \Psi $
 
 The non-relativistic Schrodinger equation (above) transforms into the expression below.
 
-> TODO: Compare the energies and contracted radii to the [exact solution](https://doi.org/10.1038/s41598-020-71505-w).
-
 <div align="center">
 
 $\gamma = \sqrt{1 + \langle \Psi | \hat{p}^2 | \Psi \rangle / c^2}$
@@ -111,3 +109,5 @@ $\left[-\frac{1}{\gamma + 1} \nabla^2 + V\right] \Psi = E \Psi$
 $H \Psi = E \Psi $
 
 </div>
+
+> TODO: Compare the energies and contracted radii to the [exact solution](https://doi.org/10.1038/s41598-020-71505-w).
