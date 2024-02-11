@@ -135,7 +135,7 @@ To improve accuracy, the screened function is approximated by a linear combinati
 
 <div align="center">
 
-$\frac{erf(\omega x)}{x} \approx \frac{1 - 1.4\exp(-2\omega x) - 0.4\exp(-4.3\omega x)}{x}$
+$\frac{erf(\omega x)}{x} \approx \frac{1 - 1.4\exp(-2\omega x) + 0.4\exp(-4.3\omega x)}{x}$
 
 | Component | Poisson Equation | Cutoff |
 | :---: | :---: | :---: |
