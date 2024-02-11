@@ -127,7 +127,7 @@ $v^{\omega HF}(r) = \int\Psi_i(r')\Psi_j(r') \frac{erf(\omega|r-r'|)}{|r-r'|} d^
 
 $v^{\omega HF}(r) \approx \int\Psi_i(r')\Psi_j(r') \frac{\exp(-\omega|r-r'|)}{|r-r'|} d^{3}r'$
 
-$(\nabla^2 - \omega^2) v^{\omega HF}(r) = -4\pi \Psi_i(r)\Psi_j(r)$
+$(\nabla^2 - \omega^2) v^{\omega HF}(r) \approx -4\pi \Psi_i(r)\Psi_j(r)$
 
 </div>
 
