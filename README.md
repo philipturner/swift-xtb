@@ -66,7 +66,6 @@ $c_- = \frac{1}{h_-}$
 
 $c_1 = \frac{4h_+^2 - h_-^2}{3h_+^3}$
 
-
 $c_2 = \frac{h_-^2 - h_+^2}{6h_+^3}$
 
 $(\frac{h_-}{2} + \frac{h_-^2 + 2h_+^2}{6h_+})f_i'' + O(h^3)f_i'''' = c_-f_{i-1} + c_1f_{i+1} + c_2f_{i+2} - (c_- + c_1 + c_2)f_i$
@@ -93,24 +92,22 @@ Relativity corrections can only be computed in momentum space (plane-wave formal
 
 <div align="center">
 
-$H \Psi = E \Psi $
-
 $\left[-\frac{1}{2} \nabla^2 + V\right] \Psi = E \Psi$
+
+$H \Psi = E \Psi $
 
 </div>
 
 The non-relativistic Schrodinger equation (above) transforms into the expression below.
 
+> TODO: Compare the energies and contracted radii to the [exact solution](https://doi.org/10.1038/s41598-020-71505-w).
+
 <div align="center">
-
-$H \Psi = E \Psi $
-
-$\left[-\frac{1}{\gamma + 1} \nabla^2 + V\right] \Psi = E \Psi$
 
 $\gamma = \sqrt{1 + \langle \Psi | \hat{p}^2 | \Psi \rangle / c^2}$
 
+$\left[-\frac{1}{\gamma + 1} \nabla^2 + V\right] \Psi = E \Psi$
+
+$H \Psi = E \Psi $
+
 </div>
-
-Below are the outputs of wavefunctions solved with this approximation.
-
-> TODO: Create graph of orbital contractions for each hydrogen-like ion across the periodic table. Compare to the first-order approximation on Wikipedia. Also, compare the calculated orbital energies to the exact solution from [this source](https://doi.org/10.1038/s41598-020-71505-w).
