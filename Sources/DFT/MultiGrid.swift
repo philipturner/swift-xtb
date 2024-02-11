@@ -7,7 +7,7 @@
 
 import OpenCL
 
-// Primitive data type used everywhere in the framework.
+// Idea for a data structure.
 // - occupancy encoded into the 32 bits per cell
 // - data sourced from other levels is marked with flag bits
 // - 20 bits of mantissa (s1e8m19)

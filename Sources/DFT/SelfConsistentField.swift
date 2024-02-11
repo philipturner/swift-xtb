@@ -7,6 +7,12 @@
 
 import OpenCL
 
+// TODO: Rewrite all of this. Create an MVP that uses the CPU, then port it to
+// the GPU. Ensure the algorithms used are GPU-friendly, even if that harms
+// CPU performance.
+//
+// Archive the current idea and associated tests in the documentation folder.
+
 public class SelfConsistentField {
   @usableFromInline
   var _queue: CLCommandQueue?

@@ -113,4 +113,4 @@ $\gamma = \sqrt{1 + \langle \Psi | \hat{p}^2 | \Psi \rangle / c^2}$
 
 Below are the outputs of wavefunctions solved with this approximation.
 
-> TODO: Paste graph of orbital contractions for each hydrogen-like ion across the periodic table. Compare to the first-order approximation on Wikipedia. Next, compare the calculated orbital energies to the exact solution from [this source](https://doi.org/10.1038/s41598-020-71505-w).
+> TODO: Create graph of orbital contractions for each hydrogen-like ion across the periodic table. Compare to the first-order approximation on Wikipedia. Also, compare the calculated orbital energies to the exact solution from [this source](https://doi.org/10.1038/s41598-020-71505-w).
