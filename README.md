@@ -131,7 +131,7 @@ $(\nabla^2 - \omega^2) v^{\omega HF}(r) \approx -4\pi \Psi_i(r)\Psi_j(r)$
 
 </div>
 
-To improve accuracy, the screened function is approximated by a linear combination of three `exp`-type functions. The first is recycled from the regular exchange integral. The third is comparatively cheap. The [overall function](https://www.desmos.com/calculator/oyasyidilk) deviates from `erf` by less than 5%.
+To improve accuracy, the screened function is approximated by a linear combination of three `exp`-type functions. The first is recycled from the regular exchange integral. The third is comparatively cheap. The [overall function](https://www.desmos.com/calculator/ukk2k5z816) deviates from `erf` by less than 5%.
 
 <div align="center">
 
