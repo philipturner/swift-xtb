@@ -27,8 +27,6 @@ struct AtomicOrbital {
   var angularPart: (Float, Float, Float, Float) -> Float
   
   init(descriptor: AtomicOrbitalDescriptor) {
-    // TODO: Check that this produces orthonormal wavefunctions with the
-    // correct expectation value for radius.
     let Z = descriptor.Z
     let n = descriptor.n
     let l = descriptor.l
@@ -57,6 +55,7 @@ struct AtomicOrbital {
     angularPart = cubicHarmonic(l: l, m: m)
   }
   
+  // Enter the position in a coordinate space where the nucleus is the origin.
   func waveFunction(position: SIMD3<Float>) -> Float {
     let r = (position * position).sum().squareRoot()
     let R = radialPart(r)
