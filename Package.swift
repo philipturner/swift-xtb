@@ -33,9 +33,8 @@ let package = Package(
       ]),
     .testTarget(
       name: "DFTTests",
-      dependencies: ["DFT"]),
-    .testTarget(
-      name: "LibXCTests",
-      dependencies: ["LibXC"]),
+      dependencies: [
+        "DFT",
+      ]),
   ]
 )
