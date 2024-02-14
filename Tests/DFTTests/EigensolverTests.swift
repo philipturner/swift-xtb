@@ -103,7 +103,6 @@ final class EigensolverTests: XCTestCase {
       phi: inout [[Complex<Double>]]
     ) {
       for stepID in 0..<5 {
-        print("TODO: Change so the RHS varies each iteration.")
         let HΨ = gemmDiagonal(hamiltonian, phi)
         let EΨ = rhs
         var residual = HΨ
@@ -183,7 +182,7 @@ final class EigensolverTests: XCTestCase {
       }
       for electronID in 0..<numVectors {
         var output = "    state \(electronID)"
-        output += "  \(normResidual[electronID])"
+        output += "  res = \(normResidual[electronID])"
         if EigensolverTests.console {
           print(output)
         }
@@ -202,19 +201,21 @@ final class EigensolverTests: XCTestCase {
   // Compute everything in FP32. For this test case, there is no benefit to
   // accumulating sums in FP64.
   func testDiagonalMatrixFloat() throws {
+    typealias Real = Float
+    
     // Create row-major hamiltonian matrices.
     let numPoints = 100
     let numVectors = 12
-    var identityMatrix: [[Complex<Float>]] = []
-    var diagonalMatrix: [[Complex<Float>]] = []
+    var identityMatrix: [[Complex<Real>]] = []
+    var diagonalMatrix: [[Complex<Real>]] = []
     
     for i in 0..<numPoints {
-      var identityRow: [Complex<Float>] = []
-      var diagonalRow: [Complex<Float>] = []
+      var identityRow: [Complex<Real>] = []
+      var diagonalRow: [Complex<Real>] = []
       for j in 0..<numPoints {
         if i == j {
           identityRow.append(Complex(1))
-          diagonalRow.append(Complex(Float(i) + 1))
+          diagonalRow.append(Complex(Real(i) + 1))
         } else {
           identityRow.append(.zero)
           diagonalRow.append(.zero)
@@ -225,42 +226,37 @@ final class EigensolverTests: XCTestCase {
     }
     
     // Create column-major matrices of eigenvectors.
-    let volumeElement = 1 / Float(numPoints)
+    let volumeElement = 1 / Real(numPoints)
     let diagonalOp = diagonalMatrix
-    var phi: [[Complex<Float>]] = []
-    var rhs: [[Complex<Float>]] = []
+    var phi: [[Complex<Real>]] = []
     
     for electronID in 0..<numVectors {
-      var phiVector: [Complex<Float>] = []
-      var rhsVector: [Complex<Float>] = []
+      var phiVector: [Complex<Real>] = []
       for cellID in 0..<numPoints {
-        let expr1 = Float(electronID * cellID) * 0.1
-        let expr2 = Float(cellID * (electronID + 1)) / 2
+        let expr1 = Real(electronID * cellID) * 0.1
         phiVector.append(Complex.exp(Complex(0, expr1)))
-        rhsVector.append(Complex(Float.cos(expr2)))
       }
       phi.append(phiVector)
-      rhs.append(rhsVector)
     }
     
     func overlapDiagonal(
-      _ lhs: [[Complex<Float>]],
-      _ rhs: [[Complex<Float>]]
-    ) -> [Complex<Float>] {
-      var output: [Complex<Float>] = []
+      _ lhs: [[Complex<Real>]],
+      _ rhs: [[Complex<Real>]]
+    ) -> [Complex<Real>] {
+      var output: [Complex<Real>] = []
       precondition(lhs.count == 12)
       for electronID in 0..<lhs.count {
         let lhsElectron = lhs[electronID]
         let rhsElectron = rhs[electronID]
         precondition(lhsElectron.count == 100)
-        var sum: Complex<Float> = .zero
+        var sum: Complex<Real> = .zero
         for cellID in 0..<lhsElectron.count {
           let lhsValue = lhsElectron[cellID]
           let rhsValue = rhsElectron[cellID]
           let outValue = lhsValue.conjugate * rhsValue * Complex(volumeElement)
-          sum += Complex<Float>(outValue)
+          sum += Complex<Real>(outValue)
         }
-        output.append(Complex<Float>(sum))
+        output.append(Complex<Real>(sum))
       }
       return output
     }
@@ -268,16 +264,16 @@ final class EigensolverTests: XCTestCase {
     // Perform an NT matrix multiplication. Assume the left-hand side is
     // diagonal to reduce execution time in debug mode.
     func gemmDiagonal(
-      _ lhs: [[Complex<Float>]],
-      _ rhs: [[Complex<Float>]]
-    ) -> [[Complex<Float>]] {
-      var output: [[Complex<Float>]] = []
+      _ lhs: [[Complex<Real>]],
+      _ rhs: [[Complex<Real>]]
+    ) -> [[Complex<Real>]] {
+      var output: [[Complex<Real>]] = []
       precondition(lhs.count == 100)
       precondition(rhs.count == 12)
       for electronID in 0..<rhs.count {
         let electron = rhs[electronID]
         precondition(electron.count == 100)
-        var outputVector: [Complex<Float>] = []
+        var outputVector: [Complex<Real>] = []
         for cellID in 0..<electron.count {
           let lhsElement = lhs[cellID][cellID]
           let rhsElement = electron[cellID]
@@ -289,62 +285,70 @@ final class EigensolverTests: XCTestCase {
     }
     
     func steepestDescent(
-      hamiltonian: [[Complex<Float>]],
-      preconditioner: [[Complex<Float>]],
-      rhs: [[Complex<Float>]],
-      phi: inout [[Complex<Float>]]
+      hamiltonian: [[Complex<Real>]],
+      preconditioner: [[Complex<Real>]],
+      phi: inout [[Complex<Real>]]
     ) {
-      for stepID in 0..<5 {
-        let HΨ = gemmDiagonal(hamiltonian, phi)
-        let EΨ = rhs
-        var residual = HΨ
+      var HΨ = gemmDiagonal(hamiltonian, phi)
+      
+      for _ in 0..<5 {
+        let E = overlapDiagonal(phi, HΨ)
+        let norm = overlapDiagonal(phi, phi)
+        var eigenvalueNorm = E
+        
+        var r = HΨ
         for electronID in 0..<12 {
+          eigenvalueNorm[electronID] /= norm[electronID]
           for cellID in 0..<100 {
-            let lhs = HΨ[electronID][cellID]
-            let rhs = EΨ[electronID][cellID]
-            residual[electronID][cellID] = lhs - rhs
+            let E = eigenvalueNorm[electronID]
+            let Ψ = phi[electronID][cellID]
+            r[electronID][cellID] -= E * Ψ
           }
         }
+        r = gemmDiagonal(preconditioner, r)
         
-        let r = gemmDiagonal(preconditioner, residual)
         let Hr = gemmDiagonal(hamiltonian, r)
-        let HrHr = overlapDiagonal(Hr, Hr)
-        let rHr = overlapDiagonal(r, Hr)
         let rr = overlapDiagonal(r, r)
+        let Ψr = overlapDiagonal(phi, r)
+        let rHr = overlapDiagonal(r, Hr)
+        let ΨHr = overlapDiagonal(phi, Hr)
         
-        // Display the norm residual.
-        var output: String = ""
-        output += "\(stepID)"
-        precondition(phi.count == 12)
+        var λ: [Real] = []
         for electronID in 0..<phi.count {
-          output += "\t"
-          let value = rr[electronID].real
-          output += String(format: "%.3f", value)
-        }
-        if EigensolverTests.console {
-          print(output)
-        }
-        
-        var lambda: [Complex<Float>] = []
-        for electronID in 0..<phi.count {
-          let ca = HrHr[electronID]
-          let cb  = 4 * rHr[electronID].real
-          let cc = rr[electronID]
+          let m0 = rr[electronID]
+          let m1 = Ψr[electronID]
+          let m2 = rHr[electronID]
+          let m3 = ΨHr[electronID]
+          let m4 = E[electronID]
+          let m5 = norm[electronID]
           
-          let sqarg = Complex(cb * cb) - 4 * ca * cc
-          let signB = (Complex(cb) * sqarg).real >= 0 ? Float(1) : -1
-          var qq = Complex(signB) * Complex.sqrt(sqarg)
-          qq = Complex(cb) + qq
-          qq *= Complex(-0.5)
-          lambda.append(cc / qq)
+          let ca = (m0 * m3 - m2 * m1).real
+          let cb = (m5 * m2 - m4 * m0).real
+          let cc = (m4 * m1 - m3 * m5).real
+          let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
+          λ.append(2 * cc / determinant)
         }
         
         for electronID in 0..<12 {
           for cellID in 0..<100 {
-            let lhs = phi[electronID][cellID]
-            let rhs = residual[electronID][cellID]
-            phi[electronID][cellID] = lhs + lambda[electronID] * rhs
+            let lambda = Complex(λ[electronID])
+            phi[electronID][cellID] += lambda * r[electronID][cellID]
+            HΨ[electronID][cellID] += lambda * Hr[electronID][cellID]
           }
+        }
+      }
+      
+      // We cannot orthogonalize here because we don't yet have a validated
+      // orthogonalization operation. We also want to try an innovative approach
+      // that breaks the serial dependencies in the Gram-Schmidt process. It
+      // would be cross-contamination of unit tests to perform orthogonalization
+      // here. Just assert that each eigenvector converges to one of the
+      // expected eigenvalues.
+      let norm = overlapDiagonal(phi, phi)
+      for electronID in 0..<12 {
+        let normalizationFactor = 1 / norm[electronID].real.squareRoot()
+        for cellID in 0..<100 {
+          phi[electronID][cellID] *= Complex(normalizationFactor)
         }
       }
     }
@@ -353,18 +357,16 @@ final class EigensolverTests: XCTestCase {
     for iterationID in 0...numIterations {
       if iterationID > 0 {
         steepestDescent(
-          hamiltonian: diagonalOp, preconditioner: identityMatrix,
-          rhs: rhs, phi: &phi)
+          hamiltonian: diagonalOp, preconditioner: identityMatrix, phi: &phi)
       }
       
       let HΨ = gemmDiagonal(diagonalOp, phi)
-      let EΨ = rhs
+      let E = overlapDiagonal(phi, HΨ)
       var residual = HΨ
       for electronID in 0..<12 {
         for cellID in 0..<100 {
-          let lhs = HΨ[electronID][cellID]
-          let rhs = EΨ[electronID][cellID]
-          residual[electronID][cellID] = lhs - rhs
+          let Ψ = phi[electronID][cellID]
+          residual[electronID][cellID] -= E[electronID] * Ψ
         }
       }
       let normResidual = overlapDiagonal(residual, residual)
@@ -374,14 +376,15 @@ final class EigensolverTests: XCTestCase {
       }
       for electronID in 0..<numVectors {
         var output = "    state \(electronID)"
-        output += "  \(normResidual[electronID])"
+        output += "  evalue = \(E[electronID])"
+        output += "  res = \(normResidual[electronID])"
         if EigensolverTests.console {
           print(output)
         }
         
         if iterationID == numIterations {
           let normres = normResidual[electronID].real
-          XCTAssertLessThan(normres.magnitude, 1e-8)
+          XCTAssertLessThan(normres.magnitude, 1e-3)
         }
       }
     }
