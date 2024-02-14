@@ -3,10 +3,18 @@ import DFT
 
 final class DFTTests: XCTestCase {
   func testExample() throws {
-    runOrthogonalizationExperiment()
+    
   }
 }
 
+// TODO: Implement O(n) steepest descent eigensolver from INQ and reproduce
+// their test cases in Swift. Use that eigensolver to fix the issues with this
+// parallel orthogonalization experiment failing.
+// https://gitlab.com/npneq/inq/-/blob/master/src/eigensolvers/steepest_descent.hpp
+//
+// As a shorter milestone, and eventually a complement to the above tests,
+// implement the file:
+// https://gitlab.com/npneq/inq/-/blob/master/src/solvers/steepest_descent.hpp
 func runOrthogonalizationExperiment() {
   // Hamiltonian: [-0.5 ∇^2 + (-1) / |x|] Ψ = E Ψ
   // Grid bounds: 0 Bohr - 3 Bohr
@@ -23,9 +31,10 @@ func runOrthogonalizationExperiment() {
   srand48(2021)
   for _ in 0..<10 {
     var waveFunction: [Float] = []
-    for _ in 0..<100 {
-      let randomNumber = Float(drand48())
-      waveFunction.append(2 * randomNumber - 1)
+    for cellID in 0..<100 {
+      let randomNumber = 1.00 + 0.00 * Float(drand48())
+      let x = gridSpacing * (Float(cellID) + 0.5)
+      waveFunction.append(-exp(-x) * randomNumber)
     }
     
     var sum: Double = .zero
@@ -91,7 +100,9 @@ func runOrthogonalizationExperiment() {
         formatString(observablePotential), "|",
         formatString(observableHamiltonian))
     }
-    
+  }
+  
+  func reportWaveFunctions() {
     print()
     for cellID in 0..<100 {
       var output: String = ""
@@ -104,11 +115,47 @@ func runOrthogonalizationExperiment() {
   }
   
   reportState()
+  reportWaveFunctions()
   
-  var newWaveFunctions: [[Float]] = []
-  for electronID in 0..<10 {
-    let Ψ = waveFunctions[electronID]
-    var HΨ: [Float] = []
+  func arnoldiIteration() {
+    var newWaveFunctions: [[Float]] = []
+    for electronID in 0..<10 {
+      let Ψ = waveFunctions[electronID]
+      var HΨ: [Float] = []
+      var E: Double = .zero
+      
+      for cellID in 0..<100 {
+        let value = Ψ[cellID]
+        let x = gridSpacing * (Float(cellID) + 0.5)
+        let leftValue = (cellID > 0) ? Ψ[cellID - 1] : value
+        let rightValue = (cellID < 99) ? Ψ[cellID + 1] : 0
+        
+        let derivativeLeft = (value - leftValue) / gridSpacing
+        let derivativeRight = (rightValue - value) / gridSpacing
+        let laplacian = (derivativeRight - derivativeLeft) / gridSpacing
+        let corePotential = -1 / x.magnitude
+        
+        let d3r = gridSpacing
+        let hamiltonian = -0.5 * laplacian + corePotential * value
+        HΨ.append(hamiltonian)
+        E += Double(value * hamiltonian * d3r)
+      }
+      print(E)
+      
+      var EΨ: [Float] = []
+      for cellID in 0..<100 {
+        EΨ.append(Float(E) * Ψ[cellID])
+      }
+      newWaveFunctions.append(zip(HΨ, EΨ).map {
+        1 * $0 + 0 * $1
+      })
+    }
+    waveFunctions = newWaveFunctions
   }
-  waveFunctions = newWaveFunctions
+  
+  for _ in 0..<1 {
+    arnoldiIteration()
+    reportState()
+    reportWaveFunctions()
+  }
 }
