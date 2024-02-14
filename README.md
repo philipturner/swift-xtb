@@ -1,6 +1,6 @@
-# Density Functional Theory
+# Mechanosynthesis
 
-Mechanosynthesis simulator for molecular nanotechnology.
+Quantum mechanics simulator for molecular nanotechnology.
 
 Overview:
 - Designed for GPU acceleration with OpenCL
@@ -30,7 +30,7 @@ Dependencies:
 - DM21
   - Weights embedded into source tree.
 - LibXC
-  - Linked through the SwiftPM `.systemLibrary` feature, except on Windows.
+  - Linked at compile-time for now.
 - Metal (only on Apple platforms)
   - MFA binary embedded into source tree, potentially with fused activations.
 - OpenCL

@@ -1,5 +1,5 @@
 import XCTest
-import DFT
+import Mechanosynthesis
 import Numerics
 
 // Test the steepest descent algorithm from INQ.

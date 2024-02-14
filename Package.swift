@@ -14,12 +14,12 @@ if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
 }
 
 let package = Package(
-  name: "DFT",
+  name: "mechanosynthesis",
   products: [
     // Products define the executables and libraries a package produces, making them visible to other packages.
     .library(
-      name: "DFT",
-      targets: ["DFT"]),
+      name: "Mechanosynthesis",
+      targets: ["Mechanosynthesis"]),
     .library(
       name: "LibXC",
       targets: ["LibXC"]),
@@ -32,7 +32,7 @@ let package = Package(
     // Targets are the basic building blocks of a package, defining a module or a test suite.
     // Targets can depend on other targets in this package and products from dependencies.
     .target(
-      name: "DFT",
+      name: "Mechanosynthesis",
       dependencies: [
         "LibXC",
         .product(name: "Numerics", package: "swift-numerics"),
@@ -43,9 +43,9 @@ let package = Package(
       dependencies: [],
     linkerSettings: linkerSettings),
     .testTarget(
-      name: "DFTTests",
+      name: "MechanosynthesisTests",
       dependencies: [
-        "DFT",
+        "Mechanosynthesis",
       ]),
   ]
 )
