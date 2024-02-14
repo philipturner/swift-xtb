@@ -20,7 +20,7 @@ let package = Package(
     // Targets can depend on other targets in this package and products from dependencies.
     .systemLibrary(
       name: "LibXC",
-      pkgConfig: "libxc",
+//      pkgConfig: "libxc",
       providers: [
         .brew(["libxc"]),
         .apt(["libxc-dev"])

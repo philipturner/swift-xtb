@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import LibXC
+
+fileprivate let what = XC_LDA_X
 
 func laguerrePolynomial(
   alpha: Float, n: Int

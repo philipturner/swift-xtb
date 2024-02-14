@@ -4,6 +4,12 @@ import Numerics
 
 // Test the steepest descent algorithm from INQ.
 final class EigensolverTests: XCTestCase {
+  static let console: Bool = true
+  
+  // TODO: Gate this under a #if RELEASE macro. Or, if everything in DFT is
+  // extremely computationally intensive, use command-line release-mode testing
+  // by default.
+  
   // Reproduce the test from the shorter file:
   // https://gitlab.com/npneq/inq/-/blob/master/src/solvers/steepest_descent.hpp
   func testDiagonalMatrixDouble() throws {
@@ -42,7 +48,7 @@ final class EigensolverTests: XCTestCase {
         let expr1 = Double(electronID * cellID) * 0.1
         let expr2 = Double(cellID * (electronID + 1)) / 2
         phiVector.append(Complex.exp(Complex(0, expr1)))
-        rhsVector.append(Complex(Double.cos(expr1)))
+        rhsVector.append(Complex(Double.cos(expr2)))
       }
       phi.append(phiVector)
       rhs.append(rhsVector)
@@ -92,12 +98,108 @@ final class EigensolverTests: XCTestCase {
       return output
     }
     
+    func steepestDescent(
+      hamiltonian: [[Complex<Double>]],
+      preconditioner: [[Complex<Double>]],
+      rhs: [[Complex<Double>]],
+      phi: inout [[Complex<Double>]]
+    ) {
+      for stepID in 0..<5 {
+        let HΨ = gemmDiagonal(hamiltonian, phi)
+        let EΨ = rhs
+        var residual = HΨ
+        for electronID in 0..<12 {
+          for cellID in 0..<100 {
+            let lhs = HΨ[electronID][cellID]
+            let rhs = EΨ[electronID][cellID]
+            residual[electronID][cellID] = lhs - rhs
+          }
+        }
+        
+        let r = gemmDiagonal(preconditioner, residual)
+        let Hr = gemmDiagonal(hamiltonian, r)
+        let HrHr = overlapDiagonal(Hr, Hr)
+        let rHr = overlapDiagonal(r, Hr)
+        let rr = overlapDiagonal(r, r)
+        
+        // Display the norm residual.
+        var output: String = ""
+        output += "\(stepID)"
+        precondition(phi.count == 12)
+        for electronID in 0..<phi.count {
+          output += "\t"
+          let value = rr[electronID].real
+          output += String(format: "%.3f", value)
+        }
+        if EigensolverTests.console {
+          print(output)
+        }
+        
+        var lambda: [Complex<Double>] = []
+        for electronID in 0..<phi.count {
+          let ca = HrHr[electronID]
+          let cb  = 4 * rHr[electronID].real
+          let cc = rr[electronID]
+          
+          let sqarg = Complex(cb * cb) - 4 * ca * cc
+          let signB = (Complex(cb) * sqarg).real >= 0 ? Double(1) : -1
+          var qq = Complex(signB) * Complex.sqrt(sqarg)
+          qq = Complex(cb) + qq
+          qq *= Complex(-0.5)
+          lambda.append(cc / qq)
+        }
+        
+        for electronID in 0..<12 {
+          for cellID in 0..<100 {
+            let lhs = phi[electronID][cellID]
+            let rhs = residual[electronID][cellID]
+            phi[electronID][cellID] = lhs + lambda[electronID] * rhs
+          }
+        }
+      }
+    }
     
+    let numIterations = 50
+    for iterationID in 0...numIterations {
+      if iterationID > 0 {
+        steepestDescent(
+          hamiltonian: diagonalOp, preconditioner: identityMatrix,
+          rhs: rhs, phi: &phi)
+      }
+      
+      let HΨ = gemmDiagonal(diagonalOp, phi)
+      let EΨ = rhs
+      var residual = HΨ
+      for electronID in 0..<12 {
+        for cellID in 0..<100 {
+          let lhs = HΨ[electronID][cellID]
+          let rhs = EΨ[electronID][cellID]
+          residual[electronID][cellID] = lhs - rhs
+        }
+      }
+      let normResidual = overlapDiagonal(residual, residual)
+      
+      if EigensolverTests.console {
+        print("  Iteration \(iterationID):")
+      }
+      for electronID in 0..<numVectors {
+        var output = "    state \(electronID)"
+        output += "  \(normResidual[electronID])"
+        if EigensolverTests.console {
+          print(output)
+        }
+        
+        if iterationID == numIterations {
+          let normres = normResidual[electronID].real
+          XCTAssertLessThan(normres.magnitude, 1e-8)
+        }
+      }
+    }
   }
   
   // Reproduce the test from the longer file:
   // https://gitlab.com/npneq/inq/-/blob/master/src/eigensolvers/steepest_descent.hpp
   func testDiagonalMatrixFloat() throws {
-    
+    // Store the wavefunction in FP32 and accumulate sums in FP64.
   }
 }
