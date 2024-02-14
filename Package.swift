@@ -13,6 +13,7 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
+    .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
   ],
   targets: [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -28,8 +29,9 @@ let package = Package(
     .target(
       name: "DFT",
       dependencies: [
-        .product(name: "OpenCL", package: "swift-opencl"),
         "LibXC",
+        .product(name: "Numerics", package: "swift-numerics"),
+        .product(name: "OpenCL", package: "swift-opencl"),
       ]),
     .testTarget(
       name: "DFTTests",
