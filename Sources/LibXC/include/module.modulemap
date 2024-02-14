@@ -5,8 +5,7 @@
 //  Created by Philip Turner on 2/12/24.
 //
 
-module LibXC [system] {
-  header "shim.h"
-  link "libxc"
+module LibXC {
+  header "xc.h"
   export *
 }

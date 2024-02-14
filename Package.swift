@@ -2,6 +2,16 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+import class Foundation.ProcessInfo
+
+var linkerSettings: [LinkerSetting] = []
+
+if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
+  linkerSettings = [
+    .unsafeFlags(["-L\(path)"]),
+    .linkedLibrary("xc"),
+  ]
+}
 
 let package = Package(
   name: "DFT",
@@ -10,6 +20,9 @@ let package = Package(
     .library(
       name: "DFT",
       targets: ["DFT"]),
+    .library(
+      name: "LibXC",
+      targets: ["LibXC"]),
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
@@ -18,14 +31,6 @@ let package = Package(
   targets: [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
     // Targets can depend on other targets in this package and products from dependencies.
-    .systemLibrary(
-      name: "LibXC",
-//      pkgConfig: "libxc",
-      providers: [
-        .brew(["libxc"]),
-        .apt(["libxc-dev"])
-        // Not sure what to do on Windows yet.
-      ]),
     .target(
       name: "DFT",
       dependencies: [
@@ -33,6 +38,10 @@ let package = Package(
         .product(name: "Numerics", package: "swift-numerics"),
         .product(name: "OpenCL", package: "swift-opencl"),
       ]),
+    .target(
+      name: "LibXC",
+      dependencies: [],
+    linkerSettings: linkerSettings),
     .testTarget(
       name: "DFTTests",
       dependencies: [
