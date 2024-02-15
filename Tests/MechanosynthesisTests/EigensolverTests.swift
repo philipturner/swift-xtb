@@ -338,22 +338,36 @@ final class EigensolverTests: XCTestCase {
         }
       }
       
-      // We cannot orthogonalize here because we don't yet have a validated
-      // orthogonalization operation. We also want to try an innovative approach
-      // that breaks the serial dependencies in the Gram-Schmidt process. It
-      // would be cross-contamination of unit tests to perform orthogonalization
-      // here. Just assert that each eigenvector converges to one of the
-      // expected eigenvalues.
       let norm = overlapDiagonal(phi, phi)
       for electronID in 0..<12 {
-        let normalizationFactor = 1 / norm[electronID].real.squareRoot()
-        for cellID in 0..<100 {
-          phi[electronID][cellID] *= Complex(normalizationFactor)
+        func normalize(norm: Complex<Real>) {
+          let normalizationFactor = 1 / norm.real.squareRoot()
+          for cellID in 0..<100 {
+            phi[electronID][cellID] *= Complex(normalizationFactor)
+          }
         }
+        normalize(norm: norm[electronID])
+        
+        var dotProducts: [Complex<Real>] = []
+        for predecessorID in 0..<electronID {
+          let predecessor = phi[predecessorID]
+          let current = phi[electronID]
+          let dotProduct = overlapDiagonal([predecessor], [current])
+          dotProducts.append(dotProduct[0])
+        }
+        for predecessorID in 0..<electronID {
+          let Ψ = phi[predecessorID]
+          for cellID in 0..<100 {
+            phi[electronID][cellID] -= dotProducts[predecessorID] * Ψ[cellID]
+          }
+        }
+        
+        let norm = overlapDiagonal([phi[electronID]], [phi[electronID]])
+        normalize(norm: norm[0])
       }
     }
     
-    let numIterations = 50
+    let numIterations = 70
     for iterationID in 0...numIterations {
       if iterationID > 0 {
         steepestDescent(
@@ -383,6 +397,10 @@ final class EigensolverTests: XCTestCase {
         }
         
         if iterationID == numIterations {
+          let eigenvalue = E[electronID].real
+          let expected = Real(electronID + 1)
+          XCTAssertEqual(eigenvalue, expected, accuracy: 1e-3)
+          
           let normres = normResidual[electronID].real
           XCTAssertLessThan(normres.magnitude, 1e-3)
         }
