@@ -407,4 +407,23 @@ final class EigensolverTests: XCTestCase {
       }
     }
   }
+  
+  // Reproduce the test for the Laplacian operator.
+  //
+  // Instead of complex FP64, use real FP32. In addition, test what happens when
+  // Gram-Schmidt orthogonalization is replaced with "fast orthogonalization".
+  func testLaplacianMatrix() throws {
+    typealias Real = Float
+    
+    let numPoints = 50
+    let numVectors = 6
+    
+    func laplacian(_ Ψ: [[Real]]) -> [[Real]] {
+      var output: [[Real]] = []
+      for electronID in Ψ.indices {
+        var outputVector: [[Real]] = []
+      }
+      fatalError()
+    }
+  }
 }

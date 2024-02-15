@@ -269,20 +269,24 @@ final class OrthogonalizeTests: XCTestCase {
     }
   }
   
-  // TODO: Run the orthogonalization experiment that was previously abandoned.
+  // Goal:
   // - Begin with the conventional Gram-Schmidt orthogonalizer. Then, switch to
   //   the iterative one and check that results are correct.
   // - For this test, use the eigenvalue as a "mass" for the "orthogonalization
   //   force". See how that affects stability and convergence rate.
-  
-  // The purpose of this experiment was testing a more parallel
-  // orthogonalization algorithm. It is similar to forcefields and energy
-  // minimization.
   //
   // While running this experiment, I found an issue with the diagonalization
   // failing to diverge. I used the same approach that worked for 3x3 matrices
-  // in MM4RigidBody, but it wouldn't converge to a reasonable wavefunction. I
-  // fixed the problem by reproducing the INQ tests for eigensolvers.
+  // in MM4RigidBody, but it wouldn't converge to a reasonable wavefunction. In
+  // an attempt to fix this, I used the steepest descent eigensolver from INQ.
+  //
+  // It worked for the one-electron case, but was mildly slow. For the multi-
+  // electron case, many electrons diverged with positive kinetic energy. To fix
+  // this, I made an extremely large, flat potential. Convergence was glacial
+  // with Gram-Schmidt orthogonalization. The custom "fast" orthogonalizer
+  // failed to converge at all. However, I don't think the fault is in the
+  // orthogonalizer. It looks like something deeper.
+#if false
   func testOrthogonalizationExperiment() {
     // Hamiltonian: [-0.5 ∇^2 + (-1) / |x|] Ψ = E Ψ
     // Grid bounds: 0 Bohr - 3 Bohr
@@ -526,9 +530,6 @@ final class OrthogonalizeTests: XCTestCase {
     
     reportState(Ψ)
 //    reportWaveFunctions(Ψ)
-    
-    // TODO: Figure out why this isn't working well. Is there something wrong
-    // with the eigensolver, the hamiltonian, or something else fundamental to
-    // this problem?
   }
+  #endif
 }
