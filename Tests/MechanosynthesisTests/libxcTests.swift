@@ -1,9 +1,9 @@
 import XCTest
-import LibXC
+import libxc
 
 // Reproduction of tests from the LibXC 5.1.X manual:
 // https://www.tddft.org/programs/libxc/manual/libxc-5.1.x
-final class LibXCTests: XCTestCase {
+final class libxcTests: XCTestCase {
   func testSmallProgram() throws {
     var rho: [Double] = [0.1, 0.2, 0.3, 0.4, 0.5]
     var sigma: [Double] = [0.2, 0.3, 0.4, 0.5, 0.6]

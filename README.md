@@ -5,7 +5,6 @@ Quantum mechanics simulator for molecular nanotechnology.
 Overview:
 - Designed for GPU acceleration with OpenCL
 - Real-space formalism
-  - Removes orbital basis sets, drastically simplifying the functional form.
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
 - Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling
@@ -29,7 +28,7 @@ Dependencies:
   - PythonKit-style linking to avoid compiler issues.
 - DM21
   - Weights embedded into source tree.
-- LibXC
+- libxc
   - Linked at compile-time for now.
 - Metal (only on Apple platforms)
   - MFA binary embedded into source tree, potentially with fused activations.

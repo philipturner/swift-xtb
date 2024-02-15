@@ -21,8 +21,8 @@ let package = Package(
       name: "Mechanosynthesis",
       targets: ["Mechanosynthesis"]),
     .library(
-      name: "LibXC",
-      targets: ["LibXC"]),
+      name: "libxc",
+      targets: ["libxc"]),
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
@@ -34,12 +34,12 @@ let package = Package(
     .target(
       name: "Mechanosynthesis",
       dependencies: [
-        "LibXC",
+        "libxc",
         .product(name: "Numerics", package: "swift-numerics"),
         .product(name: "OpenCL", package: "swift-opencl"),
       ]),
     .target(
-      name: "LibXC",
+      name: "libxc",
       dependencies: [],
     linkerSettings: linkerSettings),
     .testTarget(

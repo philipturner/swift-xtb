@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import LibXC
+import libxc
 
 fileprivate let what = XC_LDA_X
 
