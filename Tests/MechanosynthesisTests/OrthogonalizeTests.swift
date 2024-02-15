@@ -50,10 +50,10 @@ final class OrthogonalizeTests: XCTestCase {
     return orthogonalizedΨ
   }
   
-  static func fastOrthogonalize(_ unnormalizedPhi: [[Real]], d3r: Real) -> [[Real]] {
+  static func fastOrthogonalize(_ phi: [[Real]], d3r: Real) -> [[Real]] {
     var Ψ: [[Real]] = []
-    for electronID in unnormalizedPhi.indices {
-      var currentΨ = unnormalizedPhi[electronID]
+    for electronID in phi.indices {
+      var currentΨ = phi[electronID]
       let norm = integral(currentΨ, currentΨ, d3r: d3r)
       for cellID in currentΨ.indices {
         currentΨ[cellID] /= norm.squareRoot()
@@ -270,9 +270,265 @@ final class OrthogonalizeTests: XCTestCase {
   }
   
   // TODO: Run the orthogonalization experiment that was previously abandoned.
-  // - Migrate the code from documentation to the test suite.
-  // - For this test, use the eigenvalue as a "mass" for the "orthogonalization
-  //   force". See how that affects stability and convergence rate.
   // - Begin with the conventional Gram-Schmidt orthogonalizer. Then, switch to
   //   the iterative one and check that results are correct.
+  // - For this test, use the eigenvalue as a "mass" for the "orthogonalization
+  //   force". See how that affects stability and convergence rate.
+  
+  // The purpose of this experiment was testing a more parallel
+  // orthogonalization algorithm. It is similar to forcefields and energy
+  // minimization.
+  //
+  // While running this experiment, I found an issue with the diagonalization
+  // failing to diverge. I used the same approach that worked for 3x3 matrices
+  // in MM4RigidBody, but it wouldn't converge to a reasonable wavefunction. I
+  // fixed the problem by reproducing the INQ tests for eigensolvers.
+  func testOrthogonalizationExperiment() {
+    // Hamiltonian: [-0.5 ∇^2 + (-1) / |x|] Ψ = E Ψ
+    // Grid bounds: 0 Bohr - 3 Bohr
+    // Grid spacing: 0.03 Bohr
+    // 100 cells, 10 electrons
+    //
+    // Boundary conditions:
+    // - wavefunction left of 0 Bohr equals wavefunction immediately right
+    // - wavefunction right of 3 Bohr is zero
+    
+    var Ψ: [[Float]] = []
+    let gridSpacing: Float = 0.03
+    
+    srand48(2021)
+    for electronID in 0..<10 {
+      var currentΨ: [Float] = []
+      for cellID in 0..<100 {
+        let x = gridSpacing * (Float(cellID) + 0.5)
+        let cosineFrequency = Float(9 - electronID) / 2
+        currentΨ.append(exp(-x) * cos(cosineFrequency * x))
+//        currentΨ.append(cos(cosineFrequency * x))
+      }
+      
+      var sum: Double = .zero
+      for fragment in currentΨ {
+        sum += Double(fragment * fragment * gridSpacing)
+      }
+      let normalizationFactor = Float((1 / sum).squareRoot())
+      for cellID in 0..<100 {
+        currentΨ[cellID] *= normalizationFactor
+      }
+      Ψ.append(currentΨ)
+    }
+    
+    func formatString(_ value: Double) -> String {
+      let repr = String(format: "%.3f", value)
+      if !repr.starts(with: "-") {
+        return " " + repr
+      } else {
+        return repr
+      }
+    }
+    
+    func reportState(_ Ψ: [[Float]]) {
+      print()
+      print(
+        "| norm", "|",
+        "  x   ", "|",
+        "-∇^2/2", "|",
+        "-1/|x|", "|",
+        "Ψ H Ψ ")
+      for electronID in 0..<10 {
+        let currentΨ = Ψ[electronID]
+        var observable1: Double = .zero
+        var observableX: Double = .zero
+        var observableKinetic: Double = .zero
+        var observablePotential: Double = .zero
+        var observableHamiltonian: Double = .zero
+        
+        for cellID in 0..<100 {
+          let value = currentΨ[cellID]
+          let x = gridSpacing * (Float(cellID) + 0.5)
+          let leftValue = (cellID > 0) ? currentΨ[cellID - 1] : value
+          let rightValue = (cellID < 99) ? currentΨ[cellID + 1] : 0
+          
+          let derivativeLeft = (value - leftValue) / gridSpacing
+          let derivativeRight = (rightValue - value) / gridSpacing
+          let laplacian = (derivativeRight - derivativeLeft) / gridSpacing
+//          let corePotential = -0 / x.magnitude
+          let corePotential = Float(-100)
+          
+          let d3r = gridSpacing
+          observable1 += Double(value * 1 * value * d3r)
+          observableX += Double(value * x * value * d3r)
+          observableKinetic += Double(value * -0.5 * laplacian * d3r)
+          observablePotential += Double(value * corePotential * value * d3r)
+          
+          let hamiltonian = -0.5 * laplacian + corePotential * value
+          observableHamiltonian += Double(value * hamiltonian * d3r)
+        }
+        print(
+          formatString(observable1), "|",
+          formatString(observableX), "|",
+          formatString(observableKinetic), "|",
+          formatString(observablePotential), "|",
+          formatString(observableHamiltonian))
+      }
+    }
+    
+    func reportWaveFunctions(_ Ψ: [[Float]]) {
+      print()
+      for cellID in 0..<100 {
+        var output: String = ""
+        for electronID in 0..<10 {
+          let value = Ψ[electronID][cellID]
+          output += formatString(Double(value)) + " "
+        }
+        print(output)
+      }
+    }
+    
+    func hamiltonian(_ Ψ: [Float]) -> [Float] {
+      let currentΨ = Ψ
+      var HΨ: [Float] = []
+      for cellID in 0..<100 {
+        let value = currentΨ[cellID]
+        let x = gridSpacing * (Float(cellID) + 0.5)
+        let leftValue = (cellID > 0) ? currentΨ[cellID - 1] : value
+        let rightValue = (cellID < 99) ? currentΨ[cellID + 1] : 0
+        
+        let derivativeLeft = (value - leftValue) / gridSpacing
+        let derivativeRight = (rightValue - value) / gridSpacing
+        let laplacian = (derivativeRight - derivativeLeft) / gridSpacing
+//        let corePotential = -0 / x.magnitude
+        let corePotential = Float(-100)
+        
+        let hamiltonian = -0.5 * laplacian + corePotential * value
+        HΨ.append(hamiltonian)
+      }
+      return HΨ
+    }
+    
+    // Create another function for performing integrals, test it on the already
+    // known values for energy.
+    func integral(_ lhs: [Float], _ rhs: [Float]) -> Float {
+      precondition(lhs.count == rhs.count, "Vectors had different count.")
+      var sum: Double = .zero
+      for cellID in lhs.indices {
+        sum += Double(lhs[cellID] * rhs[cellID] * gridSpacing)
+      }
+      return Float(sum)
+    }
+    
+    
+    // This acts on one eigenvector at once. The orthogonalization must occur
+    // outside of this function.
+    func eigensolver(_ phi: [Float], maxResidual: inout Float) -> [Float] {
+      var Ψ = phi
+      var HΨ = hamiltonian(Ψ)
+      
+      for _ in 0..<5 {
+        let E = integral(Ψ, HΨ)
+        let norm = integral(Ψ, Ψ)
+        let evnorm = E / norm
+        
+        var r: [Float] = []
+        for cellID in 0..<100 {
+          r.append(HΨ[cellID] - evnorm * Ψ[cellID])
+        }
+        
+        let Hr = hamiltonian(r)
+        let rr  = integral(r, r)
+        let Ψr = integral(phi, r)
+        let rHr = integral(r, Hr)
+        let ΨHr = integral(phi, Hr)
+        //      print(rr, Ψr, rHr, ΨHr)
+        /*
+         184.59229 -9.0687536e-08 71424.17 184.59229
+         147.84608 3.2480602e-07 23955.428 147.84607
+         224.95732 2.2965014e-07 95228.98 224.95726
+         181.14989 4.800313e-07 36294.53 181.14996
+         264.35968 1.4699713e-06 115933.73 264.35962
+         210.91487 6.4571213e-07 47135.383 210.91513
+         287.8893 1.69327e-07 119468.195 287.8893
+         240.79008 -5.905458e-07 57412.242 240.79025
+         303.56497 2.6445014e-07 114152.34 303.5647
+         271.39746 1.9259278e-07 68358.49 271.39746
+         */
+        
+        let m0 = rr
+        let m1 = Ψr
+        let m2 = rHr
+        let m3 = ΨHr
+        let m4 = E
+        let m5 = norm
+        
+        let ca = m0 * m3 - m2 * m1
+        let cb = m5 * m2 - m4 * m0
+        let cc = m4 * m1 - m3 * m5
+        //      print(ca, cb, cc)
+        /*
+         34074.32 72873.305 -184.5923
+         21858.455 25227.379 -147.84607
+         50605.758 97405.62 -224.95726
+         32815.28 38169.742 -181.14996
+         69885.85 118601.41 -264.35962
+         44485.105 49124.12 -210.91513
+         82880.234 121806.375 -287.88928
+         57979.94 59005.496 -240.79025
+         92151.58 115565.62 -303.5647
+         73656.56 69041.266 -271.39746
+         */
+        
+        let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
+        let λ = 2 * cc / determinant
+        //      print(determinant, λ)
+        /*
+         145919.03 -0.0025300647
+         50709.67 -0.0058310796
+         195044.7 -0.0023067251
+         76649.7 -0.004726697
+         237513.95 -0.0022260556
+         98628.766 -0.0042769494
+         244003.9 -0.0023597104
+         118482.32 -0.0040645767
+         231614.34 -0.0026212945
+         138659.2 -0.003914597
+         */
+//        print("  - λ = \(λ), rms_norm = \(rr.squareRoot())")
+        maxResidual = max(maxResidual, rr.squareRoot())
+        
+        for cellID in 0..<100 {
+          Ψ[cellID] += λ * r[cellID]
+          HΨ[cellID] += λ * Hr[cellID]
+        }
+      }
+      
+      let norm = integral(Ψ, Ψ)
+      for cellID in 0..<100 {
+        Ψ[cellID] /= norm.squareRoot()
+      }
+      return Ψ
+    }
+    
+    reportState(Ψ)
+//    reportWaveFunctions(Ψ)
+    
+    for _ in 0..<30 {
+      var maxResidual: Float = .zero
+      for electronID in 0..<10 {
+//        print("- electron \(electronID):")
+        Ψ[electronID] = eigensolver(Ψ[electronID], maxResidual: &maxResidual)
+      }
+      Ψ = Self.orthogonalize(Ψ, d3r: gridSpacing)
+      
+//      reportState(Ψ)
+      
+      print("max residual: \(maxResidual)")
+      
+    }
+    
+    reportState(Ψ)
+//    reportWaveFunctions(Ψ)
+    
+    // TODO: Figure out why this isn't working well. Is there something wrong
+    // with the eigensolver, the hamiltonian, or something else fundamental to
+    // this problem?
+  }
 }
