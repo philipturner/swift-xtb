@@ -408,40 +408,76 @@ final class EigensolverTests: XCTestCase {
     }
   }
   
-  // Reproduce the test for the Laplacian operator.
+  // Modify the test for the Laplacian operator, to become a test for a particle
+  // in a finite potential well.
   //
   // Instead of complex FP64, use real FP32. In addition, test what happens when
   // Gram-Schmidt orthogonalization is replaced with "fast orthogonalization".
-  func testPeriodicLaplacian() throws {
+  func testFinitePotentialWell() throws {
     typealias Real = Float
     
+    // TODO: Try an extremely finite grid and/or 4th order finite differencing.
     let numCells = 50
-    let numElectrons = 6
+    let numWellCells = 20
+    let numElectrons = 5
+    
+    let L: Real = 10
+    let V0: Real = 1
+    var boundStates: [(v: Real, u: Real)]
+    
+    if L == 10 && V0 == 1 {
+      boundStates = [
+        (1.375, 6.396),
+        (2.743, 6.517),
+        (4.095, 5.765),
+        (5.412, 4.551),
+        (6.636, 2.442),
+      ]
+    } else if L == 10 && V0 == 10 {
+      boundStates = [
+        (1.504, 22.310),
+        (3.007, 22.158),
+        (4.509, 21.901),
+        (6.011, 21.901),
+        (7.511, 21.061),
+        (9.010, 20.465),
+      ]
+    } else {
+      fatalError("Unrecognized set of conditions.")
+    }
+    
+    precondition(L == Real(numWellCells), "d3r-based integration and h-based finite differencing not supported yet.")
     
     // INQ has [2, -1, 2], but the actual Laplacian operator is [1, -2, 1].
-    // Examine the properties of both operators.
-    let filter: [Real] = [-1, 2, -1]
+    // The properties of both operators have been examined; they produce very
+    // similar behavior for unbound periodic particles.
+    let filter: [Real] = [1, -2, 1]
     
-    func laplacian(_ Ψ: [[Real]]) -> [[Real]] {
+    func hamiltonian(_ Ψ: [[Real]]) -> [[Real]] {
       var output: [[Real]] = []
       for electronID in Ψ.indices {
         var outputVector: [Real] = []
         let currentΨ = Ψ[electronID]
         for cellID in currentΨ.indices {
-          // [2, -1, 2] kernel
           var value = filter[1] * currentΨ[cellID]
-          if cellID + 1 < numCells {
-            value -= filter[2] * currentΨ[(cellID + 1) % numCells]
+          if cellID < numCells - 1 {
+            value += filter[2] * currentΨ[cellID + 1]
           }
-          if cellID - 1 >= 0 {
-            value -= filter[0] * currentΨ[(cellID - 1 + numCells) % numCells]
+          if cellID > 0 {
+            value += filter[0] * currentΨ[cellID - 1]
           }
+          value *= -0.5
+          var x = Real(cellID) + 0.5 - Real(numCells) / 2
           
-          let position = Float(cellID) + 0.5
-          let nucleusPosition = Float(numCells) / 2
-          let r = (position - nucleusPosition).magnitude
-          if r < 5 {
-            value -= 100
+          let h = L / Real(numWellCells)
+          value /= (h * h)
+          x *= h
+          
+          // Examine what happens if the potential energy is shifted, so
+          // bound states have negative potential energy and unbound states have
+          // zero potential energy.
+          if x.magnitude <= L / 2 {
+            value -= V0
           }
           outputVector.append(value)
         }
@@ -453,9 +489,11 @@ final class EigensolverTests: XCTestCase {
     func dot(_ lhs: [Real], _ rhs: [Real]) -> Real {
       precondition(lhs.count == rhs.count)
       var sum: Double = .zero
+      let h = L / Real(numWellCells)
       for cellID in lhs.indices {
-        sum += Double(lhs[cellID] * rhs[cellID])
+        sum += Double(lhs[cellID] * rhs[cellID] * h)
       }
+      
       return Real(sum)
     }
     
@@ -468,37 +506,55 @@ final class EigensolverTests: XCTestCase {
     
     var Ψ: [[Real]] = []
     for electronID in 0..<numElectrons {
+      let (v, u) = boundStates[electronID]
+      let a = u / (L / 2)
+      let k = v / (L / 2)
+      
+      // Un-normalized versions of A, B, and H.
+      var A: Real = 0
+      var B: Real = 0
+      var H: Real = 0
+      if electronID % 2 == 0 {
+        // Symmetric case.
+        A = .nan
+        B = 1
+        H = Real.cos(k * L / 2) / Real.exp(-a * L / 2)
+      } else {
+        // Asymmmetric case.
+        A = 1
+        B = .nan
+        H = Real.sin(k * L / 2) / Real.exp(-a * L / 2)
+      }
+      
       var outputVector: [Real] = []
       for cellID in 0..<numCells {
-        let position = Float(cellID) + 0.5
-        let nucleusPosition = Float(numCells) / 2
-        let r = (position - nucleusPosition).magnitude
+        var x = Real(cellID) + 0.5 - Real(numCells) / 2
+        var value: Real
         
-        // TODO: Start with the correct solutions to the particle in a finite
-        // potential well problem. Then, check whether the steepest descent
-        // eigensolver converges them to the correct value. Once Gram-Schmidt
-        // orthogonalization is working correctly, move on to testing the
-        // "fast orthogonalization".
-        if r < 5 {
-          let frequency = Real(electronID + 1)
-          let phase = Real.pi * frequency * Float(
-            (position - nucleusPosition)) / Float(11)
-          outputVector.append(Real.cos(phase))
+        let h = L / Real(numWellCells)
+        x *= h
+        
+        if electronID % 2 == 0 {
+          // Symmetric case.
+          if x < -L / 2 {
+            value = H * Real.exp(a * x)
+          } else if x <= L / 2 {
+            value = B * Real.cos(k * x)
+          } else {
+            value = H * Real.exp(-a * x)
+          }
         } else {
-          var phasePart = Float(position - nucleusPosition)
-          if phasePart < -5 {
-            phasePart = -5
+          // Asymmetric case.
+          if x < -L / 2 {
+            value = -H * Real.exp(a * x)
+          } else if x <= L / 2 {
+            value = A * Real.sin(k * x)
+          } else {
+            value = H * Real.exp(-a * x)
           }
-          if phasePart > 5 {
-            phasePart = 5
-          }
-          
-          let frequency = Real(electronID + 1)
-          let phase = Real.pi * frequency * Float(phasePart) / Float(11)
-          let attenuation = (position - nucleusPosition - phasePart).magnitude
-          outputVector.append(
-            Real.cos(phase) * Real.exp(-attenuation / 2))
         }
+        
+        outputVector.append(value)
       }
       
       outputVector = normalize(outputVector)
@@ -510,12 +566,14 @@ final class EigensolverTests: XCTestCase {
       hamiltonian: ([[Real]]) -> [[Real]],
       Ψ: [[Real]]
     ) -> [[Real]] {
-      let HΨ = hamiltonian(Ψ)
-      let normalized = HΨ.map(normalize(_:))
-      let priorities = HΨ.indices.map {
-        dot(Ψ[$0], HΨ[$0])
-      }
-      return OrthogonalizeTests.orthogonalize(normalized, d3r: 1)
+      return Ψ
+      
+//      let HΨ = hamiltonian(Ψ)
+//      let normalized = HΨ.map(normalize(_:))
+//      let priorities = HΨ.indices.map {
+//        dot(Ψ[$0], HΨ[$0])
+//      }
+//      return OrthogonalizeTests.orthogonalize(normalized, d3r: 1)
 //      return OrthogonalizeTests.fastOrthogonalize(
 //        normalized, priorities: priorities, d3r: 1)
     }
@@ -537,10 +595,10 @@ final class EigensolverTests: XCTestCase {
       print("Iteration \(iterationID)")
       
       if iterationID > 0 {
-        Ψ = eigensolver(hamiltonian: laplacian(_:), Ψ: Ψ)
+        Ψ = eigensolver(hamiltonian: hamiltonian(_:), Ψ: Ψ)
       }
       
-      let HΨ = laplacian(Ψ)
+      let HΨ = hamiltonian(Ψ)
       var E: [Real] = []
       var r: [[Real]] = []
       for electronID in 0..<numElectrons {
@@ -562,6 +620,10 @@ final class EigensolverTests: XCTestCase {
         output += "  state \(electronID)"
         output += "  evalue = \(E[electronID])"
         
+        let v = boundStates[electronID].v
+        let E = 2 * v * v / (L * L)
+        output += "  (expected \(E))"
+        
         let normres = dot(r[electronID], r[electronID])
         output += "  res = \(normres)"
         print(output)
@@ -569,7 +631,7 @@ final class EigensolverTests: XCTestCase {
       
       for cellID in 0..<numCells {
         for electronID in 0..<numElectrons {
-          let value = Ψ[electronID][cellID]
+          let value = HΨ[electronID][cellID]
           var repr = String(format: "%.4f", value)
           if !repr.starts(with: "-") {
             repr = " " + repr
