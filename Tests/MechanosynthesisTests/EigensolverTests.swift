@@ -416,7 +416,6 @@ final class EigensolverTests: XCTestCase {
   func testFinitePotentialWell() throws {
     typealias Real = Float
     
-    // TODO: Try an extremely finite grid and/or 4th order finite differencing.
     let numCells = 50
     let numWellCells = 20
     let numElectrons = 5
@@ -446,8 +445,6 @@ final class EigensolverTests: XCTestCase {
       fatalError("Unrecognized set of conditions.")
     }
     
-    precondition(L == Real(numWellCells), "d3r-based integration and h-based finite differencing not supported yet.")
-    
     // INQ has [2, -1, 2], but the actual Laplacian operator is [1, -2, 1].
     // The properties of both operators have been examined; they produce very
     // similar behavior for unbound periodic particles.
@@ -458,6 +455,7 @@ final class EigensolverTests: XCTestCase {
       for electronID in Ψ.indices {
         var outputVector: [Real] = []
         let currentΨ = Ψ[electronID]
+        
         for cellID in currentΨ.indices {
           var value = filter[1] * currentΨ[cellID]
           if cellID < numCells - 1 {
@@ -477,7 +475,7 @@ final class EigensolverTests: XCTestCase {
           // bound states have negative potential energy and unbound states have
           // zero potential energy.
           if x.magnitude <= L / 2 {
-            value -= V0
+            value -= V0 * currentΨ[cellID]
           }
           outputVector.append(value)
         }
@@ -487,7 +485,9 @@ final class EigensolverTests: XCTestCase {
     }
     
     func dot(_ lhs: [Real], _ rhs: [Real]) -> Real {
-      precondition(lhs.count == rhs.count)
+      guard lhs.count == rhs.count else {
+        fatalError("Unequal counts.")
+      }
       var sum: Double = .zero
       let h = L / Real(numWellCells)
       for cellID in lhs.indices {
@@ -506,7 +506,7 @@ final class EigensolverTests: XCTestCase {
     
     var Ψ: [[Real]] = []
     for electronID in 0..<numElectrons {
-      let (v, u) = boundStates[electronID]
+      let (v, u) = boundStates[numElectrons - 1 - electronID]
       let a = u / (L / 2)
       let k = v / (L / 2)
       
@@ -554,6 +554,13 @@ final class EigensolverTests: XCTestCase {
           }
         }
         
+        // This converges even if we use the original setup procedure from INQ.
+//        if electronID == cellID {
+//          value = 1
+//        } else {
+//          value = 0
+//        }
+        
         outputVector.append(value)
       }
       
@@ -561,24 +568,81 @@ final class EigensolverTests: XCTestCase {
       Ψ.append(outputVector)
     }
     
-    
     func eigensolver(
       hamiltonian: ([[Real]]) -> [[Real]],
-      Ψ: [[Real]]
+      phi originalΨ: [[Real]]
     ) -> [[Real]] {
-      return Ψ
+      var Ψ = originalΨ
+      var HΨ = hamiltonian(originalΨ)
       
-//      let HΨ = hamiltonian(Ψ)
-//      let normalized = HΨ.map(normalize(_:))
-//      let priorities = HΨ.indices.map {
-//        dot(Ψ[$0], HΨ[$0])
-//      }
-//      return OrthogonalizeTests.orthogonalize(normalized, d3r: 1)
-//      return OrthogonalizeTests.fastOrthogonalize(
-//        normalized, priorities: priorities, d3r: 1)
+      // Try just 1 eigensolver step to demonstrate a non-negligible
+      // improvement to stability.
+      for _ in 0..<5 {
+        let E = zip(Ψ, HΨ).map(dot(_:_:))
+        let norm = zip(Ψ, Ψ).map(dot(_:_:))
+        
+        var r: [[Real]] = []
+        for electronID in Ψ.indices {
+          let currentΨ = Ψ[electronID]
+          let currentHΨ = HΨ[electronID]
+          var outputVector: [Real] = []
+          let evnorm = E[electronID] / norm[electronID]
+          
+          for cellID in currentΨ.indices {
+            let value = currentHΨ[cellID] - evnorm * currentΨ[cellID]
+            outputVector.append(value)
+          }
+          r.append(outputVector)
+        }
+        
+        let Hr = hamiltonian(r)
+        let rr = zip(r, r).map(dot(_:_:))
+        let Ψr = zip(Ψ, r).map(dot(_:_:))
+        let rHr = zip(r, Hr).map(dot(_:_:))
+        let ΨHr = zip(Ψ, Hr).map(dot(_:_:))
+        
+        var λ: [Real] = []
+        for electronID in 0..<Ψ.count {
+          let m0 = rr[electronID]
+          let m1 = Ψr[electronID]
+          let m2 = rHr[electronID]
+          let m3 = ΨHr[electronID]
+          let m4 = E[electronID]
+          let m5 = norm[electronID]
+          
+          let ca = (m0 * m3 - m2 * m1)
+          let cb = (m5 * m2 - m4 * m0)
+          let cc = (m4 * m1 - m3 * m5)
+          let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
+          if determinant.magnitude < 1e-15 {
+            // This happens if we are perfectly converged.
+            λ.append(0)
+          } else {
+            λ.append(2 * cc / determinant)
+          }
+        }
+        
+        for electronID in Ψ.indices {
+          for cellID in Ψ[electronID].indices {
+            let lambda = λ[electronID]
+            Ψ[electronID][cellID] += lambda * r[electronID][cellID]
+            HΨ[electronID][cellID] += lambda * Hr[electronID][cellID]
+          }
+        }
+      }
+      
+      for electronID in Ψ.indices {
+        Ψ[electronID] = normalize(Ψ[electronID])
+      }
+      let h = L / Real(numWellCells)
+      let priorities = (0..<numElectrons).map { Real(-$0) }
+      Ψ = OrthogonalizeTests.fastOrthogonalize(
+        Ψ, priorities: priorities, d3r: h)
+      return Ψ
     }
     
-    for iterationID in 0...1 {
+    let numIterations = 50
+    for iterationID in 0...numIterations {
       /*
        solvers::steepest_descent(laplacian, identity, phi);
        
@@ -592,10 +656,12 @@ final class EigensolverTests: XCTestCase {
        }
        */
       
-      print("Iteration \(iterationID)")
+      if EigensolverTests.console {
+        print("Iteration \(iterationID)")
+      }
       
       if iterationID > 0 {
-        Ψ = eigensolver(hamiltonian: hamiltonian(_:), Ψ: Ψ)
+        Ψ = eigensolver(hamiltonian: hamiltonian(_:), phi: Ψ)
       }
       
       let HΨ = hamiltonian(Ψ)
@@ -615,31 +681,44 @@ final class EigensolverTests: XCTestCase {
         r.append(rVector)
       }
       
-      for electronID in 0..<numElectrons {
-        var output = ""
-        output += "  state \(electronID)"
-        output += "  evalue = \(E[electronID])"
-        
-        let v = boundStates[electronID].v
-        let E = 2 * v * v / (L * L)
-        output += "  (expected \(E))"
-        
-        let normres = dot(r[electronID], r[electronID])
-        output += "  res = \(normres)"
-        print(output)
-      }
-      
-      for cellID in 0..<numCells {
         for electronID in 0..<numElectrons {
-          let value = HΨ[electronID][cellID]
-          var repr = String(format: "%.4f", value)
-          if !repr.starts(with: "-") {
-            repr = " " + repr
+          let v = boundStates[electronID].v
+          let eigenvalue = E[electronID]
+          let expectedE = 2 * v * v / (L * L) - V0
+          let normres = dot(r[electronID], r[electronID])
+          
+          if iterationID == numIterations {
+            XCTAssertLessThan(
+              normres.magnitude, 1e-10,
+              "Electron \(electronID) failed to converge.")
+            
+            let accuracy: Real = (electronID == 4) ? 0.1 : 0.04
+            XCTAssertEqual(
+              eigenvalue, expectedE, accuracy: accuracy,
+              "Electron \(electronID) had the wrong eigenvalue.")
           }
-          print("  \(repr),", separator: "", terminator: "")
+          
+          if EigensolverTests.console {
+            var output = ""
+            output += "  state \(electronID)"
+            output += "  evalue = \(eigenvalue)"
+            output += "  (expected \(expectedE))"
+            output += "  res = \(normres)"
+            print(output)
+          }
         }
-        print()
-      }
+      
+//      for cellID in 0..<numCells {
+//        for electronID in 0..<numElectrons {
+//          let value = HΨ[electronID][cellID]
+//          var repr = String(format: "%.4f", value)
+//          if !repr.starts(with: "-") {
+//            repr = " " + repr
+//          }
+//          print("  \(repr),", separator: "", terminator: "")
+//        }
+//        print()
+//      }
     }
   }
 }

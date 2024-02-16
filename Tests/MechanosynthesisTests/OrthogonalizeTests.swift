@@ -80,9 +80,9 @@ final class OrthogonalizeTests: XCTestCase {
           
           var weight: Real = 0.5
           if let priorities {
-            let currentPriority = priorities[electronID].magnitude
-            let otherPriority = priorities[otherID].magnitude
-            weight = otherPriority / (currentPriority + otherPriority)
+            let currentPriority = priorities[electronID]
+            let otherPriority = priorities[otherID]
+            weight = (otherPriority > currentPriority) ? 1 : 0
           }
           for cellID in force.indices {
             force[cellID] -= weight * dotProduct * otherΨ[cellID]
@@ -92,7 +92,7 @@ final class OrthogonalizeTests: XCTestCase {
         let squareLength = integral(force, force, d3r: d3r)
         forceLengths.append(squareLength.squareRoot())
       }
-      if maxDotProduct < 1e-7 {
+      if maxDotProduct < 1e-7, iterationID > 15 {
         if console {
           print("Converged on iteration \(iterationID)")
         }
@@ -127,7 +127,7 @@ final class OrthogonalizeTests: XCTestCase {
           if let priorities {
             let currentPriority = priorities[electronID]
             let otherPriority = priorities[otherID]
-            weight = otherPriority / (currentPriority + otherPriority)
+            weight = (otherPriority > currentPriority) ? 1 : 0
           }
           let threshold: Real = 0.5
           if maxLength > threshold {
