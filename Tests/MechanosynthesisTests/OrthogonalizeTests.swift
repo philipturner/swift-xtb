@@ -300,8 +300,15 @@ final class OrthogonalizeTests: XCTestCase {
   // with Gram-Schmidt orthogonalization. The custom "fast" orthogonalizer
   // failed to converge at all. However, I don't think the fault is in the
   // orthogonalizer. It looks like something deeper.
-#if false
-  func testOrthogonalizationExperiment() {
+  //
+  // After debugging the particle in a finite potential well, and rewriting this
+  // experiment from scratch, it worked. The "fast orthogonalizer" did converge
+  // just as fast as the Gram-Schmidt orthogonalizer. A modification had to be
+  // made though: bias the weights of the forces to either 0 or 1. So it has
+  // the same priority order behavior as GS, just without the serial data
+  // dependency between elements.
+  
+  func testOrthogonalizationExperiment() throws {
     // Hamiltonian: [-0.5 ∇^2 + (-1) / |x|] Ψ = E Ψ
     // Grid bounds: 0 Bohr - 3 Bohr
     // Grid spacing: 0.03 Bohr
@@ -311,239 +318,243 @@ final class OrthogonalizeTests: XCTestCase {
     // - wavefunction left of 0 Bohr equals wavefunction immediately right
     // - wavefunction right of 3 Bohr is zero
     
-    var Ψ: [[Float]] = []
-    let gridSpacing: Float = 0.03
+    let numCells = 100
+    let numElectrons = 10
+    let h: Real = 0.6 // the original 0.03 caused convergence issues
+    let coreCharge: Real = 1
     
-    srand48(2021)
-    for electronID in 0..<10 {
-      var currentΨ: [Float] = []
-      for cellID in 0..<100 {
-        let x = gridSpacing * (Float(cellID) + 0.5)
-        let cosineFrequency = Float(9 - electronID) / 2
-        currentΨ.append(exp(-x) * cos(cosineFrequency * x))
-//        currentΨ.append(cos(cosineFrequency * x))
-      }
-      
-      var sum: Double = .zero
-      for fragment in currentΨ {
-        sum += Double(fragment * fragment * gridSpacing)
-      }
-      let normalizationFactor = Float((1 / sum).squareRoot())
-      for cellID in 0..<100 {
-        currentΨ[cellID] *= normalizationFactor
-      }
-      Ψ.append(currentΨ)
-    }
-    
-    func formatString(_ value: Double) -> String {
-      let repr = String(format: "%.3f", value)
-      if !repr.starts(with: "-") {
-        return " " + repr
-      } else {
-        return repr
-      }
-    }
-    
-    func reportState(_ Ψ: [[Float]]) {
-      print()
-      print(
-        "| norm", "|",
-        "  x   ", "|",
-        "-∇^2/2", "|",
-        "-1/|x|", "|",
-        "Ψ H Ψ ")
-      for electronID in 0..<10 {
+    func hamiltonian(_ Ψ: [[Real]]) -> [[Real]] {
+      var output: [[Real]] = []
+      for electronID in Ψ.indices {
+        var outputVector: [Real] = []
         let currentΨ = Ψ[electronID]
-        var observable1: Double = .zero
-        var observableX: Double = .zero
-        var observableKinetic: Double = .zero
-        var observablePotential: Double = .zero
-        var observableHamiltonian: Double = .zero
         
-        for cellID in 0..<100 {
-          let value = currentΨ[cellID]
-          let x = gridSpacing * (Float(cellID) + 0.5)
-          let leftValue = (cellID > 0) ? currentΨ[cellID - 1] : value
-          let rightValue = (cellID < 99) ? currentΨ[cellID + 1] : 0
+        for cellID in currentΨ.indices {
+          let filter: [Real] = [1, -2, 1]
           
-          let derivativeLeft = (value - leftValue) / gridSpacing
-          let derivativeRight = (rightValue - value) / gridSpacing
-          let laplacian = (derivativeRight - derivativeLeft) / gridSpacing
-//          let corePotential = -0 / x.magnitude
-          let corePotential = Float(-100)
+          var value = filter[1] * currentΨ[cellID]
+          if cellID < numCells - 1 {
+            value += filter[2] * currentΨ[cellID + 1]
+          }
+          if cellID > 0 {
+            value += filter[0] * currentΨ[cellID - 1]
+          } else {
+            value += filter[0] * currentΨ[cellID]
+          }
+          value *= -0.5
+          value /= (h * h)
           
-          let d3r = gridSpacing
-          observable1 += Double(value * 1 * value * d3r)
-          observableX += Double(value * x * value * d3r)
-          observableKinetic += Double(value * -0.5 * laplacian * d3r)
-          observablePotential += Double(value * corePotential * value * d3r)
+          let x = (Real(cellID) + 0.5) * h
+          let v = -coreCharge / x
+          value += v * currentΨ[cellID]
           
-          let hamiltonian = -0.5 * laplacian + corePotential * value
-          observableHamiltonian += Double(value * hamiltonian * d3r)
+          outputVector.append(value)
         }
-        print(
-          formatString(observable1), "|",
-          formatString(observableX), "|",
-          formatString(observableKinetic), "|",
-          formatString(observablePotential), "|",
-          formatString(observableHamiltonian))
+        output.append(outputVector)
       }
+      return output
     }
     
-    func reportWaveFunctions(_ Ψ: [[Float]]) {
-      print()
-      for cellID in 0..<100 {
-        var output: String = ""
-        for electronID in 0..<10 {
-          let value = Ψ[electronID][cellID]
-          output += formatString(Double(value)) + " "
-        }
-        print(output)
+    func dot(_ lhs: [Real], _ rhs: [Real]) -> Real {
+      guard lhs.count == rhs.count else {
+        fatalError("Unequal counts.")
       }
-    }
-    
-    func hamiltonian(_ Ψ: [Float]) -> [Float] {
-      let currentΨ = Ψ
-      var HΨ: [Float] = []
-      for cellID in 0..<100 {
-        let value = currentΨ[cellID]
-        let x = gridSpacing * (Float(cellID) + 0.5)
-        let leftValue = (cellID > 0) ? currentΨ[cellID - 1] : value
-        let rightValue = (cellID < 99) ? currentΨ[cellID + 1] : 0
-        
-        let derivativeLeft = (value - leftValue) / gridSpacing
-        let derivativeRight = (rightValue - value) / gridSpacing
-        let laplacian = (derivativeRight - derivativeLeft) / gridSpacing
-//        let corePotential = -0 / x.magnitude
-        let corePotential = Float(-100)
-        
-        let hamiltonian = -0.5 * laplacian + corePotential * value
-        HΨ.append(hamiltonian)
-      }
-      return HΨ
-    }
-    
-    // Create another function for performing integrals, test it on the already
-    // known values for energy.
-    func integral(_ lhs: [Float], _ rhs: [Float]) -> Float {
-      precondition(lhs.count == rhs.count, "Vectors had different count.")
       var sum: Double = .zero
       for cellID in lhs.indices {
-        sum += Double(lhs[cellID] * rhs[cellID] * gridSpacing)
+        sum += Double(lhs[cellID] * rhs[cellID] * h)
       }
-      return Float(sum)
+      
+      return Real(sum)
     }
     
+    func normalize(_ x: [Real]) -> [Real] {
+      let norm = dot(x, x)
+      return x.map {
+        $0 / norm.squareRoot()
+      }
+    }
     
-    // This acts on one eigenvector at once. The orthogonalization must occur
-    // outside of this function.
-    func eigensolver(_ phi: [Float], maxResidual: inout Float) -> [Float] {
-      var Ψ = phi
-      var HΨ = hamiltonian(Ψ)
+    var Ψ: [[Real]] = []
+    for electronID in 0..<numElectrons {
+      var outputVector: [Real] = []
+      let angularFrequency = Real(electronID) * 2 * Real.pi
       
+      for cellID in 0..<numCells {
+        let x = (Real(cellID) + 0.5) * h
+        let value = exp(-x / 10) * cos(angularFrequency * x / 10)
+        outputVector.append(value)
+      }
+      
+      outputVector = normalize(outputVector)
+      Ψ.append(outputVector)
+    }
+    
+    func eigensolver(
+      hamiltonian: ([[Real]]) -> [[Real]],
+      phi originalΨ: [[Real]]
+    ) -> [[Real]] {
+      var Ψ = originalΨ
+      var HΨ = hamiltonian(originalΨ)
+      
+      // Try just 1 eigensolver step to demonstrate a non-negligible
+      // improvement to stability.
       for _ in 0..<5 {
-        let E = integral(Ψ, HΨ)
-        let norm = integral(Ψ, Ψ)
-        let evnorm = E / norm
+        let E = zip(Ψ, HΨ).map(dot(_:_:))
+        let norm = zip(Ψ, Ψ).map(dot(_:_:))
         
-        var r: [Float] = []
-        for cellID in 0..<100 {
-          r.append(HΨ[cellID] - evnorm * Ψ[cellID])
+        var r: [[Real]] = []
+        for electronID in Ψ.indices {
+          let currentΨ = Ψ[electronID]
+          let currentHΨ = HΨ[electronID]
+          var outputVector: [Real] = []
+          let evnorm = E[electronID] / norm[electronID]
+          
+          for cellID in currentΨ.indices {
+            let value = currentHΨ[cellID] - evnorm * currentΨ[cellID]
+            outputVector.append(value)
+          }
+          r.append(outputVector)
         }
         
         let Hr = hamiltonian(r)
-        let rr  = integral(r, r)
-        let Ψr = integral(phi, r)
-        let rHr = integral(r, Hr)
-        let ΨHr = integral(phi, Hr)
-        //      print(rr, Ψr, rHr, ΨHr)
-        /*
-         184.59229 -9.0687536e-08 71424.17 184.59229
-         147.84608 3.2480602e-07 23955.428 147.84607
-         224.95732 2.2965014e-07 95228.98 224.95726
-         181.14989 4.800313e-07 36294.53 181.14996
-         264.35968 1.4699713e-06 115933.73 264.35962
-         210.91487 6.4571213e-07 47135.383 210.91513
-         287.8893 1.69327e-07 119468.195 287.8893
-         240.79008 -5.905458e-07 57412.242 240.79025
-         303.56497 2.6445014e-07 114152.34 303.5647
-         271.39746 1.9259278e-07 68358.49 271.39746
-         */
+        let rr = zip(r, r).map(dot(_:_:))
+        let Ψr = zip(Ψ, r).map(dot(_:_:))
+        let rHr = zip(r, Hr).map(dot(_:_:))
+        let ΨHr = zip(Ψ, Hr).map(dot(_:_:))
         
-        let m0 = rr
-        let m1 = Ψr
-        let m2 = rHr
-        let m3 = ΨHr
-        let m4 = E
-        let m5 = norm
+        var λ: [Real] = []
+        for electronID in 0..<Ψ.count {
+          let m0 = rr[electronID]
+          let m1 = Ψr[electronID]
+          let m2 = rHr[electronID]
+          let m3 = ΨHr[electronID]
+          let m4 = E[electronID]
+          let m5 = norm[electronID]
+          
+          let ca = (m0 * m3 - m2 * m1)
+          let cb = (m5 * m2 - m4 * m0)
+          let cc = (m4 * m1 - m3 * m5)
+          let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
+          if determinant.magnitude < 1e-15 {
+            // This happens if we are perfectly converged.
+            λ.append(0)
+          } else {
+            λ.append(2 * cc / determinant)
+          }
+        }
         
-        let ca = m0 * m3 - m2 * m1
-        let cb = m5 * m2 - m4 * m0
-        let cc = m4 * m1 - m3 * m5
-        //      print(ca, cb, cc)
-        /*
-         34074.32 72873.305 -184.5923
-         21858.455 25227.379 -147.84607
-         50605.758 97405.62 -224.95726
-         32815.28 38169.742 -181.14996
-         69885.85 118601.41 -264.35962
-         44485.105 49124.12 -210.91513
-         82880.234 121806.375 -287.88928
-         57979.94 59005.496 -240.79025
-         92151.58 115565.62 -303.5647
-         73656.56 69041.266 -271.39746
-         */
-        
-        let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
-        let λ = 2 * cc / determinant
-        //      print(determinant, λ)
-        /*
-         145919.03 -0.0025300647
-         50709.67 -0.0058310796
-         195044.7 -0.0023067251
-         76649.7 -0.004726697
-         237513.95 -0.0022260556
-         98628.766 -0.0042769494
-         244003.9 -0.0023597104
-         118482.32 -0.0040645767
-         231614.34 -0.0026212945
-         138659.2 -0.003914597
-         */
-//        print("  - λ = \(λ), rms_norm = \(rr.squareRoot())")
-        maxResidual = max(maxResidual, rr.squareRoot())
-        
-        for cellID in 0..<100 {
-          Ψ[cellID] += λ * r[cellID]
-          HΨ[cellID] += λ * Hr[cellID]
+        for electronID in Ψ.indices {
+          for cellID in Ψ[electronID].indices {
+            let lambda = λ[electronID]
+            Ψ[electronID][cellID] += lambda * r[electronID][cellID]
+            HΨ[electronID][cellID] += lambda * Hr[electronID][cellID]
+          }
         }
       }
       
-      let norm = integral(Ψ, Ψ)
-      for cellID in 0..<100 {
-        Ψ[cellID] /= norm.squareRoot()
+      for electronID in Ψ.indices {
+        Ψ[electronID] = normalize(Ψ[electronID])
       }
+      
+      // We proved that "fast orthogonalization" works just as well as regular
+      // orthogonalization. However, we'll use the original orthogonalization
+      // function for this unit test. Fast orthogonalization is not optimized
+      // in its current form, and this test converges very slowly.
+      Ψ = OrthogonalizeTests.orthogonalize(Ψ, d3r: h)
+//      let priorities = (0..<numElectrons).map { Real(-$0) }
+//      Ψ = OrthogonalizeTests.fastOrthogonalize(
+//        Ψ, priorities: priorities, d3r: h)
       return Ψ
     }
     
-    reportState(Ψ)
-//    reportWaveFunctions(Ψ)
-    
-    for _ in 0..<30 {
-      var maxResidual: Float = .zero
-      for electronID in 0..<10 {
-//        print("- electron \(electronID):")
-        Ψ[electronID] = eigensolver(Ψ[electronID], maxResidual: &maxResidual)
+    let numIterations = 300
+    for iterationID in 0...numIterations {
+      /*
+       solvers::steepest_descent(laplacian, identity, phi);
+       
+       auto residual = laplacian(phi);
+       auto eigenvalues = operations::overlap_diagonal(phi, residual);
+       operations::shift(eigenvalues, phi, residual, -1.0);
+       auto normres = operations::overlap_diagonal(residual);
+       
+       for(int ivec = 0; ivec < phi.set_size(); ivec++){
+       tfm::format(std::cout, " state %4d  evalue = %18.12f  res = %5.0e\n", ivec + 1, real(eigenvalues[ivec]), real(normres[ivec]));
+       }
+       */
+      
+      if OrthogonalizeTests.console {
+        print("Iteration \(iterationID)")
       }
-      Ψ = Self.orthogonalize(Ψ, d3r: gridSpacing)
       
-//      reportState(Ψ)
+      if iterationID > 0 {
+        Ψ = eigensolver(hamiltonian: hamiltonian(_:), phi: Ψ)
+      }
       
-      print("max residual: \(maxResidual)")
+      let HΨ = hamiltonian(Ψ)
+      var E: [Real] = []
+      var r: [[Real]] = []
+      for electronID in 0..<numElectrons {
+        let currentΨ = Ψ[electronID]
+        let currentHΨ = HΨ[electronID]
+        let currentE = dot(currentΨ, currentHΨ)
+        E.append(currentE)
+        
+        var rVector: [Real] = []
+        for cellID in 0..<numCells {
+          let value = currentHΨ[cellID] - currentE * currentΨ[cellID]
+          rVector.append(value)
+        }
+        r.append(rVector)
+      }
       
+      for electronID in 0..<numElectrons {
+        let eigenvalue = E[electronID]
+        let normres = dot(r[electronID], r[electronID])
+        
+        if iterationID == numIterations {
+          XCTAssertLessThan(
+            normres.magnitude, 5e-6,
+            "Electron \(electronID) failed to converge.")
+          
+          let expectedEigenvalues: [Real] = [
+            -2.4700130,
+             -0.23662587,
+             -0.08361732,
+             -0.04222589,
+             -0.025348555,
+             -0.0155251175,
+             -0.004280047,
+             0.010540266,
+             0.028675715,
+             0.049906835,
+          ]
+          XCTAssertEqual(
+            eigenvalue, expectedEigenvalues[electronID], accuracy: 1e-4,
+            "Electron \(electronID) had the wrong eigenvalue.")
+        }
+        
+        if OrthogonalizeTests.console {
+          var output = ""
+          output += "  state \(electronID)"
+          output += "  evalue = \(eigenvalue)"
+          output += "  res = \(normres)"
+          print(output)
+        }
+      }
+      
+      if OrthogonalizeTests.console, iterationID == numIterations {
+        for cellID in 0..<numCells {
+          for electronID in 0..<numElectrons {
+            let value = Ψ[electronID][cellID]
+            var repr = String(format: "%.4f", value)
+            if !repr.starts(with: "-") {
+              repr = " " + repr
+            }
+            print("  \(repr),", separator: "", terminator: "")
+          }
+          print()
+        }
+      }
     }
-    
-    reportState(Ψ)
-//    reportWaveFunctions(Ψ)
   }
-  #endif
 }

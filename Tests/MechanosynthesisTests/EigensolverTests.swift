@@ -692,10 +692,15 @@ final class EigensolverTests: XCTestCase {
               normres.magnitude, 1e-10,
               "Electron \(electronID) failed to converge.")
             
-            let accuracy: Real = (electronID == 4) ? 0.1 : 0.04
-            XCTAssertEqual(
-              eigenvalue, expectedE, accuracy: accuracy,
-              "Electron \(electronID) had the wrong eigenvalue.")
+            if electronID == 4 {
+              XCTAssertEqual(
+                eigenvalue, expectedE, accuracy: 0.1,
+                "Electron \(electronID) had the wrong eigenvalue.")
+            } else {
+              XCTAssertEqual(
+                eigenvalue, expectedE, accuracy: 0.04,
+                "Electron \(electronID) had the wrong eigenvalue.")
+            }
           }
           
           if EigensolverTests.console {
