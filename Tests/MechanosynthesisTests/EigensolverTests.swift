@@ -412,18 +412,172 @@ final class EigensolverTests: XCTestCase {
   //
   // Instead of complex FP64, use real FP32. In addition, test what happens when
   // Gram-Schmidt orthogonalization is replaced with "fast orthogonalization".
-  func testLaplacianMatrix() throws {
+  func testPeriodicLaplacian() throws {
     typealias Real = Float
     
-    let numPoints = 50
-    let numVectors = 6
+    let numCells = 50
+    let numElectrons = 6
+    
+    // INQ has [2, -1, 2], but the actual Laplacian operator is [1, -2, 1].
+    // Examine the properties of both operators.
+    let filter: [Real] = [-1, 2, -1]
     
     func laplacian(_ Ψ: [[Real]]) -> [[Real]] {
       var output: [[Real]] = []
       for electronID in Ψ.indices {
-        var outputVector: [[Real]] = []
+        var outputVector: [Real] = []
+        let currentΨ = Ψ[electronID]
+        for cellID in currentΨ.indices {
+          // [2, -1, 2] kernel
+          var value = filter[1] * currentΨ[cellID]
+          if cellID + 1 < numCells {
+            value -= filter[2] * currentΨ[(cellID + 1) % numCells]
+          }
+          if cellID - 1 >= 0 {
+            value -= filter[0] * currentΨ[(cellID - 1 + numCells) % numCells]
+          }
+          
+          let position = Float(cellID) + 0.5
+          let nucleusPosition = Float(numCells) / 2
+          let r = (position - nucleusPosition).magnitude
+          if r < 5 {
+            value -= 100
+          }
+          outputVector.append(value)
+        }
+        output.append(outputVector)
       }
-      fatalError()
+      return output
+    }
+    
+    func dot(_ lhs: [Real], _ rhs: [Real]) -> Real {
+      precondition(lhs.count == rhs.count)
+      var sum: Double = .zero
+      for cellID in lhs.indices {
+        sum += Double(lhs[cellID] * rhs[cellID])
+      }
+      return Real(sum)
+    }
+    
+    func normalize(_ x: [Real]) -> [Real] {
+      let norm = dot(x, x)
+      return x.map {
+        $0 / norm.squareRoot()
+      }
+    }
+    
+    var Ψ: [[Real]] = []
+    for electronID in 0..<numElectrons {
+      var outputVector: [Real] = []
+      for cellID in 0..<numCells {
+        let position = Float(cellID) + 0.5
+        let nucleusPosition = Float(numCells) / 2
+        let r = (position - nucleusPosition).magnitude
+        
+        // TODO: Start with the correct solutions to the particle in a finite
+        // potential well problem. Then, check whether the steepest descent
+        // eigensolver converges them to the correct value. Once Gram-Schmidt
+        // orthogonalization is working correctly, move on to testing the
+        // "fast orthogonalization".
+        if r < 5 {
+          let frequency = Real(electronID + 1)
+          let phase = Real.pi * frequency * Float(
+            (position - nucleusPosition)) / Float(11)
+          outputVector.append(Real.cos(phase))
+        } else {
+          var phasePart = Float(position - nucleusPosition)
+          if phasePart < -5 {
+            phasePart = -5
+          }
+          if phasePart > 5 {
+            phasePart = 5
+          }
+          
+          let frequency = Real(electronID + 1)
+          let phase = Real.pi * frequency * Float(phasePart) / Float(11)
+          let attenuation = (position - nucleusPosition - phasePart).magnitude
+          outputVector.append(
+            Real.cos(phase) * Real.exp(-attenuation / 2))
+        }
+      }
+      
+      outputVector = normalize(outputVector)
+      Ψ.append(outputVector)
+    }
+    
+    
+    func eigensolver(
+      hamiltonian: ([[Real]]) -> [[Real]],
+      Ψ: [[Real]]
+    ) -> [[Real]] {
+      let HΨ = hamiltonian(Ψ)
+      let normalized = HΨ.map(normalize(_:))
+      let priorities = HΨ.indices.map {
+        dot(Ψ[$0], HΨ[$0])
+      }
+      return OrthogonalizeTests.orthogonalize(normalized, d3r: 1)
+//      return OrthogonalizeTests.fastOrthogonalize(
+//        normalized, priorities: priorities, d3r: 1)
+    }
+    
+    for iterationID in 0...1 {
+      /*
+       solvers::steepest_descent(laplacian, identity, phi);
+       
+       auto residual = laplacian(phi);
+       auto eigenvalues = operations::overlap_diagonal(phi, residual);
+       operations::shift(eigenvalues, phi, residual, -1.0);
+       auto normres = operations::overlap_diagonal(residual);
+       
+       for(int ivec = 0; ivec < phi.set_size(); ivec++){
+         tfm::format(std::cout, " state %4d  evalue = %18.12f  res = %5.0e\n", ivec + 1, real(eigenvalues[ivec]), real(normres[ivec]));
+       }
+       */
+      
+      print("Iteration \(iterationID)")
+      
+      if iterationID > 0 {
+        Ψ = eigensolver(hamiltonian: laplacian(_:), Ψ: Ψ)
+      }
+      
+      let HΨ = laplacian(Ψ)
+      var E: [Real] = []
+      var r: [[Real]] = []
+      for electronID in 0..<numElectrons {
+        let currentΨ = Ψ[electronID]
+        let currentHΨ = HΨ[electronID]
+        let currentE = dot(currentΨ, currentHΨ)
+        E.append(currentE)
+        
+        var rVector: [Real] = []
+        for cellID in 0..<numCells {
+          let value = currentHΨ[cellID] - currentE * currentΨ[cellID]
+          rVector.append(value)
+        }
+        r.append(rVector)
+      }
+      
+      for electronID in 0..<numElectrons {
+        var output = ""
+        output += "  state \(electronID)"
+        output += "  evalue = \(E[electronID])"
+        
+        let normres = dot(r[electronID], r[electronID])
+        output += "  res = \(normres)"
+        print(output)
+      }
+      
+      for cellID in 0..<numCells {
+        for electronID in 0..<numElectrons {
+          let value = Ψ[electronID][cellID]
+          var repr = String(format: "%.4f", value)
+          if !repr.starts(with: "-") {
+            repr = " " + repr
+          }
+          print("  \(repr),", separator: "", terminator: "")
+        }
+        print()
+      }
     }
   }
 }

@@ -50,7 +50,11 @@ final class OrthogonalizeTests: XCTestCase {
     return orthogonalizedΨ
   }
   
-  static func fastOrthogonalize(_ phi: [[Real]], d3r: Real) -> [[Real]] {
+  static func fastOrthogonalize(
+    _ phi: [[Real]],
+    priorities: [Real]? = nil,
+    d3r: Real
+  ) -> [[Real]] {
     var Ψ: [[Real]] = []
     for electronID in phi.indices {
       var currentΨ = phi[electronID]
@@ -74,7 +78,12 @@ final class OrthogonalizeTests: XCTestCase {
           let dotProduct = integral(currentΨ, otherΨ, d3r: d3r)
           maxDotProduct = max(maxDotProduct, dotProduct.magnitude)
           
-          let weight: Real = 0.5
+          var weight: Real = 0.5
+          if let priorities {
+            let currentPriority = priorities[electronID].magnitude
+            let otherPriority = priorities[otherID].magnitude
+            weight = otherPriority / (currentPriority + otherPriority)
+          }
           for cellID in force.indices {
             force[cellID] -= weight * dotProduct * otherΨ[cellID]
           }
@@ -106,8 +115,8 @@ final class OrthogonalizeTests: XCTestCase {
           let otherΨ = Ψ[otherID]
           let dotProduct = integral(currentΨ, otherΨ, d3r: d3r)
           
-          let currentLength = forceLengths[electronID]
-          let otherLength = forceLengths[otherID]
+          let currentLength = forceLengths[electronID].magnitude
+          let otherLength = forceLengths[otherID].magnitude
           let maxLength = max(currentLength, otherLength)
           
           // The threshold of 0.5 seems to work for almost every random matrix.
@@ -115,6 +124,11 @@ final class OrthogonalizeTests: XCTestCase {
           // caused by an especially ill-conditioned data set, which can be
           // avoided through other means.
           var weight: Real = 0.5
+          if let priorities {
+            let currentPriority = priorities[electronID]
+            let otherPriority = priorities[otherID]
+            weight = otherPriority / (currentPriority + otherPriority)
+          }
           let threshold: Real = 0.5
           if maxLength > threshold {
             weight *= threshold / maxLength
