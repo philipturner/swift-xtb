@@ -3,6 +3,12 @@ import Mechanosynthesis
 import Numerics
 
 // Test the steepest descent algorithm from INQ.
+//
+// Eventually, we want to test out the multigrid acceleration algorithm from:
+// https://aaltodoc.aalto.fi/server/api/core/bitstreams/dce1a73a-c087-4f38-815b-61bdb458610f/content
+// This is simpler than other multigrid eigensolvers and a good first step.
+// After that, implement the rather complex multigrid solver that "converges in
+// a single SCF cycle".
 final class EigensolverTests: XCTestCase {
   static let console: Bool = false
   
