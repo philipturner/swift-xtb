@@ -20,16 +20,12 @@ final class PoissonTests: XCTestCase {
   // quadrupole depends on the origin.
   // https://phys.libretexts.org/Bookshelves/Mathematical_Physics_and_Pedagogy/Mathematical_Methods/The_Multipole_Expansion
   //
-  // Also reproducing the octupole expansion. My instinct tells me that this
-  // could be a better performance tradeoff than quadrupoles. However, the
-  // decision of where to truncate the expansion should follow a rigorous
-  // investigation.
+  // Also reproducing the octupole expansion. This has the best tradeoff
+  // between computational overhead and improvement in quality.
   // https://physics.stackexchange.com/questions/269753/electric-octupole-moment-in-cartesian-coordinates
-  
-  // Hexadecapole expansion on this page, formula 19:
+  //
+  // For reference, the hexadecapole expansion is on this page (formula 19):
   // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7017380/
-  // Will not be implementing this due to the high complexity of the source
-  // code.
   func testMultipoleExpansion() throws {
     // Create a list of point charges, compute the multipole expansion, and
     // compare to results from direct integration. Show how the accuracy
@@ -131,9 +127,9 @@ final class PoissonTests: XCTestCase {
     // Compute the octupole expansion.
     do {
       var octupoleMoment: (
-        (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>),
-        (Void, SIMD3<Float>, SIMD3<Float>),
-        (Void, Void, SIMD3<Float>))
+        (SIMD3<Float>, SIMD3<Float>, Float),
+        (Void, SIMD3<Float>, Float),
+        (Void, Void, Float))
       octupoleMoment = (
         (.zero, .zero, .zero),
         ((), .zero, .zero),
@@ -145,25 +141,25 @@ final class PoissonTests: XCTestCase {
         let r2 = (rPrime * rPrime).sum()
         
         var tensor: (
-          (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>),
-          (Void, SIMD3<Float>, SIMD3<Float>),
-          (Void, Void, SIMD3<Float>))
+          (SIMD3<Float>, SIMD3<Float>, Float),
+          (Void, SIMD3<Float>, Float),
+          (Void, Void, Float))
         tensor = (
           (15 * rPrime.x * rPrime.x * rPrime,
            15 * rPrime.x * rPrime.y * rPrime,
-           15 * rPrime.x * rPrime.z * rPrime),
+           15 * rPrime.x * rPrime.z * rPrime.z),
           ((),
            15 * rPrime.y * rPrime.y * rPrime,
-           15 * rPrime.y * rPrime.z * rPrime),
+           15 * rPrime.y * rPrime.z * rPrime.z),
           ((),
            (),
-           15 * rPrime.z * rPrime.z * rPrime)
+           15 * rPrime.z * rPrime.z * rPrime.z)
         )
         
         tensor.0.0 -= 3 * rPrime.x * r2
         tensor.0.0[0] -= 3 * rPrime.x * r2
         tensor.0.1[0] -= 3 * rPrime.x * r2
-        tensor.0.2[0] -= 3 * rPrime.x * r2
+        // tensor.0.2[0] -= 3 * rPrime.x * r2
         tensor.0.0[0] -= 3 * rPrime.x * r2
         // tensor.1.0[0] -= 3 * rPrime.x * r2
         // tensor.2.0[0] -= 3 * rPrime.x * r2
@@ -171,7 +167,7 @@ final class PoissonTests: XCTestCase {
         tensor.1.1 -= 3 * rPrime.y * r2
         // tensor.1.0[1] -= 3 * rPrime.y * r2
         tensor.1.1[1] -= 3 * rPrime.y * r2
-        tensor.1.2[1] -= 3 * rPrime.y * r2
+        // tensor.1.2[1] -= 3 * rPrime.y * r2
         tensor.0.1[1] -= 3 * rPrime.y * r2
         tensor.1.1[1] -= 3 * rPrime.y * r2
         // tensor.2.1[1] -= 3 * rPrime.y * r2
@@ -179,10 +175,10 @@ final class PoissonTests: XCTestCase {
         tensor.2.2 -= 3 * rPrime.z * r2
         // tensor.2.0[2] -= 3 * rPrime.z * r2
         // tensor.2.1[2] -= 3 * rPrime.z * r2
-        tensor.2.2[2] -= 3 * rPrime.z * r2
-        tensor.0.2[2] -= 3 * rPrime.z * r2
-        tensor.1.2[2] -= 3 * rPrime.z * r2
-        tensor.2.2[2] -= 3 * rPrime.z * r2
+        tensor.2.2 -= 3 * rPrime.z * r2
+        tensor.0.2 -= 3 * rPrime.z * r2
+        tensor.1.2 -= 3 * rPrime.z * r2
+        tensor.2.2 -= 3 * rPrime.z * r2
         
         octupoleMoment.0.0 += charge.w * tensor.0.0
         octupoleMoment.0.1 += charge.w * tensor.0.1
@@ -198,12 +194,12 @@ final class PoissonTests: XCTestCase {
       // Elimination of plane Z, row X.
       octupoleMoment.0.0[2] *= 2
       octupoleMoment.0.1[2] *= 2
-      octupoleMoment.0.2[2] *= 2
+      octupoleMoment.0.2 *= 2
       
       // Elimination of plane Z, row Y.
       octupoleMoment.0.1[2] *= 3 / 2
       octupoleMoment.1.1[2] *= 2
-      octupoleMoment.1.2[2] *= 2
+      octupoleMoment.1.2 *= 2
       
       // Elimination of plane Y, row X.
       octupoleMoment.0.0[1] *= 2
@@ -211,25 +207,27 @@ final class PoissonTests: XCTestCase {
       octupoleMoment.0.1[2] *= 4 / 3
       
       // Partial elimination of row Z in each plane.
-//      octupoleMoment.0.0[2] *= 3 / 2
-//      octupoleMoment.0.1[2] *= 5 / 4
-//      octupoleMoment.0.1[2] *= 6 / 5
-//      octupoleMoment.1.1[2] *= 3 / 2
-//      octupoleMoment.0.2 *= 3 / 2
-//      octupoleMoment.1.2 *= 3 / 2
+      octupoleMoment.0.0[2] *= 3 / 2
+      octupoleMoment.0.1[2] *= 5 / 4
+      octupoleMoment.0.1[2] *= 6 / 5
+      octupoleMoment.1.1[2] *= 3 / 2
+      octupoleMoment.0.2 *= 3 / 2
+      octupoleMoment.1.2 *= 3 / 2
+      
+      // Redundantly compute the first element of row Y for simplicity.
       
       let T0_rHat = SIMD3(
         (octupoleMoment.0.0 * rHat).sum(),
         (octupoleMoment.0.1 * rHat).sum(),
-        (octupoleMoment.0.2 * rHat).sum())
+        octupoleMoment.0.2 * rHat.z)
       let T1_rHat = SIMD3(
         0,
         (octupoleMoment.1.1 * rHat).sum(),
-        (octupoleMoment.1.2 * rHat).sum())
+        octupoleMoment.1.2 * rHat.z)
       let T2_rHat = SIMD3(
         0,
         0,
-        (octupoleMoment.2.2 * rHat).sum())
+        octupoleMoment.2.2 * rHat.z)
       let rHat_T_rHat = SIMD3(
         (rHat * T0_rHat).sum(),
         (rHat * T1_rHat).sum(),
@@ -249,8 +247,18 @@ final class PoissonTests: XCTestCase {
     }
     estimates.append(potential)
     
-    print("------------------------------------------------")
-    print(estimates)
-    print(estimates.map { ($0 - estimates.last!).magnitude })
+    // Assert that each successive expansion has better quality.
+    let actual = estimates.last!
+    XCTAssertEqual(estimates[0], actual, accuracy: 0.83)
+    XCTAssertEqual(estimates[1], actual, accuracy: 0.13)
+    XCTAssertEqual(estimates[2], actual, accuracy: 0.06)
+    XCTAssertEqual(estimates[3], actual, accuracy: 0.05)
+    XCTAssertEqual(estimates[4], actual, accuracy: 0.01)
+    
+    XCTAssertNotEqual(estimates[0], actual, accuracy: 0.82)
+    XCTAssertNotEqual(estimates[1], actual, accuracy: 0.12)
+    XCTAssertNotEqual(estimates[2], actual, accuracy: 0.05)
+    XCTAssertNotEqual(estimates[3], actual, accuracy: 0.04)
+    XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
 }
