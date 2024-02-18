@@ -8,8 +8,6 @@
 import Foundation
 import libxc
 
-fileprivate let what = XC_LDA_X
-
 func laguerrePolynomial(
   alpha: Float, n: Int
 ) -> (_ x: Float) -> Float {

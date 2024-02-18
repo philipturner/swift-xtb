@@ -19,9 +19,7 @@ final class FiniteDifferencingTests: XCTestCase {
     let h: Real = 0.05 // must divide evenly into 0.1
     
     // It looks like 4th-order FD with a large grid spacing is optimal for FP32.
-    // Mehrstellen discretization might be even better in 3D. It has higher
-    // order without the issue of rounding error worsening quality of non-
-    // nearest neighbor samples.
+    // Mehrstellen discretization might be interesting to explore as well.
     
     /*
      FP32
@@ -217,13 +215,10 @@ final class FiniteDifferencingTests: XCTestCase {
     }
   }
   
-  // Evaluate the kinetic energy of an N atom ansatz, with a uniform grid. Test
-  // 2nd-order, 4th-order, and Mehrstellen discretization. Observe how each
-  // one behaves in the limit of large and small grid spacings. Find which one
-  // enables the highest precision with FP32.
-  // - kinetic energy of 1s orbital
-  // - kinetic energy of 2s orbital
-  // - kinetic energy of 2p orbital
+  // Evaluate the kinetic energy of the N2 dimer. Test 2nd-order, 4th-order,
+  // and Mehrstellen discretization. Observe how each one behaves in the limit
+  // of large and small grid spacings. Find which one enables the highest
+  // precision with FP32.
   func testMehrstellenDiscretization() throws {
     
   }
