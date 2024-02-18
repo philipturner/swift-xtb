@@ -33,11 +33,11 @@ final class PoissonTests: XCTestCase {
   func testMultipoleExpansion() throws {
     // Create a list of point charges, compute the multipole expansion, and
     // compare to results from direct integration. Show how the accuracy
-    // improves from cutoff -> monopole -> dipole -> quadrupole -> direct.
+    // improves from cutoff -> monopole -> dipole -> quadrupole -> octupole.
     
     // Program settings.
-    let ionCharge: Int = 0
-    let samplePosition: SIMD3<Float> = [0, 0, 2]
+    let ionCharge: Int = 1
+    let samplePosition: SIMD3<Float> = [-1.5, 0, 0]
     
     // Create the list of charges.
     var pointCharges: [SIMD4<Float>] = []
@@ -103,32 +103,141 @@ final class PoissonTests: XCTestCase {
       for charge in pointCharges {
         let position = unsafeBitCast(charge, to: SIMD3<Float>.self)
         let rPrime = position - origin
-        let rPrimeNorm = (rPrime * rPrime).sum().squareRoot()
+        let r2 = (rPrime * rPrime).sum()
         
-        // Activate the trace part after debugging what you have here.
-        var tensor = (
+        var matrix: (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>)
+        matrix = (
           3 * rPrime.x * rPrime,
           3 * rPrime.y * rPrime,
           3 * rPrime.z * rPrime)
-        tensor.0[0] -= 1 * rPrimeNorm * rPrimeNorm
-        tensor.1[1] -= 1 * rPrimeNorm * rPrimeNorm
-        tensor.2[2] -= 1 * rPrimeNorm * rPrimeNorm
+        matrix.0[0] -= r2
+        matrix.1[1] -= r2
+        matrix.2[2] -= r2
         
-        quadrupoleMoment.0 += charge.w * tensor.0
-        quadrupoleMoment.1 += charge.w * tensor.1
-        quadrupoleMoment.2 += charge.w * tensor.2
+        quadrupoleMoment.0 += charge.w * matrix.0
+        quadrupoleMoment.1 += charge.w * matrix.1
+        quadrupoleMoment.2 += charge.w * matrix.2
       }
       
-      let QrHat = SIMD3(
+      let M_rHat = SIMD3(
         (quadrupoleMoment.0 * rHat).sum(),
         (quadrupoleMoment.1 * rHat).sum(),
         (quadrupoleMoment.2 * rHat).sum())
-      let tensorProduct = (rHat * QrHat).sum()
-      potential += 1 / 2 * tensorProduct / (rNorm * rNorm * rNorm)
+      let matrixProduct = 1 / 2 * (rHat * M_rHat).sum()
+      potential += matrixProduct / (rNorm * rNorm * rNorm)
     }
     estimates.append(potential)
     
-    
+    // Compute the octupole expansion.
+    do {
+      var octupoleMoment: (
+        (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>),
+        (Void, SIMD3<Float>, SIMD3<Float>),
+        (Void, Void, SIMD3<Float>))
+      octupoleMoment = (
+        (.zero, .zero, .zero),
+        ((), .zero, .zero),
+        ((), (), .zero))
+      
+      for charge in pointCharges {
+        let position = unsafeBitCast(charge, to: SIMD3<Float>.self)
+        let rPrime = position - origin
+        let r2 = (rPrime * rPrime).sum()
+        
+        var tensor: (
+          (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>),
+          (Void, SIMD3<Float>, SIMD3<Float>),
+          (Void, Void, SIMD3<Float>))
+        tensor = (
+          (15 * rPrime.x * rPrime.x * rPrime,
+           15 * rPrime.x * rPrime.y * rPrime,
+           15 * rPrime.x * rPrime.z * rPrime),
+          ((),
+           15 * rPrime.y * rPrime.y * rPrime,
+           15 * rPrime.y * rPrime.z * rPrime),
+          ((),
+           (),
+           15 * rPrime.z * rPrime.z * rPrime)
+        )
+        
+        tensor.0.0 -= 3 * rPrime.x * r2
+        tensor.0.0[0] -= 3 * rPrime.x * r2
+        tensor.0.1[0] -= 3 * rPrime.x * r2
+        tensor.0.2[0] -= 3 * rPrime.x * r2
+        tensor.0.0[0] -= 3 * rPrime.x * r2
+        // tensor.1.0[0] -= 3 * rPrime.x * r2
+        // tensor.2.0[0] -= 3 * rPrime.x * r2
+        
+        tensor.1.1 -= 3 * rPrime.y * r2
+        // tensor.1.0[1] -= 3 * rPrime.y * r2
+        tensor.1.1[1] -= 3 * rPrime.y * r2
+        tensor.1.2[1] -= 3 * rPrime.y * r2
+        tensor.0.1[1] -= 3 * rPrime.y * r2
+        tensor.1.1[1] -= 3 * rPrime.y * r2
+        // tensor.2.1[1] -= 3 * rPrime.y * r2
+        
+        tensor.2.2 -= 3 * rPrime.z * r2
+        // tensor.2.0[2] -= 3 * rPrime.z * r2
+        // tensor.2.1[2] -= 3 * rPrime.z * r2
+        tensor.2.2[2] -= 3 * rPrime.z * r2
+        tensor.0.2[2] -= 3 * rPrime.z * r2
+        tensor.1.2[2] -= 3 * rPrime.z * r2
+        tensor.2.2[2] -= 3 * rPrime.z * r2
+        
+        octupoleMoment.0.0 += charge.w * tensor.0.0
+        octupoleMoment.0.1 += charge.w * tensor.0.1
+        octupoleMoment.0.2 += charge.w * tensor.0.2
+        // octupoleMoment.1.0 += charge.w * tensor.1.0
+        octupoleMoment.1.1 += charge.w * tensor.1.1
+        octupoleMoment.1.2 += charge.w * tensor.1.2
+        // octupoleMoment.2.0 += charge.w * tensor.2.0
+        // octupoleMoment.2.1 += charge.w * tensor.2.1
+        octupoleMoment.2.2 += charge.w * tensor.2.2
+      }
+      
+      // Elimination of plane Z, row X.
+      octupoleMoment.0.0[2] *= 2
+      octupoleMoment.0.1[2] *= 2
+      octupoleMoment.0.2[2] *= 2
+      
+      // Elimination of plane Z, row Y.
+      octupoleMoment.0.1[2] *= 3 / 2
+      octupoleMoment.1.1[2] *= 2
+      octupoleMoment.1.2[2] *= 2
+      
+      // Elimination of plane Y, row X.
+      octupoleMoment.0.0[1] *= 2
+      octupoleMoment.0.1[1] *= 2
+      octupoleMoment.0.1[2] *= 4 / 3
+      
+      // Partial elimination of row Z in each plane.
+//      octupoleMoment.0.0[2] *= 3 / 2
+//      octupoleMoment.0.1[2] *= 5 / 4
+//      octupoleMoment.0.1[2] *= 6 / 5
+//      octupoleMoment.1.1[2] *= 3 / 2
+//      octupoleMoment.0.2 *= 3 / 2
+//      octupoleMoment.1.2 *= 3 / 2
+      
+      let T0_rHat = SIMD3(
+        (octupoleMoment.0.0 * rHat).sum(),
+        (octupoleMoment.0.1 * rHat).sum(),
+        (octupoleMoment.0.2 * rHat).sum())
+      let T1_rHat = SIMD3(
+        0,
+        (octupoleMoment.1.1 * rHat).sum(),
+        (octupoleMoment.1.2 * rHat).sum())
+      let T2_rHat = SIMD3(
+        0,
+        0,
+        (octupoleMoment.2.2 * rHat).sum())
+      let rHat_T_rHat = SIMD3(
+        (rHat * T0_rHat).sum(),
+        (rHat * T1_rHat).sum(),
+        (rHat * T2_rHat).sum())
+      let tensorProduct = 1 / 6 * (rHat * rHat_T_rHat).sum()
+      potential += tensorProduct / (rNorm * rNorm * rNorm * rNorm)
+    }
+    estimates.append(potential)
     
     // Evaluate the potential directly.
     potential = .zero
@@ -140,6 +249,7 @@ final class PoissonTests: XCTestCase {
     }
     estimates.append(potential)
     
+    print("------------------------------------------------")
     print(estimates)
     print(estimates.map { ($0 - estimates.last!).magnitude })
   }
