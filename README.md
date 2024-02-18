@@ -1,8 +1,10 @@
 # Mechanosynthesis
 
+> This library is a work in progress.
+
 Quantum mechanics simulator for molecular nanotechnology.
 
-Overview:
+Goals:
 - Designed for GPU acceleration with OpenCL
 - Real-space formalism
   - Removes FFTs, a bottleneck and library dependency.
@@ -20,7 +22,7 @@ Overview:
   - Generate numerical pseudopotentials at runtime, let the user recycle them for similar computations.
 - [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - More accurate than the B3LYP functional used for mechanosynthesis research.
-  - Provide DM21, DM21mu, and a few functionals from LibXC.
+  - Provide DM21, DM21mu, and a few functionals from libxc.
   - Allow the dispersion component of correlation to be disabled, especially if the dylib can't be located.
 
 Dependencies:
