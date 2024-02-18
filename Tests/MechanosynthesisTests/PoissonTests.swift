@@ -261,4 +261,16 @@ final class PoissonTests: XCTestCase {
     XCTAssertNotEqual(estimates[3], actual, accuracy: 0.04)
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
+  
+  // Implementation path for multigrid solver test:
+  // - Learn to use asymmetric finite differencing for large grids with
+  //   coarser resolution in the periphery.
+  // - Run SCF calculation on N2 with direct evaluation of Hartree term.
+  // - Check agreement with bond energies and forces from INQ.
+  // - Use this data to create a good test case for multigrids.
+  //
+  // Insight: for a large portion of the development period, you can suffice
+  // with the simplest algorithms - direct Hartree term, SD eigensolver. More
+  // complex multigrid solvers are only needed once O(n^2) scaling makes the
+  // calculation intracable.
 }
