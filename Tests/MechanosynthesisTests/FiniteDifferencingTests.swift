@@ -206,13 +206,25 @@ final class FiniteDifferencingTests: XCTestCase {
       
       estimates.append(d2Ψ_dx2(x: pointX))
       
-      print(estimates.map { Float($0 - d2Ψ_dx2(x: pointX)).magnitude })
+      let errors = estimates.map { Float($0 - d2Ψ_dx2(x: pointX)).magnitude }
+      
+      XCTAssertLessThan(errors[0], 1)
+      XCTAssertLessThan(errors[1], 0.002)
+      XCTAssertLessThan(errors[2], 3e-5)
+      XCTAssertLessThan(errors[3], 4e-5)
+      XCTAssertLessThan(errors[4], 4e-5)
+      XCTAssertEqual(errors[5], 0)
     }
   }
   
-  // Test asymmetric 2nd-order FD with a 1D variable-resolution grid. Use only
-  // two resolution levels to make the code simpler.
-  
   // Evaluate the kinetic energy of an N atom ansatz, with a uniform grid. Test
-  // 2nd-order, 4th-order, and Mehrstellen discretization.
+  // 2nd-order, 4th-order, and Mehrstellen discretization. Observe how each
+  // one behaves in the limit of large and small grid spacings. Find which one
+  // enables the highest precision with FP32.
+  // - kinetic energy of 1s orbital
+  // - kinetic energy of 2s orbital
+  // - kinetic energy of 2p orbital
+  func testMehrstellenDiscretization() throws {
+    
+  }
 }

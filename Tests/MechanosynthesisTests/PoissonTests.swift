@@ -263,8 +263,7 @@ final class PoissonTests: XCTestCase {
   }
   
   // Implementation path for multigrid solver test:
-  // - Learn to use asymmetric finite differencing for large grids with
-  //   coarser resolution in the periphery.
+  // - Establish data structures for variable-resolution grids.
   // - Run SCF calculation on N2 with direct evaluation of Hartree term.
   // - Check agreement with bond energies and forces from INQ.
   // - Use this data to create a good test case for multigrids.
