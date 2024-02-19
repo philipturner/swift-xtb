@@ -119,10 +119,78 @@ struct Octree {
   
   // Efficient function to remove children from several nodes at once.
   mutating func removeChildren(to nodes: [UInt32]) {
-    // Assert that each specified node exists, and its child count is 8.
+    var removalMarks = [Bool](repeating: false, count: linkedList.count)
     
-    // Assert that none of the children have sub-children.
+    // Assert that each specified node exists, and its child count is 8.
+    for nodeID in nodes {
+      guard nodeID < linkedList.count else {
+        fatalError("Element does not exist.")
+      }
+      let element = linkedList[Int(nodeID)]
+      guard element.childCount == 0 else {
+        fatalError("Removed children from vacant cell.")
+      }
+      linkedList[Int(nodeID)].childCount = 0
+      
+      // Assert that none of the children have sub-children.
+      for childID in 0..<8 {
+        let childNodeID = Int(nodeID) + 1 + childID
+        let childElement = linkedList[childNodeID]
+        guard childElement.childCount == 0 else {
+          fatalError("Removed an occupied child cell.")
+        }
+        removalMarks[childNodeID] = true
+      }
+    }
+    
+    // Create a list of the previous elements that reference the current one.
+    var pointingNodeMap = [UInt32?](repeating: nil, count: linkedList.count)
+    for currentNodeID in linkedList.indices {
+      let element = linkedList[currentNodeID]
+      if let nextElement = element.nextElement {
+        guard pointingNodeMap[Int(nextElement)] == nil else {
+          fatalError("This should never happen.")
+        }
+        pointingNodeMap[Int(nextElement)] = UInt32(currentNodeID)
+      }
+    }
+    
+    // Modify the existing linked list so 'nextElement' already points to
+    // where it should in the new list.
+    var nextElementOffset: Int = .zero
+    for currentNodeID in linkedList.indices {
+      let mark = removalMarks[currentNodeID]
+      let pointingNodeID = pointingNodeMap[currentNodeID]
+      
+      if mark == true {
+        nextElementOffset -= 1
+      } else if let pointingNodeID {
+        let pointingElement = linkedList[Int(pointingNodeID)]
+        guard let nextElement = pointingElement.nextElement else {
+          fatalError("This should never happen.")
+        }
+        
+        let newValue = nextElement + UInt32(nextElementOffset)
+        linkedList[Int(pointingNodeID)].nextElement = newValue
+      }
+    }
     
     // Remove the array elements for child cells' data.
+    var newLinkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
+    var newCellValues: [SIMD8<Float>] = []
+    for currentNodeID in linkedList.indices {
+      let mark = removalMarks[currentNodeID]
+      guard mark == false else {
+        continue
+      }
+      let element = linkedList[currentNodeID]
+      let value = cellValues[currentNodeID]
+      newLinkedList.append(element)
+      newCellValues.append(value)
+    }
+    
+    // Replace the current arrays with the expanded ones.
+    cellValues = newCellValues
+    linkedList = newLinkedList
   }
 }
