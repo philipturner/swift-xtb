@@ -5,9 +5,6 @@
 //  Created by Philip Turner on 2/13/24.
 //
 
-import Foundation
-import libxc
-
 func laguerrePolynomial(
   alpha: Float, n: Int
 ) -> (_ x: Float) -> Float {

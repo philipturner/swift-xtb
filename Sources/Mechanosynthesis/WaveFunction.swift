@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 2/13/24.
 //
 
-import Foundation
-
 struct WaveFunctionDescriptor {
   // The functional form of the initial guess.
   var atomicOrbital: AtomicOrbital?

@@ -5,7 +5,7 @@
 //  Created by Philip Turner on 2/12/24.
 //
 
-import Foundation
+import Numerics
 
 struct AtomicOrbitalDescriptor {
   // Effective nuclear charge.
@@ -48,7 +48,7 @@ struct AtomicOrbital {
         output *= shellRadiusPart
       }
       
-      output *= exp(-shellRadiusPart / 2)
+      output *= Float.exp(-shellRadiusPart / 2)
       output *= L(shellRadiusPart)
       return output
     }
