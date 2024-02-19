@@ -9,6 +9,10 @@ struct WaveFunctionDescriptor {
   // The functional form of the initial guess.
   var atomicOrbital: AtomicOrbital?
   
+  // The radius of the highest octree level, in powers of 2. The octree is
+  // centered at the origin.
+  var highestLevelSize: Int?
+  
   // The nuclear position for the initial guess.
   var position: SIMD3<Float>?
   
@@ -20,25 +24,39 @@ struct WaveFunctionDescriptor {
 }
 
 struct WaveFunction {
-  // The radius of the highest octree level, in powers of 2. The octree is
-  // centered at the origin.
-  var highestLevelSize: Int
+  var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
-    // Generate an octree and the appropriate bounds from the atomic orbital.
-    // The bounds may change throughout the self-consistent cycle.
-    fatalError("Not implemented.")
+    self.octree = Octree()
     
     // TODO: Start determining how 'Octree' will be used, by filling one in
     // with the initial guess to an orbital. The very first node is centered
     // at the origin. Create a recursive procedure that keeps adding nodes. It
-    // terminates once each node has the same value for an importance metric.
+    // terminates once the constraints for importance metrics are satisfied.
     //
-    // Use (sum (Ψ^2) - (sum Ψ)^2) * volume as the metric.
-    // - Study how the first term changes as volume changes.
-    //
-    // The proportion of total importance contributed by a cell must never
-    // exceed a specific fraction. You'll have to repeatedly normalize. If a
-    // cell falls below 1/8 of the threshold, you'll have to un-split it.
+    // For the first sketch, make the importance metric be un-normalized
+    // density for simplicity. After you've got all the code figured out, go
+    // back and replace with normalized density + gradient^2.
+    
+    for childID in 0..<8 {
+      let xIndex = UInt32(childID) % 2
+      let yIndex = UInt32(childID >> 1) % 2
+      let zIndex = UInt32(childID >> 2) % 2
+      let radius = Float.exp2(Float(descriptor.highestLevelSize!))
+      let lowerCorner = SIMD3<Float>(repeating: -radius)
+      
+      var position = lowerCorner / 2
+      var delta: SIMD3<Float> = .zero
+      let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
+      delta.replace(with: .one, where: indices .> 0)
+      position += delta * radius
+      
+      let nucleusDelta = position - descriptor.position!
+      let waveFunction = descriptor.atomicOrbital!
+        .waveFunction(position: nucleusDelta)
+      octree.cellValues[0][childID] = waveFunction
+    }
+    
+    
   }
 }
