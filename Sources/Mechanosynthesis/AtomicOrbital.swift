@@ -9,16 +9,16 @@ import Numerics
 
 struct AtomicOrbitalDescriptor {
   // Effective nuclear charge.
-  var Z: Float
+  var Z: Float?
   
   // Primary quantum number.
-  var n: Int
+  var n: Int?
   
   // Angular momentum quantum number.
-  var l: Int
+  var l: Int?
   
   // Magnetic quantum number.
-  var m: Int
+  var m: Int?
 }
 
 struct AtomicOrbital {
@@ -27,10 +27,12 @@ struct AtomicOrbital {
   var angularPart: (Float, Float, Float, Float) -> Float
   
   init(descriptor: AtomicOrbitalDescriptor) {
-    let Z = descriptor.Z
-    let n = descriptor.n
-    let l = descriptor.l
-    let m = descriptor.m
+    guard let Z = descriptor.Z,
+          let n = descriptor.n,
+          let l = descriptor.l,
+          let m = descriptor.m else {
+      fatalError("Atomic orbital descriptor was invalid.")
+    }
     
     // Correction to achieve the same scaling behavior as actual atomic
     // orbitals: remove the division by 'n' from the shell part.
@@ -119,7 +121,9 @@ func createShellOccupations(Z: Int) -> [Int] {
 }
 
 // Returns the effective charge for each electron shell.
-func createEffectiveCharges(Z: Int, occupations: [Int]) -> [Float] {
+// Gives ions the same effective charge as neutral atoms.
+func createEffectiveCharges(Z: Int) -> [Float] {
+  let occupations = createShellOccupations(Z: Z)
   var coreCharge = Z
   var effectiveCharges: [Float] = []
   for occupation in occupations {

@@ -13,17 +13,14 @@ struct WaveFunctionDescriptor {
   // The functional form of the initial guess.
   var atomicOrbital: AtomicOrbital?
   
+  // The minimum number of fragments to split each electron into.
+  var minimumFragmentCount: Int?
+  
   // The nuclear position for the initial guess.
   var nucleusPosition: SIMD3<Float>?
   
-  // The minimum number of fragments to split the wavefunction into.
-  //
-  // The heuristic for determining the importance of a specific 3D location is
-  // not specified. It may depend on charge density or wavefunction gradient.
-  var minimumFragmentCount: Float?
-  
-  // The data to initialize the octree descriptor with.
-  var worldBounds: SIMD4<Float>?
+  // An octree initialized with the world bounds.
+  var octree: Octree?
 }
 
 struct WaveFunction {
@@ -35,10 +32,7 @@ struct WaveFunction {
   var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
-    var octreeDesc = OctreeDescriptor()
-    octreeDesc.origin = unsafeBitCast(descriptor.worldBounds!, to: SIMD3.self)
-    octreeDesc.size = descriptor.worldBounds!.w
-    self.octree = Octree(descriptor: octreeDesc)
+    self.octree = descriptor.octree!
     
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
       let origin = unsafeBitCast(metadata, to: SIMD3<Float>.self)
@@ -127,7 +121,7 @@ struct WaveFunction {
             let gradientPart = gradientNorm * volume / integralGradientNorm
             let importanceMetric = densityPart * 0.5 + gradientPart * 0.5
             
-            let maximumProbability = 1 / descriptor.minimumFragmentCount!
+            let maximumProbability = 1 / Float(descriptor.minimumFragmentCount!)
             if importanceMetric > maximumProbability {
               output.append(UInt32(nodeID))
             }
@@ -152,8 +146,5 @@ struct WaveFunction {
     guard converged else {
       fatalError("Wave function failed to converge after 100 iterations.")
     }
-    
-    // After finishing this, what are the next steps in constructing the
-    // Hamiltonian?
   }
 }
