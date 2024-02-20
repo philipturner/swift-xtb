@@ -5,33 +5,35 @@
 //  Created by Philip Turner on 2/18/24.
 //
 
-// An octree data structure optimized for traversal on highly parallel computer
-// architectures (CPU and GPU).
-//
-// Stores a set of fragments. Each fragment internally stores a 2x2x2 group
-// of sub-fragments contiguously. One can compute the first erivative at the
-// center of the cell for XC functionals.
+// An octree data structure designed for efficient traversal.
+
+struct OctreeDescriptor {
+  var origin: SIMD3<Float>?
+  var size: Float?
+}
 
 struct Octree {
-  // Stores the child cells' data. Even if there aren't child nodes, there are
-  // always child grid cells.
-  var cellValues: [SIMD8<Float>] = []
-  
-  // If this element terminates the current 2x2x2 cell, the next element
-  // is 'nil'. Otherwise, it points to the location right after the children
-  // and sub-children.
-  //
-  // Each element is followed by 8 elements specifying its children. The number
-  // of children must be either 0 or 8.
+  // - nextElement: If this element terminates the current 2x2x2 cell, the next
+  //                element is 'nil'. Otherwise, it points to the location right
+  //                after the children and sub-children.
+  // - childCount: Each element is followed by 8 elements specifying its
+  //               children. The number of children must be either 0 or 8.
   var linkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
   
-  init() {
-    cellValues = [SIMD8.zero]
+  // Position (first three lanes) and grid spacing (fourth lane) of each cell.
+  var metadata: [SIMD4<Float>] = []
+  
+  init(descriptor: OctreeDescriptor) {
+    guard let origin = descriptor.origin,
+          let size = descriptor.size else {
+      fatalError("Descriptor was not complete.")
+    }
+    metadata = [SIMD4(origin, size)]
     linkedList = [(nextElement: nil, childCount: 0)]
   }
   
   // Efficient function to add children to several nodes at once.
-  mutating func appendChildren(to nodes: [UInt32]) {
+  mutating func insertChildren(at nodes: [UInt32]) {
     var insertionMarks = [Bool](repeating: false, count: linkedList.count)
     
     // Assert that each specified node exists, and its child count is zero.
@@ -41,8 +43,7 @@ struct Octree {
       }
       let element = linkedList[Int(nodeID)]
       guard element.childCount == 0 else {
-        // Converse: Removed children from vacant cell.
-        fatalError("Inserted children into occupied cell.")
+        fatalError("Attempted to insert children that already exist.")
       }
       insertionMarks[Int(nodeID)] = true
     }
@@ -82,7 +83,7 @@ struct Octree {
     
     // Create a new array by scanning the current one serially.
     var newLinkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
-    var newCellValues: [SIMD8<Float>] = []
+    var newMetadata: [SIMD4<Float>] = []
     for currentNodeID in linkedList.indices {
       var element = linkedList[currentNodeID]
       let mark = insertionMarks[currentNodeID]
@@ -100,25 +101,34 @@ struct Octree {
         }
       }
       
-      // Initialize the child cells' data to SIMD8<Float>.zero. Do not modify
-      // the data currently belonging to the expanded cell.
-      let value = cellValues[Int(currentNodeID)]
-      newCellValues.append(value)
+      let parentMetadata = metadata[Int(currentNodeID)]
+      newMetadata.append(parentMetadata)
       if mark == true {
-        for _ in 0..<8 {
-          let value: SIMD8<Float> = .zero
-          newCellValues.append(value)
+        for childID in 0..<8 {
+          let xIndex = UInt32(childID) % 2
+          let yIndex = UInt32(childID >> 1) % 2
+          let zIndex = UInt32(childID >> 2) % 2
+          var delta: SIMD3<Float> = .init(repeating: -0.25)
+          let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
+          delta.replace(with: 0.25, where: indices .> 0)
+          
+          let parentPosition = unsafeBitCast(
+            parentMetadata, to: SIMD3<Float>.self)
+          let parentSpacing = parentMetadata.w
+          let childPosition = parentPosition + delta * parentSpacing
+          let childSpacing = parentSpacing / 2
+          newMetadata.append(SIMD4(childPosition, childSpacing))
         }
       }
     }
     
     // Replace the current arrays with the expanded ones.
-    cellValues = newCellValues
     linkedList = newLinkedList
+    metadata = newMetadata
   }
   
   // Efficient function to remove children from several nodes at once.
-  mutating func removeChildren(to nodes: [UInt32]) {
+  mutating func removeChildren(from nodes: [UInt32]) {
     var removalMarks = [Bool](repeating: false, count: linkedList.count)
     
     // Assert that each specified node exists, and its child count is 8.
@@ -128,7 +138,7 @@ struct Octree {
       }
       let element = linkedList[Int(nodeID)]
       guard element.childCount == 0 else {
-        fatalError("Removed children from vacant cell.")
+        fatalError("Child cells cannot be removed directly.")
       }
       linkedList[Int(nodeID)].childCount = 0
       
@@ -175,22 +185,20 @@ struct Octree {
       }
     }
     
-    // Remove the array elements for child cells' data.
+    // Remove the array elements for child cells.
     var newLinkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
-    var newCellValues: [SIMD8<Float>] = []
+    var newMetadata: [SIMD4<Float>] = []
     for currentNodeID in linkedList.indices {
       let mark = removalMarks[currentNodeID]
       guard mark == false else {
         continue
       }
-      let element = linkedList[currentNodeID]
-      let value = cellValues[currentNodeID]
-      newLinkedList.append(element)
-      newCellValues.append(value)
+      newLinkedList.append(linkedList[currentNodeID])
+      newMetadata.append(metadata[currentNodeID])
     }
     
     // Replace the current arrays with the expanded ones.
-    cellValues = newCellValues
     linkedList = newLinkedList
+    metadata = newMetadata
   }
 }
