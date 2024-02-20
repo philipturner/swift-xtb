@@ -40,11 +40,6 @@ struct WaveFunction {
     octreeDesc.size = descriptor.worldBounds!.w
     self.octree = Octree(descriptor: octreeDesc)
     
-    // TODO: Start determining how 'Octree' will be used, by filling one in
-    // with the initial guess to an orbital. The very first node is centered
-    // at the origin. Create a recursive procedure that keeps adding nodes. It
-    // terminates once the constraints for importance metrics are satisfied.
-    
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
       let origin = unsafeBitCast(metadata, to: SIMD3<Float>.self)
       let size = metadata.w
@@ -85,26 +80,80 @@ struct WaveFunction {
       }
     }
     
-    func markCellsThatNeedExpansion() {
-      /*
-      for nodeID in octree.linkedList.indices {
-        let cellValue = octree.cellValues[nodeID]
-        let density = (cellValue * cellValue).sum() / 8
-        let radius = Float.exp2(Float(currentHierarchyLevel))
-        let probability = density * radius * radius * radius
-        let maximumProbability = 1 / descriptor.minimumFragmentCount!
+    // There isn't a major need to contract too-small cells during
+    // initialization. The gradual increase in normalization factor only
+    // slightly lowers the importance value.
+    func findCellsThatNeedExpansion() -> [UInt32] {
+      // This might eventually be brought out into a global function.
+      func createGradient(
+        metadata: SIMD4<Float>, values: SIMD8<Float>
+      ) -> SIMD3<Float> {
+        let lowX = values.evenHalf
+        let highX = values.oddHalf
+        let lowZ = values.lowHalf
+        let highZ = values.highHalf
         
-        if probability > maximumProbability {
-          octree.cellValues[nodeID] = .init(repeating: .nan)
-          octree.appendChildren(to: [UInt32(nodeID)])
-          // The children don't have cell values now.
+        let casted = unsafeBitCast(values, to: SIMD4<UInt64>.self)
+        let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
+        let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
+        
+        let deltaX = (highX - lowX).sum() / 4
+        let deltaY = (highY - lowY).sum() / 4
+        let deltaZ = (highZ - lowZ).sum() / 4
+        let h = metadata.w
+        return SIMD3(deltaX, deltaY, deltaZ) / h
+      }
+      
+      var integralDensity: Float = .zero
+      var integralGradientNorm: Float = .zero
+      var output: [UInt32] = []
+      
+      // First pass: calculate normalization factors.
+      // Second pass: operate on normalized importance metrics.
+      for passID in 0..<2 {
+        for nodeID in octree.linkedList.indices {
+          let metadata = octree.metadata[nodeID]
+          let values = cellValues[nodeID]
+          let density = (values * values).sum() / 8
+          let gradient = createGradient(metadata: metadata, values: values)
+          let gradientNorm = (gradient * gradient).sum()
+          let volume = metadata.w * metadata.w * metadata.w
+          
+          if passID == 0 {
+            integralDensity += density * volume
+            integralGradientNorm += gradientNorm * volume
+          } else {
+            let densityPart = density * volume / integralDensity
+            let gradientPart = gradientNorm * volume / integralGradientNorm
+            let importanceMetric = densityPart * 0.5 + gradientPart * 0.5
+            
+            let maximumProbability = 1 / descriptor.minimumFragmentCount!
+            if importanceMetric > maximumProbability {
+              output.append(UInt32(nodeID))
+            }
+          }
         }
       }
-       */
+      
+      return output
     }
     
-    func markCellsThatNeedContraction() {
-      
+    fillOctree()
+    var converged = false
+    for _ in 0..<100 {
+      let cellsToExpand = findCellsThatNeedExpansion()
+      if cellsToExpand.isEmpty {
+        converged = true
+        break
+      }
+      octree.insertChildren(at: cellsToExpand)
+      fillOctree()
     }
+    guard converged else {
+      fatalError("Wave function failed to converge after 100 iterations.")
+    }
+    
+    // After finishing this, what are the next steps in constructing the
+    // Hamiltonian?
   }
 }
