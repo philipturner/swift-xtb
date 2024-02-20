@@ -32,8 +32,6 @@ Dependencies:
   - Weights embedded into source tree.
 - libxc
   - Linked at compile-time for now.
-- Metal (only on Apple platforms)
-  - MFA binary embedded into source tree, potentially with fused activations.
 - OpenCL
   - SIMD-scoped shuffles through either Khronos extensions or assembly injection.
 

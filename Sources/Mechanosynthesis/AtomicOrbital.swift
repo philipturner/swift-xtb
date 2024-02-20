@@ -121,7 +121,9 @@ func createShellOccupations(Z: Int) -> [Int] {
 }
 
 // Returns the effective charge for each electron shell.
-// Gives ions the same effective charge as neutral atoms.
+//
+// Gives ions the same effective charge as neutral, minimally spin-polarized
+// atoms.
 func createEffectiveCharges(Z: Int) -> [Float] {
   let occupations = createShellOccupations(Z: Z)
   var coreCharge = Z

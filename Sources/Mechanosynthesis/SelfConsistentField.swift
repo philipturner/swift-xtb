@@ -11,7 +11,7 @@ public struct SelfConsistentFieldDescriptor {
   public var atomicNumbers: [UInt8]?
   
   /// Required. The net charge on each atom during initialization.
-  public var charges: [Float]?
+  public var charges: [Int]?
   
   /// Required. The minimum number of fragments to split each electron into.
   public var minimumFragmentCount: Int?
@@ -19,37 +19,37 @@ public struct SelfConsistentFieldDescriptor {
   /// Required. The position (in nanometers) of each atom's nucleus.
   public var positions: [SIMD3<Float>]?
   
-  // We might be able to support specification of bonds. This would work around
-  // the issue where odd-numbered atoms necessitate use of UHF. Unsure how such
-  // an API would work though. Alternatively, run UHF and switch to RHF once
-  // the initial guess has converged. That doesn't seem workable either, though.
-  //
-  // Solution: the user must specify every other odd-numbered atom as having +
-  // or - charge. We should figure out how to document this "best practice" for
-  // usage.
-  
-  /// Required. The net spin on each atom during initialization.
+  /// Required. Twice the net spin on each atom during initialization.
   ///
-  /// This value must be divisible by 1/2. If an atom contains an odd number of
+  /// This is the number of spin-up electrons minus the number of
+  /// spin-down electrons. If an atom contains an odd number of
   /// electrons, the value must be nonzero.
-  public var spins: [Float]?
+  public var spinMultiplicities: [Int]?
 }
 
 public struct SelfConsistentField {
-  // Treat the electrons with UHF for now.
+  // Treat the electrons with ROHF. Orthogonalize all of the wavefunctions
+  // against each other, except omit the "orthogonalization force" between
+  // spin-down and spin-up electrons. Whenever spin-polarized wavefunctions act
+  // on spin-neutral ones, halve the "orthogonalization force".
+  //
+  // Do something similar when iteratively diagonalizing the subspace. Repeat a
+  // loop of matrix multiplications and screened orthogonalizations.
   var spinDownWaveFunctions: [WaveFunction] = []
+  var spinNeutralWaveFunctions: [WaveFunction] = []
   var spinUpWaveFunctions: [WaveFunction] = []
   
   public init(descriptor: SelfConsistentFieldDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers,
           let charges = descriptor.charges,
+          let minimumFragmentCount = descriptor.minimumFragmentCount,
           let positions = descriptor.positions,
-          let spins = descriptor.spins else {
+          let spinMultiplicities = descriptor.spinMultiplicities else {
       fatalError("Descriptor was invalid.")
     }
     guard atomicNumbers.count == charges.count,
           atomicNumbers.count == positions.count,
-          atomicNumbers.count == spins.count else {
+          atomicNumbers.count == spinMultiplicities.count else {
       fatalError("Descriptor was invalid.")
     }
     
@@ -84,13 +84,11 @@ public struct SelfConsistentField {
     octreeDesc.size = size
     let octree = Octree(descriptor: octreeDesc)
     
+    #if false
     for atomID in atomicNumbers.indices {
       let charge = charges[atomID]
-      guard charge == charge.rounded(.down) else {
-        fatalError("Charge must be an integer.")
-      }
       let Z = Int(atomicNumbers[atomID])
-      let occupationZ = Z - Int(charge)
+      let occupationZ = Z - charge
       guard occupationZ >= 0 else {
         fatalError("Nucleus had invalid charge.")
       }
@@ -103,13 +101,67 @@ public struct SelfConsistentField {
       }
       
       // Iterate over the possible quantum numbers for each shell.
-      for shellID in occupations.indices {
-        let effectiveCharge = effectiveCharges[shellID]
-        let occupation = occupations[shellID]
+      for n in occupations.indices {
+        let effectiveCharge = effectiveCharges[n]
+        var occupation = occupations[n]
+        var l = 0
+        while l < n && occupation > 0 {
+          var m = -l
+          while m <= l && occupation > 0 {
+            var orbitalDesc = AtomicOrbitalDescriptor()
+            orbitalDesc.Z = effectiveCharge
+            orbitalDesc.n = n
+            orbitalDesc.l = l
+            orbitalDesc.m = m
+            let atomicOrbital = AtomicOrbital(descriptor: orbitalDesc)
+            
+            var waveFunctionDesc = WaveFunctionDescriptor()
+            waveFunctionDesc.atomicOrbital = atomicOrbital
+            waveFunctionDesc.minimumFragmentCount = minimumFragmentCount
+            waveFunctionDesc.nucleusPosition = positions[atomID]
+            waveFunctionDesc.octree = octree
+            let waveFunction = WaveFunction(descriptor: waveFunctionDesc)
+            
+            if occupation > 0 {
+              spinDownWaveFunctions.append(waveFunction)
+              occupation -= 1
+            }
+            if occupation > 0 {
+              spinUpWaveFunctions.append(waveFunction)
+              occupation -= 1
+            }
+            
+            m += 1
+          }
+          l += 1
+        }
+        if occupation != 0 {
+          fatalError("Electron shell had unexpected occupation.")
+        }
       }
     }
     
-    // Test all of this code once you initialize the orbitals. Then, proceed
-    // with the remainder of the Hamiltonian construction.
+    // Check that the system's charge and spin match the sum of the atomic
+    // values.
+    var netCharge: Int = 0
+    var netSpinMultiplicity: Float = 0
+    for _ in spinDownWaveFunctions.indices {
+      netCharge -= 1
+      netSpin -= 1 / 2
+    }
+    for _ in spinUpWaveFunctions.indices {
+      netCharge += 1
+      netSpin += 1 / 2
+    }
+    for charge in charges {
+      netCharge += charge
+      ne
+    }
+    
+    // Test all of this code once you initialize the orbitals. Then:
+    // - Modify createShellOccupations to operate on one spin channel.
+    // - Make nonzero spins valid, test on N and Cr atoms.
+    // - Proceed with the remainder of the Hamiltonian construction.
+    #endif
   }
 }
