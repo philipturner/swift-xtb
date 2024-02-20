@@ -122,11 +122,8 @@ func createShellOccupations(electronCount: Int) -> [Int] {
 
 // Returns the effective charge for each electron shell.
 func createEffectiveCharges(
-  Z: UInt8, electronCountDown: Int, electronCountUp: Int
+  Z: UInt8, spinDownOccupations: [Int], spinUpOccupations: [Int]
 ) -> [Float] {
-  let occupationsDown = createShellOccupations(electronCount: electronCountDown)
-  let occupationsUp = createShellOccupations(electronCount: electronCountUp)
-  
   // Break up the effective charge into different components:
   // - not shielded (Z)
   // - partially shielded (sqrt(Z))
@@ -134,12 +131,12 @@ func createEffectiveCharges(
   var notShieldedCharge = Z
   var effectiveCharges: [Float] = []
   for shellID in 0..<8 {
-    let occupationDown = occupationsDown[shellID]
-    let occupationUp = occupationsUp[shellID]
-    let occupation = occupationDown + occupationUp
+    let spinDownOccupation = spinDownOccupations[shellID]
+    let spinUpOccupation = spinUpOccupations[shellID]
+    let occupation = spinDownOccupation + spinUpOccupation
     
     if occupation > notShieldedCharge {
-      // Cap the effective charge at a minimum of +1.
+      // Clamp the effective charge to at least +1.
       effectiveCharges.append(1)
     } else {
       notShieldedCharge -= UInt8(occupation)

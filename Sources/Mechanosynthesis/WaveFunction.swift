@@ -14,7 +14,7 @@ struct WaveFunctionDescriptor {
   var atomicOrbital: AtomicOrbital?
   
   // The minimum number of fragments to split each electron into.
-  var minimumFragmentCount: Int?
+  var fragmentCount: Int?
   
   // The nuclear position for the initial guess.
   var nucleusPosition: SIMD3<Float>?
@@ -77,7 +77,7 @@ public struct WaveFunction {
     // There isn't a major need to contract too-small cells during
     // initialization. The gradual increase in normalization factor only
     // slightly lowers the importance value.
-    func findCellsThatNeedExpansion() -> [UInt32] {
+    func findCellsThatNeedExpansion(probabilityMultiplier: Float) -> [UInt32] {
       // This might eventually be brought out into a global function.
       func createGradient(
         metadata: SIMD4<Float>, values: SIMD8<Float>
@@ -104,7 +104,7 @@ public struct WaveFunction {
       
       // First pass: calculate normalization factors.
       // Second pass: operate on normalized importance metrics.
-      let maximumProbability = 1 / Float(descriptor.minimumFragmentCount!)
+      let maximumProbability = 1 / Float(descriptor.fragmentCount!)
       for passID in 0..<2 {
         for nodeID in octree.linkedList.indices {
           let metadata = octree.metadata[nodeID]
@@ -126,7 +126,7 @@ public struct WaveFunction {
             importanceMetric += gradientContribution / integralGradientNorm
             importanceMetric *= 0.5
             
-            if importanceMetric > maximumProbability {
+            if importanceMetric > probabilityMultiplier * maximumProbability {
               output.append(UInt32(nodeID))
             }
           }
@@ -137,18 +137,31 @@ public struct WaveFunction {
     }
     
     fillOctree()
-    var converged = false
-    for _ in 0..<100 {
-      let cellsToExpand = findCellsThatNeedExpansion()
-      if cellsToExpand.isEmpty {
-        converged = true
+    
+    // If we split at the maximum probability, the number of cells
+    // averages out to roughly 4x the intended number. Therefore, we start at
+    // a looser tolerance and repeat if the fragment count undershoots.
+    let probabilityMultipliers: [Float] = [
+      4, 2.818, 2, 1.414, 1
+    ]
+    for probabilityMultiplier in probabilityMultipliers {
+      var converged = false
+      for _ in 0..<100 {
+        let cellsToExpand = findCellsThatNeedExpansion(
+          probabilityMultiplier: probabilityMultiplier)
+        if cellsToExpand.isEmpty {
+          converged = true
+          break
+        }
+        octree.insertChildren(at: cellsToExpand)
+        fillOctree()
+      }
+      guard converged else {
+        fatalError("Wave function failed to converge after 100 iterations.")
+      }
+      if octree.linkedList.count >= descriptor.fragmentCount! {
         break
       }
-      octree.insertChildren(at: cellsToExpand)
-      fillOctree()
-    }
-    guard converged else {
-      fatalError("Wave function failed to converge after 100 iterations.")
     }
   }
 }

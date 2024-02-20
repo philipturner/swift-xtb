@@ -6,9 +6,9 @@
 //
 
 /// A configuration for an octree.
-public struct OctreeDescriptor {
+struct OctreeDescriptor {
   /// Required. The power-2 size of the coarsest level.
-  public var sizeExponent: Int?
+  var sizeExponent: Int?
 }
 
 /// An octree data structure designed for efficient traversal.
@@ -26,7 +26,7 @@ public struct Octree {
   /// Center (first three lanes) and grid spacing (fourth lane) of each cell.
   public var metadata: [SIMD4<Float>] = []
   
-  public init(descriptor: OctreeDescriptor) {
+  init(descriptor: OctreeDescriptor) {
     guard let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was invalid.")
     }

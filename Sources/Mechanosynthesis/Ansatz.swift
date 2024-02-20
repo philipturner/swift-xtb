@@ -11,7 +11,7 @@ public struct AnsatzDescriptor {
   public var atomicNumbers: [UInt8]?
   
   /// Required. The minimum number of fragments to split each electron into.
-  public var minimumFragmentCount: Int?
+  public var fragmentCount: Int?
   
   /// Required. The net charge on each atom.
   public var netCharges: [Int]?
@@ -19,11 +19,15 @@ public struct AnsatzDescriptor {
   /// Required. Twice the net spin on each atom.
   public var netSpinPolarizations: [Int]?
   
-  /// Required. An octree that specifies the world bounds.
-  public var octree: Octree?
-  
   /// Required. The position (in nanometers) of each atom's nucleus.
   public var positions: [SIMD3<Float>]?
+  
+  /// Required. The power-2 size of each wavefunction's octree.
+  public var sizeExponent: Int?
+  
+  public init() {
+    
+  }
 }
 
 /// An initial guess to the electronic structure.
@@ -45,11 +49,11 @@ public struct Ansatz {
     //   each group IV atom.
     // - Test nonzero spins on N and Cr atoms.
     guard let atomicNumbers = descriptor.atomicNumbers,
-          let minimumFragmentCount = descriptor.minimumFragmentCount,
+          let fragmentCount = descriptor.fragmentCount,
           let netCharges = descriptor.netCharges,
           let netSpinPolarizations = descriptor.netSpinPolarizations,
-          let octree = descriptor.octree,
-          let positions = descriptor.positions else {
+          let positions = descriptor.positions,
+          let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was invalid.")
     }
     guard atomicNumbers.count == netCharges.count,
@@ -71,88 +75,73 @@ public struct Ansatz {
       guard electronCount % 2 == spin.magnitude % 2 else {
         fatalError("Spin multiplicity conflicted with electron count.")
       }
-      if spin.magnitude > electronCount {
-        fatalError("Invalid spin polarization.")
-      }
-    }
-    
-    #if false
-    for atomID in atomicNumbers.indices {
-      let charge = charges[atomID]
-      let Z = Int(atomicNumbers[atomID])
-      let occupationZ = Z - charge
-      guard occupationZ >= 0 else {
-        fatalError("Nucleus had invalid charge.")
-      }
+      let spinNeutralOrbitals = (electronCount - Int(spin.magnitude)) / 2
+      let spinPolarizedOrbitals = Int(spin.magnitude)
       
-      // Giving noble gas atoms a negative charge will cause a crash here.
-      // TODO: Change this so it won't crash.
-      let occupations = createShellOccupations(Z: occupationZ)
-      let effectiveCharges = createEffectiveCharges(Z: Z)
-      guard spins[atomID] == 0 else {
-        fatalError("Nonzero spins not supported yet.")
+      var electronCountDown: Int
+      var electronCountUp: Int
+      if spin > 0 {
+        electronCountDown = spinNeutralOrbitals
+        electronCountUp = spinNeutralOrbitals + spinPolarizedOrbitals
+      } else {
+        electronCountDown = spinNeutralOrbitals + spinPolarizedOrbitals
+        electronCountUp = spinNeutralOrbitals
       }
+      let spinDownOccupations = createShellOccupations(
+        electronCount: electronCountDown)
+      let spinNeutralOccupations = createShellOccupations(
+        electronCount: spinNeutralOrbitals)
+      let spinUpOccupations = createShellOccupations(
+        electronCount: electronCountUp)
+      let shellCharges = createEffectiveCharges(
+        Z: Z, spinDownOccupations: spinDownOccupations,
+        spinUpOccupations: spinUpOccupations)
       
-      // Iterate over the possible quantum numbers for each shell.
-      // TODO: Coalesce overlapping spin channels within the electron shell.
-      // If there's electrons left over, loop over each spin channel separately.
-      for n in occupations.indices {
-        let effectiveCharge = effectiveCharges[n]
-        var occupation = occupations[n]
+      for n in shellCharges.indices {
+        let spinDownOccupation = spinDownOccupations[n]
+        let spinNeutralOccupation = spinNeutralOccupations[n]
+        let spinUpOccupation = spinUpOccupations[n]
+        var remainingElectrons = max(spinDownOccupation, spinUpOccupation)
+        
+        var waveFunctions: [WaveFunction] = []
         var l = 0
-        while l < n && occupation > 0 {
+        while l < n && remainingElectrons > 0 {
           var m = -l
-          while m <= l && occupation > 0 {
+          while m <= l && remainingElectrons > 0 {
             var orbitalDesc = AtomicOrbitalDescriptor()
-            orbitalDesc.Z = effectiveCharge
+            orbitalDesc.Z = shellCharges[n]
             orbitalDesc.n = n
             orbitalDesc.l = l
             orbitalDesc.m = m
             let atomicOrbital = AtomicOrbital(descriptor: orbitalDesc)
             
+            var octreeDesc = OctreeDescriptor()
+            octreeDesc.sizeExponent = sizeExponent
+            let octree = Octree(descriptor: octreeDesc)
+            
             var waveFunctionDesc = WaveFunctionDescriptor()
             waveFunctionDesc.atomicOrbital = atomicOrbital
-            waveFunctionDesc.minimumFragmentCount = minimumFragmentCount
+            waveFunctionDesc.fragmentCount = fragmentCount
             waveFunctionDesc.nucleusPosition = positions[atomID]
             waveFunctionDesc.octree = octree
             let waveFunction = WaveFunction(descriptor: waveFunctionDesc)
+            waveFunctions.append(waveFunction)
             
-            if occupation > 0 {
-              spinDownWaveFunctions.append(waveFunction)
-              occupation -= 1
-            }
-            if occupation > 0 {
-              spinUpWaveFunctions.append(waveFunction)
-              occupation -= 1
-            }
-            
+            remainingElectrons -= 1
             m += 1
           }
           l += 1
         }
-        if occupation != 0 {
-          fatalError("Electron shell had unexpected occupation.")
+        guard remainingElectrons == 0 else {
+          fatalError("Unexpected number of remaining electrons.")
         }
+        spinDownWaveFunctions += Array(
+          waveFunctions[spinNeutralOccupation..<spinDownOccupation])
+        spinNeutralWaveFunctions += Array(
+          waveFunctions[0..<spinNeutralOccupation])
+        spinUpWaveFunctions += Array(
+          waveFunctions[spinNeutralOccupation..<spinUpOccupation])
       }
     }
-    
-    // Check that the system's charge and spin match the sum of the atomic
-    // values.
-    var netCharge: Int = 0
-    var netSpinMultiplicity: Float = 0
-    for _ in spinDownWaveFunctions.indices {
-      netCharge -= 1
-      netSpin -= 1 / 2
-    }
-    for _ in spinUpWaveFunctions.indices {
-      netCharge += 1
-      netSpin += 1 / 2
-    }
-    for charge in charges {
-      netCharge += charge
-      ne
-    }
-    
-    #endif
   }
 }
