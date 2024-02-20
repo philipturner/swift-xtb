@@ -5,25 +5,28 @@
 //  Created by Philip Turner on 2/18/24.
 //
 
-// An octree data structure designed for efficient traversal.
-
-struct OctreeDescriptor {
-  var origin: SIMD3<Float>?
-  var size: Float?
+/// A configuration for an octree.
+public struct OctreeDescriptor {
+  /// Required. The center of the octree.
+  public var origin: SIMD3<Float>?
+  
+  /// Required. The grid spacing of the coarsest level.
+  public var size: Float?
 }
 
-struct Octree {
+/// An octree data structure designed for efficient traversal.
+public struct Octree {
   // - nextElement: If this element terminates the current 2x2x2 cell, the next
   //                element is 'nil'. Otherwise, it points to the location right
   //                after the children and sub-children.
   // - childCount: Each element is followed by 8 elements specifying its
   //               children. The number of children must be either 0 or 8.
-  var linkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
+  public var linkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
   
   // Position (first three lanes) and grid spacing (fourth lane) of each cell.
-  var metadata: [SIMD4<Float>] = []
+  public var metadata: [SIMD4<Float>] = []
   
-  init(descriptor: OctreeDescriptor) {
+  public init(descriptor: OctreeDescriptor) {
     guard let origin = descriptor.origin,
           let size = descriptor.size else {
       fatalError("Descriptor was not complete.")

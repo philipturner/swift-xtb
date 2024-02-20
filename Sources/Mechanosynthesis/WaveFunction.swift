@@ -23,13 +23,13 @@ struct WaveFunctionDescriptor {
   var octree: Octree?
 }
 
-struct WaveFunction {
+public struct WaveFunction {
   // The values of the wavefunction in each cell. The cell is subdivided into
   // a 2x2x2 group of sub-cells.
-  var cellValues: [SIMD8<Float>] = []
+  public var cellValues: [SIMD8<Float>] = []
   
   // The octree that stores the structure of the wavefunction.
-  var octree: Octree
+  public var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
     self.octree = descriptor.octree!

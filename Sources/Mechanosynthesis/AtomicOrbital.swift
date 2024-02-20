@@ -66,54 +66,55 @@ struct AtomicOrbital {
   }
 }
 
-func createShellOccupations(Z: Int) -> [Int] {
+// Accepts the electron count in a single spin channel.
+func createShellOccupations(electronCount: Int) -> [Int] {
   // Output is zero-indexed, starting with the nonexistent zero shell. It spans
   // from n=0 to n=7.
-  var shellOccupations = [Int](repeating: 0, count: 1 + 7)
+  var shellOccupations = [Int](repeating: 0, count: 8)
   
-  var cursorZ: Int = 0
+  var cursor: Int = 0
   func subShell(n: Int, occupancy: Int) {
-    if Z > cursorZ {
-      shellOccupations[n] += min(Z - cursorZ, occupancy)
+    if electronCount > cursor {
+      shellOccupations[n] += min(electronCount - cursor, occupancy)
     }
-    cursorZ += occupancy
+    cursor += occupancy
   }
   
   // First period.
-  subShell(n: 1, occupancy: 2)
+  subShell(n: 1, occupancy: 1)
   
   // Second period.
-  subShell(n: 2, occupancy: 2)
-  subShell(n: 2, occupancy: 6)
+  subShell(n: 2, occupancy: 1)
+  subShell(n: 2, occupancy: 3)
   
   // Third period.
-  subShell(n: 3, occupancy: 2)
-  subShell(n: 3, occupancy: 6)
+  subShell(n: 3, occupancy: 1)
+  subShell(n: 3, occupancy: 3)
   
   // Fourth period.
-  subShell(n: 4, occupancy: 2)
-  subShell(n: 3, occupancy: 10)
-  subShell(n: 4, occupancy: 6)
+  subShell(n: 4, occupancy: 1)
+  subShell(n: 3, occupancy: 5)
+  subShell(n: 4, occupancy: 3)
   
   // Fifth period.
-  subShell(n: 5, occupancy: 2)
-  subShell(n: 4, occupancy: 10)
-  subShell(n: 5, occupancy: 6)
+  subShell(n: 5, occupancy: 1)
+  subShell(n: 4, occupancy: 5)
+  subShell(n: 5, occupancy: 3)
   
   // Sixth period.
-  subShell(n: 6, occupancy: 2)
-  subShell(n: 4, occupancy: 14)
-  subShell(n: 5, occupancy: 10)
-  subShell(n: 6, occupancy: 6)
+  subShell(n: 6, occupancy: 1)
+  subShell(n: 4, occupancy: 7)
+  subShell(n: 5, occupancy: 5)
+  subShell(n: 6, occupancy: 3)
   
   // Seventh period.
-  subShell(n: 7, occupancy: 2)
-  subShell(n: 5, occupancy: 14)
-  subShell(n: 6, occupancy: 10)
-  subShell(n: 7, occupancy: 6)
+  subShell(n: 7, occupancy: 1)
+  subShell(n: 5, occupancy: 7)
+  subShell(n: 6, occupancy: 5)
+  subShell(n: 7, occupancy: 3)
   
   // Eighth period.
-  if Z > 118 {
+  if electronCount * 2 > 118 {
     fatalError("Eighth period elements are not supported.")
   }
   
@@ -121,28 +122,33 @@ func createShellOccupations(Z: Int) -> [Int] {
 }
 
 // Returns the effective charge for each electron shell.
-//
-// Gives ions the same effective charge as neutral, minimally spin-polarized
-// atoms.
-func createEffectiveCharges(Z: Int) -> [Float] {
-  let occupations = createShellOccupations(Z: Z)
-  var coreCharge = Z
-  var effectiveCharges: [Float] = []
-  for occupation in occupations {
-    effectiveCharges.append(Float(coreCharge))
-    coreCharge -= occupation
-  }
+func createEffectiveCharges(
+  Z: Int, electronCountDown: Int, electronCountUp: Int
+) -> [Float] {
+  let occupationsDown = createShellOccupations(electronCount: electronCountDown)
+  let occupationsUp = createShellOccupations(electronCount: electronCountUp)
   
-  // Algorithm:
-  // - break up the effective charge into different components
+  // Break up the effective charge into different components:
   // - fully shielded (0)
   // - partially shielded (sqrt(Z))
   // - not shielded (Z)
-  for i in effectiveCharges.indices {
-    var valenceCharge = Float(occupations[i])
-    let coreCharge = effectiveCharges[i] - valenceCharge
-    valenceCharge.formSquareRoot()
-    effectiveCharges[i] = valenceCharge + coreCharge
+  //
+  // Cap the effective charge at a minimum of +1.
+  var currentShieldedCharge = Z
+  var effectiveCharges: [Float] = []
+  for shellID in 0..<8 {
+    let occupationDown = occupationsDown[shellID]
+    let occupationUp = occupationsUp[shellID]
+    let occupation = occupationDown + occupationUp
+    let fullyShieldedCharge = currentShieldedCharge - occupation
+    currentShieldedCharge = fullyShieldedCharge
+    
+    // Traveling down a period, the net charge in a particular shell increases.
+    // This shrinks the atomic radius. The rate of shrinking scales with the
+    // square root of column number.
+    let partiallyShieldedCharge = Float(occupation).squareRoot()
+    let charge = Float(fullyShieldedCharge) + partiallyShieldedCharge
+    effectiveCharges.append(max(1, charge))
   }
   
   return effectiveCharges
