@@ -166,4 +166,127 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(1.414 * 5 / 6, Self.queryRadius(
       waveFunction: lithiumPolarized.spinUpWaveFunctions[2]), accuracy: 0.03)
   }
+  
+  // Test the nitrogen dimer.
+  func testNitrogen() throws {
+    print()
+    print("testNitrogen")
+    
+    var descriptor = AnsatzDescriptor()
+    descriptor.atomicNumbers = [7, 7]
+    descriptor.fragmentCount = 1000
+    descriptor.positions = [SIMD3(-1, 0, 0), SIMD3(1, 0, 0)]
+    descriptor.sizeExponent = 4
+    
+    // Test N+ and N-.
+    descriptor.netCharges = [+1, -1]
+    descriptor.netSpinPolarizations = [0, 0]
+    let nitrogenCharged = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(nitrogenCharged.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(nitrogenCharged.spinNeutralWaveFunctions.count, 7)
+    XCTAssertEqual(nitrogenCharged.spinUpWaveFunctions.count, 0)
+    for i in 0..<7 {
+      Self.checkFragments(nitrogenCharged.spinNeutralWaveFunctions[i], 1000)
+    }
+    XCTAssertEqual(1 / 6.414, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[0],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 5e-3)
+    XCTAssertEqual(0.667, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[1],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.08)
+    XCTAssertEqual(0.667 * 5 / 6, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[2],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.08)
+    XCTAssertEqual(1 / 6.414, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[3],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 5e-3)
+    XCTAssertEqual(2 / 1.449, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[4],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+    XCTAssertEqual(2 / 1.449 * 5 / 6, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[5],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+    XCTAssertEqual(2 / 1.449 * 5 / 6, Self.queryRadius(
+      waveFunction: nitrogenCharged.spinNeutralWaveFunctions[6],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+    
+    // Test N(3+) anions.
+    // - Literature value for ion atomic radius is 140 pm, or 2.65 Bohr.
+    // - The heuristic for an initial guess produces 2.00 Bohr - not bad.
+    descriptor.netCharges = [-3, -3]
+    descriptor.netSpinPolarizations = [0, 0]
+    let nitride = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(nitride.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(nitride.spinNeutralWaveFunctions.count, 10)
+    XCTAssertEqual(nitride.spinUpWaveFunctions.count, 0)
+    for i in 0..<10 {
+      Self.checkFragments(nitride.spinNeutralWaveFunctions[i], 1000)
+    }
+    XCTAssertEqual(1 / 6.414, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[0],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 5e-3)
+    XCTAssertEqual(2, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[1],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[2],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[3],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[4],
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(1 / 6.414, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[5],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 5e-3)
+    XCTAssertEqual(2, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[6],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[7],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[8],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+    XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
+      waveFunction: nitride.spinNeutralWaveFunctions[9],
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+    
+    // Test the triplet state.
+    descriptor.netCharges = [0, 0]
+    descriptor.netSpinPolarizations = [1, 1]
+    let nitrogenTriplet = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(nitrogenTriplet.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(nitrogenTriplet.spinNeutralWaveFunctions.count, 6)
+    XCTAssertEqual(nitrogenTriplet.spinUpWaveFunctions.count, 2)
+    for i in 0..<6 {
+      Self.checkFragments(nitrogenTriplet.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[1], 1000)
+    
+    // Test an ROHF simulation that forms 3 covalent bonds.
+    descriptor.netCharges = [0, 0]
+    descriptor.netSpinPolarizations = [3, -3]
+    let nitrogenROHF = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(nitrogenROHF.spinDownWaveFunctions.count, 3)
+    XCTAssertEqual(nitrogenROHF.spinNeutralWaveFunctions.count, 4)
+    XCTAssertEqual(nitrogenROHF.spinUpWaveFunctions.count, 3)
+    for i in 0..<4 {
+      Self.checkFragments(nitrogenROHF.spinNeutralWaveFunctions[i], 1000)
+    }
+    for i in 0..<3 {
+      Self.checkFragments(nitrogenROHF.spinDownWaveFunctions[i], 1000)
+      Self.checkFragments(nitrogenROHF.spinUpWaveFunctions[i], 1000)
+    }
+  }
+  
+  // Test chromium.
+  
+  // Test the group (IV) elements.
+  
+  // Then, optimize the code for generating the initial guess. Avoid use of
+  // multiple cores and AMX for the foreseeable future, to get the
+  // highest-quality data about compute cost.
 }

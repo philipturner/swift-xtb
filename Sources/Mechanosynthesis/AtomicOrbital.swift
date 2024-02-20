@@ -128,29 +128,24 @@ func createEffectiveCharges(
   // - not shielded (Z)
   // - partially shielded (sqrt(Z))
   // - fully shielded (0)
-  var notShieldedCharge = Z
+  var notShieldedCharge = Int(Z)
   var effectiveCharges: [Float] = []
   for shellID in 0..<8 {
     let spinDownOccupation = spinDownOccupations[shellID]
     let spinUpOccupation = spinUpOccupations[shellID]
     let occupation = spinDownOccupation + spinUpOccupation
+    notShieldedCharge -= occupation
     
-    if occupation > notShieldedCharge {
-      effectiveCharges.append(1)
-    } else {
-      notShieldedCharge -= UInt8(occupation)
-      
-      // Traveling down a period, the net charge in a particular shell 
-      // increases. This shrinks the atomic radius. The rate of shrinking
-      // scales with the square root of column number.
-      let partiallyShieldedCharge = Float(occupation).squareRoot()
-      let charge = Float(notShieldedCharge) + partiallyShieldedCharge
-      
-      // Clamp the effective charge to at least +1.
-      effectiveCharges.append(max(1, charge))
-    }
+    // Traveling down a period, the net charge in a particular shell
+    // increases. This shrinks the atomic radius. The rate of shrinking
+    // scales with the square root of column number.
+    let partiallyShieldedCharge = Float(occupation).squareRoot()
+    let charge = Float(notShieldedCharge) + partiallyShieldedCharge
+    
+    // Clamp the effective charge to at least +1.
+    effectiveCharges.append(max(1, charge))
   }
   
-  print(effectiveCharges)
+  print(effectiveCharges, spinUpOccupations, spinDownOccupations)
   return effectiveCharges
 }
