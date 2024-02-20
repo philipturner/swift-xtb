@@ -142,7 +142,7 @@ public struct WaveFunction {
     // averages out to roughly 4x the intended number. Therefore, we start at
     // a looser tolerance and repeat if the fragment count undershoots.
     let probabilityMultipliers: [Float] = [
-      4, 2.818, 2, 1.414, 1
+      5.656, 4, 2.828, 2, 1.414, 1
     ]
     for probabilityMultiplier in probabilityMultipliers {
       var converged = false

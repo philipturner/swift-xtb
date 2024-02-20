@@ -136,7 +136,6 @@ func createEffectiveCharges(
     let occupation = spinDownOccupation + spinUpOccupation
     
     if occupation > notShieldedCharge {
-      // Clamp the effective charge to at least +1.
       effectiveCharges.append(1)
     } else {
       notShieldedCharge -= UInt8(occupation)
@@ -146,9 +145,12 @@ func createEffectiveCharges(
       // scales with the square root of column number.
       let partiallyShieldedCharge = Float(occupation).squareRoot()
       let charge = Float(notShieldedCharge) + partiallyShieldedCharge
+      
+      // Clamp the effective charge to at least +1.
       effectiveCharges.append(max(1, charge))
     }
   }
   
+  print(effectiveCharges)
   return effectiveCharges
 }
