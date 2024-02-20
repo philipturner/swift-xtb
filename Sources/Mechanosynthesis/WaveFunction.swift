@@ -45,62 +45,66 @@ struct WaveFunction {
     // at the origin. Create a recursive procedure that keeps adding nodes. It
     // terminates once the constraints for importance metrics are satisfied.
     
-    /*
-    for childID in 0..<8 {
-      let xIndex = UInt32(childID) % 2
-      let yIndex = UInt32(childID >> 1) % 2
-      let zIndex = UInt32(childID >> 2) % 2
-      let radius = Float.exp2(Float(descriptor.highestLevelSize!))
-      let lowerCorner = SIMD3<Float>(repeating: -radius)
+    func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
+      let origin = unsafeBitCast(metadata, to: SIMD3<Float>.self)
+      let size = metadata.w
+      var output: SIMD8<Float> = .zero
       
-      var position = lowerCorner / 2
-      var delta: SIMD3<Float> = .zero
-      let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
-      delta.replace(with: .one, where: indices .> 0)
-      position += delta * radius
-      
-      let nucleusDelta = position - descriptor.position!
-      let waveFunction = descriptor.atomicOrbital!
-        .waveFunction(position: nucleusDelta)
-      octree.cellValues[0][childID] = waveFunction
+      for childID in 0..<8 {
+        let xIndex = UInt32(childID) % 2
+        let yIndex = UInt32(childID >> 1) % 2
+        let zIndex = UInt32(childID >> 2) % 2
+        var delta: SIMD3<Float> = .init(repeating: -0.25)
+        let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
+        delta.replace(with: 0.25, where: indices .> 0)
+        
+        let position = origin + delta * size
+        let nucleusDelta = position - descriptor.nucleusPosition!
+        let waveFunction = descriptor.atomicOrbital!
+          .waveFunction(position: nucleusDelta)
+        output[childID] = waveFunction
+      }
+      return output
     }
     
-    var currentPositionStack: [SIMD3<Float>] = [.zero]
-    
-    for nodeID in octree.linkedList.indices {
-      let cellValue = octree.cellValues[nodeID]
-      let density = (cellValue * cellValue).sum() / 8
-      let radius = Float.exp2(Float(currentHierarchyLevel))
-      let probability = density * radius * radius * radius
-      let maximumProbability = 1 / descriptor.minimumFragmentCount!
-      
-      if probability > maximumProbability {
-        octree.cellValues[nodeID] = .init(repeating: .nan)
-        octree.appendChildren(to: [UInt32(nodeID)])
-        // The children don't have cell values now.
+    // Adds the cell values for everything in the octree. Except the cells that
+    // have children. Their values are set to NAN.
+    func fillOctree() {
+      cellValues = []
+      for nodeID in octree.linkedList.indices {
+        let element = octree.linkedList[nodeID]
+        var newValue: SIMD8<Float>
+        
+        if element.childCount == 8 {
+          newValue = .init(repeating: .nan)
+        } else {
+          let metadata = octree.metadata[nodeID]
+          newValue = createCellValues(metadata: metadata)
+        }
+        cellValues.append(newValue)
       }
     }
     
-    // The octree needs to store information about current position and
-    // resolution everywhere. Otherwise, the GPU can't access it in parallel.
-    // This data should be cached alongside the cell values.
-    
-    currentHierarchyLevel = descriptor.highestLevelSize!
-    guard currentPositionStack == [.zero] else {
-      fatalError("Unexpected position stack contents.")
+    func markCellsThatNeedExpansion() {
+      /*
+      for nodeID in octree.linkedList.indices {
+        let cellValue = octree.cellValues[nodeID]
+        let density = (cellValue * cellValue).sum() / 8
+        let radius = Float.exp2(Float(currentHierarchyLevel))
+        let probability = density * radius * radius * radius
+        let maximumProbability = 1 / descriptor.minimumFragmentCount!
+        
+        if probability > maximumProbability {
+          octree.cellValues[nodeID] = .init(repeating: .nan)
+          octree.appendChildren(to: [UInt32(nodeID)])
+          // The children don't have cell values now.
+        }
+      }
+       */
     }
     
-    for nodeID in octree.linkedList.indices {
-      let element = octree.linkedList[nodeID]
+    func markCellsThatNeedContraction() {
       
-      
-      guard element.childCount == 0 else {
-        continue
-      }
-      guard octree.cellValues[nodeID][0].isNaN else {
-        continue
-      }
     }
-     */
   }
 }
