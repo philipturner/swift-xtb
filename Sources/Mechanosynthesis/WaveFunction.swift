@@ -24,11 +24,11 @@ struct WaveFunctionDescriptor {
 }
 
 public struct WaveFunction {
-  // The values of the wavefunction in each cell. The cell is subdivided into
-  // a 2x2x2 group of sub-cells.
+  /// The values of the wavefunction in each cell. The cell is subdivided into
+  /// a 2x2x2 group of sub-cells.
   public var cellValues: [SIMD8<Float>] = []
   
-  // The octree that stores the structure of the wavefunction.
+  /// The octree that stores the structure of the wavefunction.
   public var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
@@ -104,6 +104,7 @@ public struct WaveFunction {
       
       // First pass: calculate normalization factors.
       // Second pass: operate on normalized importance metrics.
+      let maximumProbability = 1 / Float(descriptor.minimumFragmentCount!)
       for passID in 0..<2 {
         for nodeID in octree.linkedList.indices {
           let metadata = octree.metadata[nodeID]
@@ -113,15 +114,18 @@ public struct WaveFunction {
           let gradientNorm = (gradient * gradient).sum()
           let volume = metadata.w * metadata.w * metadata.w
           
+          let ε: Float = .leastNormalMagnitude
+          let densityContribution = max(ε, density * volume)
+          let gradientContribution = max(ε, gradientNorm * volume)
           if passID == 0 {
-            integralDensity += density * volume
-            integralGradientNorm += gradientNorm * volume
+            integralDensity += densityContribution
+            integralGradientNorm += gradientContribution
           } else {
-            let densityPart = density * volume / integralDensity
-            let gradientPart = gradientNorm * volume / integralGradientNorm
-            let importanceMetric = densityPart * 0.5 + gradientPart * 0.5
+            var importanceMetric: Float = .zero
+            importanceMetric += densityContribution / integralDensity
+            importanceMetric += gradientContribution / integralGradientNorm
+            importanceMetric *= 0.5
             
-            let maximumProbability = 1 / Float(descriptor.minimumFragmentCount!)
             if importanceMetric > maximumProbability {
               output.append(UInt32(nodeID))
             }

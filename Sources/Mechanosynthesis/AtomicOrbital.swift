@@ -66,10 +66,9 @@ struct AtomicOrbital {
   }
 }
 
-// Accepts the electron count in a single spin channel.
+// Processes the electron count in a single spin channel.
 func createShellOccupations(electronCount: Int) -> [Int] {
-  // Output is zero-indexed, starting with the nonexistent zero shell. It spans
-  // from n=0 to n=7.
+  // The output is zero-indexed, starting with the nonexistent zero shell.
   var shellOccupations = [Int](repeating: 0, count: 8)
   
   var cursor: Int = 0
@@ -114,8 +113,8 @@ func createShellOccupations(electronCount: Int) -> [Int] {
   subShell(n: 7, occupancy: 3)
   
   // Eighth period.
-  if electronCount * 2 > 118 {
-    fatalError("Eighth period elements are not supported.")
+  if cursor < electronCount {
+    fatalError("Too many electrons to create a shell occupation.")
   }
   
   return shellOccupations
@@ -123,32 +122,35 @@ func createShellOccupations(electronCount: Int) -> [Int] {
 
 // Returns the effective charge for each electron shell.
 func createEffectiveCharges(
-  Z: Int, electronCountDown: Int, electronCountUp: Int
+  Z: UInt8, electronCountDown: Int, electronCountUp: Int
 ) -> [Float] {
   let occupationsDown = createShellOccupations(electronCount: electronCountDown)
   let occupationsUp = createShellOccupations(electronCount: electronCountUp)
   
   // Break up the effective charge into different components:
-  // - fully shielded (0)
-  // - partially shielded (sqrt(Z))
   // - not shielded (Z)
-  //
-  // Cap the effective charge at a minimum of +1.
-  var currentShieldedCharge = Z
+  // - partially shielded (sqrt(Z))
+  // - fully shielded (0)
+  var notShieldedCharge = Z
   var effectiveCharges: [Float] = []
   for shellID in 0..<8 {
     let occupationDown = occupationsDown[shellID]
     let occupationUp = occupationsUp[shellID]
     let occupation = occupationDown + occupationUp
-    let fullyShieldedCharge = currentShieldedCharge - occupation
-    currentShieldedCharge = fullyShieldedCharge
     
-    // Traveling down a period, the net charge in a particular shell increases.
-    // This shrinks the atomic radius. The rate of shrinking scales with the
-    // square root of column number.
-    let partiallyShieldedCharge = Float(occupation).squareRoot()
-    let charge = Float(fullyShieldedCharge) + partiallyShieldedCharge
-    effectiveCharges.append(max(1, charge))
+    if occupation > notShieldedCharge {
+      // Cap the effective charge at a minimum of +1.
+      effectiveCharges.append(1)
+    } else {
+      notShieldedCharge -= UInt8(occupation)
+      
+      // Traveling down a period, the net charge in a particular shell 
+      // increases. This shrinks the atomic radius. The rate of shrinking
+      // scales with the square root of column number.
+      let partiallyShieldedCharge = Float(occupation).squareRoot()
+      let charge = Float(notShieldedCharge) + partiallyShieldedCharge
+      effectiveCharges.append(max(1, charge))
+    }
   }
   
   return effectiveCharges

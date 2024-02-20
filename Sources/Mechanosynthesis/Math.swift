@@ -39,6 +39,8 @@ func cubicHarmonic(
   }
   let Nc = (Float(factorial) / (4 * Float.pi)).squareRoot()
   
+  // The basis set from Wikipedia, which contains up to f-orbitals:
+  // https://en.wikipedia.org/wiki/Cubic_harmonic
   if l == 0 {
     return { _, _, _, _ in
       var output = Nc

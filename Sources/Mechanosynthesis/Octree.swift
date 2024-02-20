@@ -7,30 +7,32 @@
 
 /// A configuration for an octree.
 public struct OctreeDescriptor {
-  /// Required. The center of the octree.
-  public var origin: SIMD3<Float>?
-  
-  /// Required. The grid spacing of the coarsest level.
-  public var size: Float?
+  /// Required. The power-2 size of the coarsest level.
+  public var sizeExponent: Int?
 }
 
 /// An octree data structure designed for efficient traversal.
 public struct Octree {
-  // - nextElement: If this element terminates the current 2x2x2 cell, the next
-  //                element is 'nil'. Otherwise, it points to the location right
-  //                after the children and sub-children.
-  // - childCount: Each element is followed by 8 elements specifying its
-  //               children. The number of children must be either 0 or 8.
+  /// The cells from every hierarchy level, in Morton order.
+  ///
+  /// Each array element is a tuple:
+  /// - nextElement: If this element terminates the current 2x2x2 cell, the next
+  ///                element is 'nil'. Otherwise, it points to the location
+  ///                right after the children and sub-children.
+  /// - childCount: Each element is followed by 8 elements specifying its
+  ///               children. The number of children must be either 0 or 8.
   public var linkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
   
-  // Position (first three lanes) and grid spacing (fourth lane) of each cell.
+  /// Center (first three lanes) and grid spacing (fourth lane) of each cell.
   public var metadata: [SIMD4<Float>] = []
   
   public init(descriptor: OctreeDescriptor) {
-    guard let origin = descriptor.origin,
-          let size = descriptor.size else {
-      fatalError("Descriptor was not complete.")
+    guard let sizeExponent = descriptor.sizeExponent else {
+      fatalError("Descriptor was invalid.")
     }
+    
+    let origin: SIMD3<Float> = .zero
+    let size = Float(sign: .plus, exponent: sizeExponent, significand: 1)
     metadata = [SIMD4(origin, size)]
     linkedList = [(nextElement: nil, childCount: 0)]
   }

@@ -17,9 +17,9 @@ public struct AnsatzDescriptor {
   public var netCharges: [Int]?
   
   /// Required. Twice the net spin on each atom.
-  public var netSpins: [Int]?
+  public var netSpinPolarizations: [Int]?
   
-  /// Required. An octree that specifies the world bounds and minimum basis set.
+  /// Required. An octree that specifies the world bounds.
   public var octree: Octree?
   
   /// Required. The position (in nanometers) of each atom's nucleus.
@@ -40,37 +40,39 @@ public struct Ansatz {
   public var spinUpWaveFunctions: [WaveFunction] = []
   
   public init(descriptor: AnsatzDescriptor) {
-    // Test this before proceeding with Hamiltonian construction:
-    // - Test the expectation values of atomic radii for each shell in each
-    //   group IV atom.
+    // Validate this before proceeding with Hamiltonian construction:
+    // - Test the expectation values of atomic radii for each `l` sub-shell in
+    //   each group IV atom.
     // - Test nonzero spins on N and Cr atoms.
     guard let atomicNumbers = descriptor.atomicNumbers,
           let minimumFragmentCount = descriptor.minimumFragmentCount,
           let netCharges = descriptor.netCharges,
-          let netSpins = descriptor.netSpins,
+          let netSpinPolarizations = descriptor.netSpinPolarizations,
           let octree = descriptor.octree,
           let positions = descriptor.positions else {
       fatalError("Descriptor was invalid.")
     }
     guard atomicNumbers.count == netCharges.count,
-          atomicNumbers.count == positions.count,
-          atomicNumbers.count == netSpins.count else {
+          atomicNumbers.count == netSpinPolarizations.count,
+          atomicNumbers.count == positions.count else {
       fatalError("Descriptor was invalid.")
     }
     
-    var minimumPosition = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
-    var maximumPosition = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
-    if atomicNumbers.count == .zero {
-      // If the software is engineered well, it shouldn't crash when the
-      // problem size is zero.
-      minimumPosition = .zero
-      maximumPosition = .zero
-    } else {
-      for position in positions {
-        maximumPosition.replace(
-          with: position, where: position .> maximumPosition)
-        minimumPosition.replace(
-          with: position, where: position .< minimumPosition)
+    for atomID in atomicNumbers.indices {
+      // Check that charge and spin are valid.
+      let Z = atomicNumbers[atomID]
+      let charge = netCharges[atomID]
+      let spin = netSpinPolarizations[atomID]
+      if charge > Z {
+        fatalError("Invalid atom charge.")
+      }
+      
+      let electronCount = Int(Z) - charge
+      guard electronCount % 2 == spin.magnitude % 2 else {
+        fatalError("Spin multiplicity conflicted with electron count.")
+      }
+      if spin.magnitude > electronCount {
+        fatalError("Invalid spin polarization.")
       }
     }
     
