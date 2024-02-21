@@ -48,7 +48,7 @@ public struct Octree {
       }
       let element = linkedList[Int(nodeID)]
       guard element.childCount == 0 else {
-        fatalError("Attempted to insert children that already exist.")
+        fatalError("Attempted to insert children that already exist: \(nodes).")
       }
       insertionMarks[Int(nodeID)] = true
     }

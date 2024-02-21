@@ -107,6 +107,10 @@ public struct WaveFunction {
       let maximumProbability = 1 / Float(descriptor.fragmentCount!)
       for passID in 0..<2 {
         for nodeID in octree.linkedList.indices {
+          if octree.linkedList[nodeID].childCount > 0 {
+            continue
+          }
+          
           let metadata = octree.metadata[nodeID]
           let values = cellValues[nodeID]
           let density = (values * values).sum() / 8

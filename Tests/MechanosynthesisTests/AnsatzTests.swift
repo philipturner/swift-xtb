@@ -212,7 +212,7 @@ final class AnsatzTests: XCTestCase {
     
     // Test N(3+) anions.
     // - Literature value for ion atomic radius is 140 pm, or 2.65 Bohr.
-    // - The heuristic for an initial guess produces 2.00 Bohr - not bad.
+    // - The ansatz produces 2.00 Bohr - not bad.
     descriptor.netCharges = [-3, -3]
     descriptor.netSpinPolarizations = [0, 0]
     let nitride = Ansatz(descriptor: descriptor)
@@ -283,8 +283,83 @@ final class AnsatzTests: XCTestCase {
   }
   
   // Test chromium.
+  // - Test the limitation of GFN-xTB, which doesn't support the true spin
+  //   polarization of chromium d-orbitals. Instead, it does 3d^4, 4s^2.
+  func testChromium() throws {
+    print()
+    print("testChromium")
+    
+    var descriptor = AnsatzDescriptor()
+    descriptor.atomicNumbers = [24]
+    descriptor.fragmentCount = 1000
+    descriptor.positions = [.zero]
+    descriptor.sizeExponent = 4
+    
+    // Test the 3+ oxidation state, with minimal spin polarization.
+    descriptor.netCharges = [+3]
+    descriptor.netSpinPolarizations = [1]
+    let chromiumIon = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(chromiumIon.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(chromiumIon.spinNeutralWaveFunctions.count, 10)
+    XCTAssertEqual(chromiumIon.spinUpWaveFunctions.count, 1)
+    for i in 0..<10 {
+      Self.checkFragments(chromiumIon.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(chromiumIon.spinUpWaveFunctions[0], 1000)
+    XCTAssertEqual(1 / 23.414, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[0]), accuracy: 2e-3)
+    XCTAssertEqual(2 / 16.828, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[1]), accuracy: 4e-3)
+    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[2]), accuracy: 4e-3)
+    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[3]), accuracy: 4e-3)
+    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[4]), accuracy: 4e-3)
+    XCTAssertEqual(0.375, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[5]), accuracy: 0.01)
+    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[6]), accuracy: 0.01)
+    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[7]), accuracy: 0.01)
+    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[8]), accuracy: 0.01)
+    XCTAssertEqual(0.2906231, Self.queryRadius(
+      waveFunction: chromiumIon.spinUpWaveFunctions[0]), accuracy: 0.01)
+    XCTAssertEqual(4 / 4.414, Self.queryRadius(
+      waveFunction: chromiumIon.spinNeutralWaveFunctions[9]), accuracy: 0.02)
+    
+    // Test an Aufbau polarized atom.
+    descriptor.netCharges = [0]
+    descriptor.netSpinPolarizations = [4]
+    let chromiumAufbau = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(chromiumAufbau.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(chromiumAufbau.spinNeutralWaveFunctions.count, 10)
+    XCTAssertEqual(chromiumAufbau.spinUpWaveFunctions.count, 4)
+    for i in 0..<10 {
+      Self.checkFragments(chromiumAufbau.spinNeutralWaveFunctions[i], 1000)
+    }
+    for i in 0..<4 {
+      Self.checkFragments(chromiumAufbau.spinUpWaveFunctions[i], 1000)
+    }
+    
+    // Test an actual polarized atom.
+    descriptor.netCharges = [0]
+    descriptor.netSpinPolarizations = [6]
+    let chromiumActual = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(chromiumActual.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(chromiumActual.spinNeutralWaveFunctions.count, 9)
+    XCTAssertEqual(chromiumActual.spinUpWaveFunctions.count, 6)
+    for i in 0..<9 {
+      Self.checkFragments(chromiumActual.spinNeutralWaveFunctions[i], 1000)
+    }
+    for i in 0..<6 {
+      Self.checkFragments(chromiumActual.spinUpWaveFunctions[i], 1000)
+    }
+  }
   
-  // Test the group (IV) elements.
+  // Test group (IV) atoms.
+  // - Compare to graphs and spreadsheet data from 'AnsatzExperiment'.
   
   // Then, optimize the code for generating the initial guess. Avoid use of
   // multiple cores and AMX for the foreseeable future, to get the
