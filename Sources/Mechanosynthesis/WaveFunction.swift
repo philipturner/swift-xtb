@@ -28,10 +28,14 @@ public struct WaveFunction {
   /// a 2x2x2 group of sub-cells.
   public var cellValues: [SIMD8<Float>] = []
   
+  /// The number of fragments the wavefunction should attempt to remain at.
+  public var fragmentCount: Int
+  
   /// The octree that stores the structure of the wavefunction.
   public var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
+    self.fragmentCount = descriptor.fragmentCount!
     self.octree = descriptor.octree!
     
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
@@ -153,7 +157,8 @@ public struct WaveFunction {
       for _ in 0..<100 {
         let cellsToExpand = findCellsThatNeedExpansion(
           probabilityMultiplier: probabilityMultiplier)
-        if cellsToExpand.isEmpty {
+        if cellsToExpand.isEmpty ||
+            octree.linkedList.count >= descriptor.fragmentCount! {
           converged = true
           break
         }

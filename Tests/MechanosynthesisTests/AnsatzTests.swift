@@ -5,11 +5,12 @@ import Numerics
 final class AnsatzTests: XCTestCase {
   static func checkFragments(
     _ waveFunction: WaveFunction,
-    _ expectedCount: Int
+    _ expectedCount: Int,
+    _ upperExpectedCount: Int? = nil
   ) {
-    print("fragment count:", waveFunction.cellValues.count)
     XCTAssertGreaterThanOrEqual(waveFunction.cellValues.count, expectedCount)
-    XCTAssertLessThan(waveFunction.cellValues.count, expectedCount * 2)
+    XCTAssertLessThan(
+      waveFunction.cellValues.count, upperExpectedCount ?? expectedCount * 2)
   }
   
   static func queryRadius(
@@ -360,8 +361,86 @@ final class AnsatzTests: XCTestCase {
   
   // Test group (IV) atoms.
   // - Compare to graphs and spreadsheet data from 'AnsatzExperiment'.
+  func testGroupIV() throws {
+    print()
+    print("testGroupIV")
+    
+    var descriptor = AnsatzDescriptor()
+    descriptor.fragmentCount = 1000
+    descriptor.netCharges = [0]
+    descriptor.netSpinPolarizations = [2]
+    descriptor.positions = [.zero]
+    descriptor.sizeExponent = 4
+    
+    descriptor.atomicNumbers = [6]
+    let carbon = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(carbon.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(carbon.spinNeutralWaveFunctions.count, 2)
+    XCTAssertEqual(carbon.spinUpWaveFunctions.count, 2)
+    for i in 0..<2 {
+      Self.checkFragments(carbon.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(carbon.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(carbon.spinUpWaveFunctions[1], 1000)
+    
+    descriptor.atomicNumbers = [14]
+    let silicon = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(silicon.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(silicon.spinNeutralWaveFunctions.count, 6)
+    XCTAssertEqual(silicon.spinUpWaveFunctions.count, 2)
+    for i in 0..<6 {
+      Self.checkFragments(silicon.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(silicon.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(silicon.spinUpWaveFunctions[1], 1000)
+    
+    descriptor.atomicNumbers = [32]
+    let germanium = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(germanium.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(germanium.spinNeutralWaveFunctions.count, 15)
+    XCTAssertEqual(germanium.spinUpWaveFunctions.count, 2)
+    for i in 0..<15 {
+      Self.checkFragments(germanium.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(germanium.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(germanium.spinUpWaveFunctions[1], 1000)
+    
+    descriptor.atomicNumbers = [50]
+    let tin = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(tin.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(tin.spinNeutralWaveFunctions.count, 24)
+    XCTAssertEqual(tin.spinUpWaveFunctions.count, 2)
+    for i in 0..<24 {
+      Self.checkFragments(tin.spinNeutralWaveFunctions[i], 1000)
+    }
+    Self.checkFragments(tin.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(tin.spinUpWaveFunctions[1], 1000)
+    
+    descriptor.atomicNumbers = [82]
+    let lead = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(lead.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(lead.spinNeutralWaveFunctions.count, 40)
+    XCTAssertEqual(lead.spinUpWaveFunctions.count, 2)
+    for i in 0..<40 {
+      Self.checkFragments(lead.spinNeutralWaveFunctions[i], 1000, 8000)
+    }
+    Self.checkFragments(lead.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(lead.spinUpWaveFunctions[1], 1000)
+    
+    // Challenging test case for the performance of this framework: process
+    // the superheavy element flerovium. This triggers the most severe edge
+    // cases with wavefunctions fluctuating over large length scales.
+    descriptor.atomicNumbers = [114]
+    let flerovium = Ansatz(descriptor: descriptor)
+    XCTAssertEqual(flerovium.spinDownWaveFunctions.count, 0)
+    XCTAssertEqual(flerovium.spinNeutralWaveFunctions.count, 56)
+    XCTAssertEqual(flerovium.spinUpWaveFunctions.count, 2)
+    for i in 0..<56 {
+      Self.checkFragments(flerovium.spinNeutralWaveFunctions[i], 1000, 8000)
+    }
+    Self.checkFragments(flerovium.spinUpWaveFunctions[0], 1000)
+    Self.checkFragments(flerovium.spinUpWaveFunctions[1], 1000)
+  }
   
-  // Then, optimize the code for generating the initial guess. Avoid use of
-  // multiple cores and AMX for the foreseeable future, to get the
-  // highest-quality data about compute cost.
+  // Next, optimize the code for generating the initial guess.
 }
