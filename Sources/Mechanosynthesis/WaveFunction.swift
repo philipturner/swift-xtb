@@ -81,7 +81,9 @@ public struct WaveFunction {
     // There isn't a major need to contract too-small cells during
     // initialization. The gradual increase in normalization factor only
     // slightly lowers the importance value.
-    func findCellsThatNeedExpansion(probabilityMultiplier: Float) -> [UInt32] {
+    func findCellsThatNeedChanging(probabilityMultiplier: Float) -> (
+      expand: [UInt32], contract: [UInt32]
+    ) {
       // This might eventually be brought out into a global function.
       func createGradient(
         metadata: SIMD4<Float>, values: SIMD8<Float>
@@ -104,7 +106,9 @@ public struct WaveFunction {
       
       var integralDensity: Float = .zero
       var integralGradientNorm: Float = .zero
-      var output: [UInt32] = []
+      var cellsThatNeedExpansion: [UInt32] = []
+      var cellsThatNeedContraction: Set<UInt32> = []
+      var cellsThatCanContract: [UInt32] = []
       
       // First pass: calculate normalization factors.
       // Second pass: operate on normalized importance metrics.
@@ -135,34 +139,54 @@ public struct WaveFunction {
             importanceMetric *= 0.5
             
             if importanceMetric > probabilityMultiplier * maximumProbability {
-              output.append(UInt32(nodeID))
+              cellsThatNeedExpansion.append(UInt32(nodeID))
+            } else if importanceMetric < probabilityMultiplier * maximumProbability / 8 {
+              cellsThatNeedContraction.insert(UInt32(nodeID))
             }
           }
         }
       }
       
-      return output
+    outer:
+      for nodeID in octree.linkedList.indices {
+        if octree.linkedList[nodeID].childCount == 0 {
+          continue
+        }
+        
+        for i in 1...8 {
+          if octree.linkedList[nodeID + i].childCount == 8 {
+            continue outer
+          }
+          let childID = UInt32(nodeID + i)
+          guard cellsThatNeedContraction.contains(childID) else {
+            continue outer
+          }
+        }
+        
+        cellsThatCanContract.append(UInt32(nodeID))
+      }
+      
+      return (cellsThatNeedExpansion, cellsThatCanContract)
     }
     
     fillOctree()
     
-    // If we split at the maximum probability, the number of cells
-    // averages out to roughly 4x the intended number. Therefore, we start at
-    // a looser tolerance and repeat if the fragment count undershoots.
+    // If we split at the maximum probability, the number of cells averages out
+    // to roughly 4x the intended number. Therefore, we start at a looser
+    // tolerance and repeat if the fragment count undershoots.
     let probabilityMultipliers: [Float] = [
-      5.656, 4, 2.828, 2, 1.414, 1
+      4, 2.828, 2, 1.414, 1
     ]
     for probabilityMultiplier in probabilityMultipliers {
       var converged = false
       for _ in 0..<100 {
-        let cellsToExpand = findCellsThatNeedExpansion(
+        let (expand, contract) = findCellsThatNeedChanging(
           probabilityMultiplier: probabilityMultiplier)
-        if cellsToExpand.isEmpty ||
-            octree.linkedList.count >= descriptor.fragmentCount! {
+        if expand.isEmpty, contract.isEmpty {
           converged = true
           break
         }
-        octree.insertChildren(at: cellsToExpand)
+        octree.modifyNodes(expand: expand, contract: contract)
         fillOctree()
       }
       guard converged else {

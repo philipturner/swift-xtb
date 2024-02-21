@@ -146,6 +146,5 @@ func createEffectiveCharges(
     effectiveCharges.append(max(1, charge))
   }
   
-  print(effectiveCharges, spinUpOccupations, spinDownOccupations)
   return effectiveCharges
 }
