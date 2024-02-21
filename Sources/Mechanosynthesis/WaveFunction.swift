@@ -186,6 +186,12 @@ public struct WaveFunction {
       guard converged else {
         fatalError("Wave function failed to converge after 100 iterations.")
       }
+      
+      // WARNING: This is not correct! The parent nodes should be excluded from
+      // the count. In addition, the 2x2x2 sub-cells should be reported to most
+      // accurately reflect the compute cost. Revise the test suite to account
+      // for the new definition of 'fragment'. This includes increasing the
+      // high-accuracy measurements from 1,000,000 -> 8,000,000 fragments.
       if octree.linkedList.count >= descriptor.fragmentCount! {
         break
       }
