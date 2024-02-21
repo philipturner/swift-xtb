@@ -39,52 +39,43 @@ public struct WaveFunction {
     self.octree = descriptor.octree!
     
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
-      let origin = unsafeBitCast(metadata, to: SIMD3<Float>.self)
-      let size = metadata.w
-      var output: SIMD8<Float> = .zero
+      var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+      var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+      var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+      x = x * metadata.w + metadata.x - descriptor.nucleusPosition!.x
+      y = y * metadata.w + metadata.y - descriptor.nucleusPosition!.y
+      z = z * metadata.w + metadata.z - descriptor.nucleusPosition!.z
       
-      for childID in 0..<8 {
-        let xIndex = UInt32(childID) % 2
-        let yIndex = UInt32(childID >> 1) % 2
-        let zIndex = UInt32(childID >> 2) % 2
-        var delta: SIMD3<Float> = .init(repeating: -0.25)
-        let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
-        delta.replace(with: 0.25, where: indices .> 0)
-        
-        let position = origin + delta * size
-        let nucleusDelta = position - descriptor.nucleusPosition!
-        let waveFunction = descriptor.atomicOrbital!
-          .waveFunction(position: nucleusDelta)
-        output[childID] = waveFunction
-      }
+      let output = descriptor.atomicOrbital!.waveFunction(
+        x: x, y: y, z: z)
       return output
     }
     
     // Adds the cell values for everything in the octree. Except the cells that
-    // have children. Their values are set to NAN.
-    func fillOctree() {
-      cellValues = []
+    // have children. Set their values to NAN.
+    func fillOctree(mappedPositions: [UInt32]) {
+      let NAN = SIMD8<Float>(repeating: .nan)
+      var newCellValues = Array(repeating: NAN, count: octree.linkedList.count)
+      for (originalPosition, mappedPosition) in mappedPositions.enumerated() {
+        if mappedPosition != .max {
+          newCellValues[Int(mappedPosition)] = cellValues[originalPosition]
+        }
+      }
+      
       for nodeID in octree.linkedList.indices {
         let element = octree.linkedList[nodeID]
-        var newValue: SIMD8<Float>
-        
-        if element.childCount == 8 {
-          newValue = .init(repeating: .nan)
-        } else {
+        if element.childCount == 0,
+           newCellValues[nodeID][0].isNaN {
           let metadata = octree.metadata[nodeID]
-          newValue = createCellValues(metadata: metadata)
+          newCellValues[nodeID] = createCellValues(metadata: metadata)
         }
-        cellValues.append(newValue)
       }
+      cellValues = newCellValues
     }
     
-    // There isn't a major need to contract too-small cells during
-    // initialization. The gradual increase in normalization factor only
-    // slightly lowers the importance value.
     func findCellsThatNeedChanging(probabilityMultiplier: Float) -> (
       expand: [UInt32], contract: [UInt32]
     ) {
-      // This might eventually be brought out into a global function.
       func createGradient(
         metadata: SIMD4<Float>, values: SIMD8<Float>
       ) -> SIMD3<Float> {
@@ -138,9 +129,11 @@ public struct WaveFunction {
             importanceMetric += gradientContribution / integralGradientNorm
             importanceMetric *= 0.5
             
-            if importanceMetric > probabilityMultiplier * maximumProbability {
+            let upperBound = probabilityMultiplier * maximumProbability
+            let lowerBound = probabilityMultiplier * maximumProbability / 8
+            if importanceMetric > upperBound {
               cellsThatNeedExpansion.append(UInt32(nodeID))
-            } else if importanceMetric < probabilityMultiplier * maximumProbability / 8 {
+            } else if importanceMetric < lowerBound {
               cellsThatNeedContraction.insert(UInt32(nodeID))
             }
           }
@@ -162,14 +155,13 @@ public struct WaveFunction {
             continue outer
           }
         }
-        
         cellsThatCanContract.append(UInt32(nodeID))
       }
       
       return (cellsThatNeedExpansion, cellsThatCanContract)
     }
     
-    fillOctree()
+    fillOctree(mappedPositions: [])
     
     // If we split at the maximum probability, the number of cells averages out
     // to roughly 4x the intended number. Therefore, we start at a looser
@@ -186,8 +178,10 @@ public struct WaveFunction {
           converged = true
           break
         }
-        octree.modifyNodes(expand: expand, contract: contract)
-        fillOctree()
+        
+        let mappedPositions = octree.modifyNodes(
+          expand: expand, contract: contract)
+        fillOctree(mappedPositions: mappedPositions)
       }
       guard converged else {
         fatalError("Wave function failed to converge after 100 iterations.")

@@ -15,6 +15,9 @@ if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
 
 let package = Package(
   name: "mechanosynthesis",
+  platforms: [
+    .macOS(.v13)
+  ],
   products: [
     // Products define the executables and libraries a package produces, making them visible to other packages.
     .library(

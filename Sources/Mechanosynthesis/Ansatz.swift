@@ -97,6 +97,10 @@ public struct Ansatz {
         Z: Z, spinDownOccupations: spinDownOccupations,
         spinUpOccupations: spinUpOccupations)
       
+      // This loop would be a great place to parallelize across multiple CPU
+      // cores. However, we are not permitted to use multicore CPU or hardware
+      // acceleration yet. Some very important performance investigations may
+      // require a context that is entirely single-core CPU.
       for n in shellCharges.indices {
         let spinDownOccupation = spinDownOccupations[n]
         let spinNeutralOccupation = spinNeutralOccupations[n]

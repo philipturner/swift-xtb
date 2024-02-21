@@ -739,5 +739,5 @@ final class AnsatzTests: XCTestCase {
       waveFunction: flerovium.spinNeutralWaveFunctions[17]), accuracy: 1e-3)
   }
   
-  // Next, optimize the code for generating the initial guess.
+  // Next, proceed with constructing the Hamiltonian.
 }

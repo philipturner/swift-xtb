@@ -6,6 +6,9 @@
 //
 
 import Numerics
+#if canImport(simd)
+import simd
+#endif
 
 struct AtomicOrbitalDescriptor {
   // Effective nuclear charge.
@@ -23,8 +26,9 @@ struct AtomicOrbitalDescriptor {
 
 struct AtomicOrbital {
   var normalizationFactor: Float
-  var radialPart: (Float) -> Float
-  var angularPart: (Float, Float, Float, Float) -> Float
+  var radialPart: (SIMD8<Float>) -> SIMD8<Float>
+  var angularPart: (
+    SIMD8<Float>, SIMD8<Float>, SIMD8<Float>, SIMD8<Float>) -> SIMD8<Float>
   
   init(descriptor: AtomicOrbitalDescriptor) {
     guard let Z = descriptor.Z,
@@ -45,12 +49,23 @@ struct AtomicOrbital {
     let L = laguerrePolynomial(alpha: Float(2 * l + 1), n: n - l - 1)
     radialPart = { r in
       let shellRadiusPart = shellPart * r
-      var output: Float = 1
+      var output: SIMD8<Float> = .one
       for _ in 0..<l {
         output *= shellRadiusPart
       }
       
-      output *= Float.exp(-shellRadiusPart / 2)
+      // Unsure how to make transcendentals faster on other platforms yet.
+      // It may become irrelevant when everything is ported to GPU.
+      let input = -shellRadiusPart / 2 * 1.4426950408889607
+      var expValue: SIMD8<Float> = .zero
+      #if canImport(simd)
+      expValue = exp2(input)
+      #else
+      for laneID in 0..<8 {
+        expValue[laneID] = Float.exp2(input[laneID])
+      }
+      #endif
+      output *= expValue
       output *= L(shellRadiusPart)
       return output
     }
@@ -58,10 +73,14 @@ struct AtomicOrbital {
   }
   
   // Enter the position in a coordinate space where the nucleus is the origin.
-  func waveFunction(position: SIMD3<Float>) -> Float {
-    let r = (position * position).sum().squareRoot()
+  func waveFunction(
+    x: SIMD8<Float>,
+    y: SIMD8<Float>,
+    z: SIMD8<Float>
+  ) -> SIMD8<Float> {
+    let r = (x * x + y * y + z * z).squareRoot()
     let R = radialPart(r)
-    let Y = angularPart(position.x, position.y, position.z, r)
+    let Y = angularPart(x, y, z, r)
     return normalizationFactor * R * Y
   }
 }

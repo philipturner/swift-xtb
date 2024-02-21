@@ -7,13 +7,13 @@
 
 func laguerrePolynomial(
   alpha: Float, n: Int
-) -> (_ x: Float) -> Float {
+) -> (_ x: SIMD8<Float>) -> SIMD8<Float> {
   if n == 0 {
-    return { _ in 1 }
+    return { _ in .one }
   } else if n > 0 {
     return { x in
-      var secondLast: Float = 1
-      var last: Float = 1 + alpha - x
+      var secondLast: SIMD8<Float> = .one
+      var last: SIMD8<Float> = 1 + alpha - x
       
       for k in 1..<n {
         let coeffLeft = Float(2 * k + 1) + alpha - x
@@ -32,7 +32,12 @@ func laguerrePolynomial(
 
 func cubicHarmonic(
   l: Int, m: Int
-) -> (_ x: Float, _ y: Float, _ z: Float, _ r: Float) -> Float {
+) -> (
+  _ x: SIMD8<Float>,
+  _ y: SIMD8<Float>,
+  _ z: SIMD8<Float>,
+  _ r: SIMD8<Float>
+) -> SIMD8<Float> {
   var factorial: Int = 1
   for i in 0...l {
     factorial *= (i * 2 + 1)
@@ -43,7 +48,7 @@ func cubicHarmonic(
   // https://en.wikipedia.org/wiki/Cubic_harmonic
   if l == 0 {
     return { _, _, _, _ in
-      var output = Nc
+      var output = Nc / SIMD8<Float>.one
       switch m {
       case 0: output *= 1
       default: fatalError("Invalid value for m.")
@@ -65,7 +70,9 @@ func cubicHarmonic(
     return { x, y, z, r in
       var output = Nc / (r * r)
       switch m {
-      case 0: output *= (3 * z * z - r * r) / (2 * Float(3).squareRoot())
+      case 0:
+        output *= 3 * z * z - r * r
+        output /= 2 * Float(3).squareRoot()
       case -1: output *= x * z
       case 1: output *= y * z
       case -2: output *= x * y
@@ -77,25 +84,32 @@ func cubicHarmonic(
   } else if l == 3 {
     return { x, y, z, r in
       var output = Nc / (r * r * r)
+      
+      // Prevent the compiler from taking a long time to type-check this.
+      let x2: SIMD8<Float> = x * x
+      let y2: SIMD8<Float> = y * y
+      let z2: SIMD8<Float> = z * z
+      
       switch m {
       case 0:
-        output *= z * (2 * z * z - 3 * x * x - 3 * y * y)
+        let expr = 2 * z2 - 3 * x2 - 3 * y2
+        output *= z * expr
         output /= 2 * Float(15).squareRoot()
       case -1:
-        output *= x * (4 * z * z - x * x - y * y)
+        output *= x * (4 * z2 - x2 - y2)
         output /= 2 * Float(10).squareRoot()
       case 1:
-        output *= y * (4 * z * z - x * x - y * y)
+        output *= y * (4 * z2 - x2 - y2)
         output /= 2 * Float(10).squareRoot()
       case -2:
         output *= x * y * z
       case 2:
-        output *= z * (x * x - y * y) / 2
+        output *= z * (x2 - y2) / 2
       case -3:
-        output *= x * (x * x - 3 * y * y)
+        output *= x * (x2 - 3 * y2)
         output /= 2 * Float(6).squareRoot()
       case 3:
-        output *= y * (3 * x * x - y * y)
+        output *= y * (3 * x2 - y2)
         output /= 2 * Float(6).squareRoot()
       default:
         fatalError("Invalid value for m.")

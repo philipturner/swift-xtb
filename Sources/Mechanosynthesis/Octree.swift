@@ -38,7 +38,10 @@ public struct Octree {
   }
   
   // Efficient function to expand/contract several modes at once.
-  mutating func modifyNodes(expand: [UInt32], contract: [UInt32]) {
+  //
+  // Returns the old nodes' positions in the new list. If no such position
+  // exists, the array element is `UInt32.max`.
+  mutating func modifyNodes(expand: [UInt32], contract: [UInt32]) -> [UInt32] {
     var insertionMarks = [Bool](repeating: false, count: linkedList.count)
     var removalMarks = [Bool](repeating: false, count: linkedList.count)
     
@@ -112,6 +115,7 @@ public struct Octree {
     }
     
     // Create a new array by scanning the current one serially.
+    var mappedPositions = [UInt32](repeating: .max, count: linkedList.count)
     var newLinkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
     var newMetadata: [SIMD4<Float>] = []
     for currentNodeID in linkedList.indices {
@@ -121,6 +125,9 @@ public struct Octree {
       }
       if removalMarks[currentNodeID] {
         continue
+      }
+      if !insertionMarks[currentNodeID] {
+        mappedPositions[currentNodeID] = UInt32(newLinkedList.count)
       }
       newLinkedList.append(element)
       if insertionMarks[currentNodeID] {
@@ -136,18 +143,16 @@ public struct Octree {
       let parentMetadata = metadata[Int(currentNodeID)]
       newMetadata.append(parentMetadata)
       if insertionMarks[currentNodeID] {
+        var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+        var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+        var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+        x = x * parentMetadata.w + parentMetadata.x
+        y = y * parentMetadata.w + parentMetadata.y
+        z = z * parentMetadata.w + parentMetadata.z
+        
         for childID in 0..<8 {
-          let xIndex = UInt32(childID) % 2
-          let yIndex = UInt32(childID >> 1) % 2
-          let zIndex = UInt32(childID >> 2) % 2
-          var delta: SIMD3<Float> = .init(repeating: -0.25)
-          let indices = SIMD3<UInt32>(xIndex, yIndex, zIndex)
-          delta.replace(with: 0.25, where: indices .> 0)
-          
-          let parentPosition = unsafeBitCast(
-            parentMetadata, to: SIMD3<Float>.self)
           let parentSpacing = parentMetadata.w
-          let childPosition = parentPosition + delta * parentSpacing
+          let childPosition = SIMD3(x[childID], y[childID], z[childID])
           let childSpacing = parentSpacing / 2
           newMetadata.append(SIMD4(childPosition, childSpacing))
         }
@@ -157,5 +162,6 @@ public struct Octree {
     // Replace the current arrays with the expanded ones.
     linkedList = newLinkedList
     metadata = newMetadata
+    return mappedPositions
   }
 }
