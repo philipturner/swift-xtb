@@ -5,10 +5,6 @@
 //  Created by Philip Turner on 2/13/24.
 //
 
-// Stores a set of fragments. Each fragment internally stores a 2x2x2 group
-// of sub-fragments contiguously. One can compute the first derivative at the
-// center of the cell for XC functionals.
-
 struct WaveFunctionDescriptor {
   // The functional form of the initial guess.
   var atomicOrbital: AtomicOrbital?

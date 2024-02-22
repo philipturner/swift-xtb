@@ -9,9 +9,7 @@ Goals:
 - Real-space formalism
   - Removes FFTs, a bottleneck and library dependency.
   - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave formalism. This formalism is well-suited to CPUs, but not GPUs.
-- Variable-resolution orbitals to accelerate the onset of $O(n)$ scaling
-  - Loosely constrain each orbital fragment to have the same probability.
-  - User specifies the probability for orbital fragments at the 2x2x2 granularity, where the most expensive operations are performed.
+  - Adaptive mesh refinement at the per-electron granularity, instead of the typical global granularity.
 - [Dynamic precision for eigensolvers](https://pubs.acs.org/doi/10.1021/acs.jctc.2c00983) (2023)
   - Allows DFT to run on consumer hardware with few FP64 units.
   - Remove LOBPCG and all linear algebra, such as `dsyevd`. Solve the eigenproblem with a linear-scaling algorithm.

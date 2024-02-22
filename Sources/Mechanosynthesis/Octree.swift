@@ -11,6 +11,39 @@ struct OctreeDescriptor {
   var sizeExponent: Int?
 }
 
+struct OctreeNode {
+  // The data in the octree. For vector lanes corresponding to branches, this is
+  // implicitly assumed to be the weighted average of all children. If the
+  // assumption is not correct, you must account for that in calling code.
+  var data: SIMD8<Float>
+  var centerAndSpacing: SIMD4<Float>
+  
+  // The average 3D position of the cell's contents.
+  @_transparent var center: SIMD3<Float> {
+    unsafeBitCast(centerAndSpacing, to: SIMD3<Float>.self)
+  }
+  
+  // The cube root of the volume.
+  @_transparent var spacing: Float {
+    centerAndSpacing.w
+  }
+  
+  // A means for traversing to neighboring nodes.
+  var childrenBefore: UInt32
+  var childrenAfter: UInt32
+  
+  // The index in the parent node. Consecutive nodes in memory may not have
+  // contiguous parent indices, because some nodes aren't expanded.
+  var indexInParent: UInt8
+  
+  // If any children have sub-children, they are marked in this mask. The
+  // consecutive array elements contain the child nodes in compacted order.
+  //
+  // Otherwise, the child is implicitly specified to exist, but it terminates
+  // the tree. Places where the mask evaluates to 0 are "sources of truth".
+  var branchesMask: UInt8
+}
+
 /// An octree data structure designed for efficient traversal.
 public struct Octree {
   /// The cells from every hierarchy level, in Morton order.
@@ -18,12 +51,19 @@ public struct Octree {
   /// Each array element is a tuple:
   /// - nextElement: If this element terminates the current 2x2x2 cell, the next
   ///                element is 'nil'. Otherwise, it points to the location
-  ///                right after the children and sub-children.
-  /// - childCount: Each element is followed by 8 elements specifying its
-  ///               children. The number of children must be either 0 or 8.
-  public var linkedList: [(nextElement: UInt32?, childCount: UInt8)] = []
+  ///                right after the children.
+  /// - previousElement: If this element begins the current 2x2x2 cell, the
+  ///                    previous element is 'nil'. Otherwise, it points to the
+  ///                    location right before the previous node's children.
+  /// - branches: If any children have sub-children, they are marked in this
+  ///              mask. The consecutive array elements contain the child nodes
+  ///              in compacted order. Otherwise, the child is implicitly
+  ///              specified to exist, but it terminates the tree. Places where
+  ///              the mask evaluates to 0 are "sources of truth".
+  public var linkedList: [(nextElement: UInt32?, branches: UInt8)] = []
   
-  /// Center (first three lanes) and grid spacing (fourth lane) of each cell.
+  /// Center (first three lanes) and grid spacing (fourth lane) of the parent
+  /// cell.
   public var metadata: [SIMD4<Float>] = []
   
   init(descriptor: OctreeDescriptor) {
