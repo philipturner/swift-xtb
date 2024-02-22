@@ -11,11 +11,8 @@ struct OctreeDescriptor {
   var sizeExponent: Int?
 }
 
+// The data needed for locating this node in 3D space and memory.
 struct OctreeNode {
-  // The data in the octree. For vector lanes corresponding to branches, this is
-  // implicitly assumed to be the weighted average of all children. If the
-  // assumption is not correct, you must account for that in calling code.
-  var data: SIMD8<Float>
   var centerAndSpacing: SIMD4<Float>
   
   // The average 3D position of the cell's contents.
@@ -28,19 +25,20 @@ struct OctreeNode {
     centerAndSpacing.w
   }
   
-  // A means for traversing to neighboring nodes.
+  // The number of additional elements between this node and its neighbors.
   var childrenBefore: UInt32
   var childrenAfter: UInt32
+  
+  // The number of jumps to perform to locate the parent.
+  var parentChildCount: UInt8
   
   // The index in the parent node. Consecutive nodes in memory may not have
   // contiguous parent indices, because some nodes aren't expanded.
   var indexInParent: UInt8
   
-  // If any children have sub-children, they are marked in this mask. The
-  // consecutive array elements contain the child nodes in compacted order.
-  //
-  // Otherwise, the child is implicitly specified to exist, but it terminates
-  // the tree. Places where the mask evaluates to 0 are "sources of truth".
+  // If any children have grand-children, they are marked in this mask. The
+  // consecutive array elements are the child nodes in compacted order.
+  // Otherwise, the child terminates the tree.
   var branchesMask: UInt8
 }
 
