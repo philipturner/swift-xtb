@@ -12,57 +12,38 @@ struct OctreeDescriptor {
 }
 
 // The data needed for locating this node in 3D space and memory.
-struct OctreeNode {
-  var centerAndSpacing: SIMD4<Float>
+public struct OctreeNode {
+  public var centerAndSpacing: SIMD4<Float>
   
   // The average 3D position of the cell's contents.
-  @_transparent var center: SIMD3<Float> {
+  @_transparent public var center: SIMD3<Float> {
     unsafeBitCast(centerAndSpacing, to: SIMD3<Float>.self)
   }
   
   // The cube root of the volume.
-  @_transparent var spacing: Float {
+  @_transparent public var spacing: Float {
     centerAndSpacing.w
   }
   
   // The number of additional elements between this node and its neighbors.
-  var childrenBefore: UInt32
-  var childrenAfter: UInt32
-  
-  // The number of jumps to perform to locate the parent.
-  var parentChildCount: UInt8
+  public var childrenBefore: UInt32
+  public var childrenAfter: UInt32
   
   // The index in the parent node. Consecutive nodes in memory may not have
-  // contiguous parent indices, because some nodes aren't expanded.
-  var indexInParent: UInt8
+  // contiguous parent indices, because some nodes aren't expanded. Use this to
+  // compute the parent's center, then find the first node with that center.
+  public var indexInParent: UInt8
   
   // If any children have grand-children, they are marked in this mask. The
-  // consecutive array elements are the child nodes in compacted order.
-  // Otherwise, the child terminates the tree.
-  var branchesMask: UInt8
+  // next array elements will be the child nodes in compacted order. If the
+  // child is a leaf node, it isn't marked.
+  public var branchesMask: UInt8
 }
 
 /// An octree data structure designed for efficient traversal.
 public struct Octree {
   /// The cells from every hierarchy level, in Morton order.
-  ///
-  /// Each array element is a tuple:
-  /// - nextElement: If this element terminates the current 2x2x2 cell, the next
-  ///                element is 'nil'. Otherwise, it points to the location
-  ///                right after the children.
-  /// - previousElement: If this element begins the current 2x2x2 cell, the
-  ///                    previous element is 'nil'. Otherwise, it points to the
-  ///                    location right before the previous node's children.
-  /// - branches: If any children have sub-children, they are marked in this
-  ///              mask. The consecutive array elements contain the child nodes
-  ///              in compacted order. Otherwise, the child is implicitly
-  ///              specified to exist, but it terminates the tree. Places where
-  ///              the mask evaluates to 0 are "sources of truth".
-  public var linkedList: [(nextElement: UInt32?, branches: UInt8)] = []
-  
-  /// Center (first three lanes) and grid spacing (fourth lane) of the parent
-  /// cell.
-  public var metadata: [SIMD4<Float>] = []
+  public internal(set) var nodes: [OctreeNode] = []
   
   init(descriptor: OctreeDescriptor) {
     guard let sizeExponent = descriptor.sizeExponent else {
@@ -71,66 +52,71 @@ public struct Octree {
     
     let origin: SIMD3<Float> = .zero
     let size = Float(sign: .plus, exponent: sizeExponent, significand: 1)
-    metadata = [SIMD4(origin, size)]
-    linkedList = [(nextElement: nil, childCount: 0)]
+    let node = OctreeNode(
+      centerAndSpacing: SIMD4(origin, size),
+      childrenBefore: 0,
+      childrenAfter: 0,
+      indexInParent: 0,
+      branchesMask: 0b0000_0000)
+    nodes = [node]
   }
   
-  // Efficient function to expand/contract several modes at once.
-  //
-  // Returns the old nodes' positions in the new list. If no such position
-  // exists, the array element is `UInt32.max`.
-  mutating func modifyNodes(expand: [UInt32], contract: [UInt32]) -> [UInt32] {
-    var insertionMarks = [Bool](repeating: false, count: linkedList.count)
-    var removalMarks = [Bool](repeating: false, count: linkedList.count)
+  // Efficient function to expand/contract several nodes at once.
+  // - expand: The nodes that should acquire children. Each array element is
+  //           the parent address and the mask of children that should be
+  //           expanded.
+  // - contract: The parents who should no longer have children. The children
+  //             cannot have grandchildren.
+  // - returns: The old nodes' positions in the new list. If no such position
+  //            exists, the array element is `UInt32.max`.
+  mutating func resizeNodes(
+    expand: [(UInt32, UInt8)], contract: [UInt32]
+  ) -> [UInt32] {
+    var insertionMarks = [UInt8](repeating: 0b0000_0000, count: nodes.count)
+    var removalMarks = [Bool](repeating: false, count: nodes.count)
     
     // Assert that each specified node exists, and its child count is zero.
-    for nodeID in expand {
-      guard nodeID < linkedList.count else {
-        fatalError("Element does not exist.")
+    for (nodeID, expansionMask) in expand {
+      guard nodes.indices.contains(Int(nodeID)) else {
+        fatalError("Parent does not exist.")
       }
-      let element = linkedList[Int(nodeID)]
-      guard element.childCount == 0 else {
-        fatalError("Attempted to insert children that already exist: \(expand).")
+      let node = nodes[Int(nodeID)]
+      guard expansionMask & node.branchesMask == 0 else {
+        fatalError("Attempted to insert children that already exist.")
       }
-      insertionMarks[Int(nodeID)] = true
+      insertionMarks[Int(nodeID)] = expansionMask
     }
     
-    // Assert that each specified node exists, and its child count is 8.
+    // Assert that each specified node exists, and its children don't have
+    // grandchildren.
     for nodeID in contract {
-      guard nodeID < linkedList.count else {
-        fatalError("Element does not exist.")
+      guard nodes.indices.contains(Int(nodeID)) else {
+        fatalError("Parent does not exist.")
       }
-      let element = linkedList[Int(nodeID)]
-      guard element.childCount == 8 else {
-        fatalError("Contracted cell must have children.")
+      let node = nodes[Int(nodeID)]
+      guard node.branchesMask == 0 else {
+        fatalError("Attempted to contract node with grandchildren.")
       }
-      linkedList[Int(nodeID)].childCount = 0
-      
-      // Assert that none of the children have sub-children.
-      for childID in 0..<8 {
-        let childNodeID = Int(nodeID) + 1 + childID
-        let childElement = linkedList[childNodeID]
-        guard childElement.childCount == 0 else {
-          fatalError("Removed an occupied child cell.")
-        }
-        removalMarks[childNodeID] = true
+      guard insertionMarks[Int(nodeID)] == 0 else {
+        fatalError("Attempted to expand and contract a node at the same time.")
       }
-    }
-    
-    // Create a list of the previous elements that reference the current one.
-    var pointingNodeMap = [UInt32?](repeating: nil, count: linkedList.count)
-    for currentNodeID in linkedList.indices {
-      let element = linkedList[currentNodeID]
-      if let nextElement = element.nextElement {
-        guard pointingNodeMap[Int(nextElement)] == nil else {
-          fatalError("This should never happen.")
-        }
-        pointingNodeMap[Int(nextElement)] = UInt32(currentNodeID)
-      }
+      removalMarks[Int(nodeID)] = true
     }
     
     // Modify the existing linked list so 'nextElement' already points to
     // where it should in the new list.
+    //
+    // TODO: Something similar, but tracking the number of elements expanded or
+    // contracted between a specific node pair. This could get very complicated
+    // if we want it to be an in-place operation.
+    //
+    // Alternatively, try updating from left to right. Store a stack of the last
+    // time a particular level of the hierarchy was hit. That instantly
+    // results in a O(n) childrenBefore computation. Repeat a similar process
+    // for the other traversal direction for childrenAfter.
+    // - WARNING: Need to erase certain nodes of the stack once they go out of
+    //            context (belong to the wrong parent). I think this happens
+    //            automatically when popping the stack to reach a higher level.
     var nextElementOffset: Int = .zero
     for currentNodeID in linkedList.indices {
       let pointingNodeID = pointingNodeMap[currentNodeID]
