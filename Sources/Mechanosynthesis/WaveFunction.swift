@@ -43,10 +43,12 @@ public struct WaveFunction {
     self.octree = Octree(descriptor: octreeDesc)
     
     // Cache the integrals so they don't need to be recomputed. Defer the
-    // initializaton of 'cellValues' until after the octree is done. That
-    // roughly halves the overhead of incremental updates. Later on, we can
+    // initialization of 'cellValues' until after the octree is done. We can
     // profile whether caching the wavefunctions improves performance.
-    var cellIntegrals: [SIMD8<Float>] = []
+    var densityIntegrals: [SIMD8<Float>] = []
+    var gradientIntegrals: [SIMD8<Float>] = []
+    densityIntegrals.append(SIMD8(repeating: .nan))
+    gradientIntegrals.append(SIMD8(repeating: .nan))
     
     func createCellValues(
       center: SIMD3<Float>, spacing: Float
@@ -61,6 +63,41 @@ public struct WaveFunction {
       
       let output = atomicOrbital.waveFunction(x: x, y: y, z: z)
       return output
+    }
+    
+    // Evaluate the density and square gradient over all of real space. Operate
+    // on the caches, 'densityIntegrals' and 'gradientIntegrals'.
+    func evaluateGlobalIntegrals() -> (
+      density: Float,
+      squareGradient: Float
+    ) {
+      var density: Double = .zero
+      var squareGradient: Double = .zero
+      for nodeID in octree.nodes.indices {
+        var densityIntegral = densityIntegrals[nodeID]
+        var gradientIntegral = gradientIntegrals[nodeID]
+        
+        // Compute the integrals and cache them.
+        if densityIntegrals[nodeID][0].isNaN {
+          // TODO: Compute the integrals.
+          
+          let ε: Float = .leastNormalMagnitude
+          densityIntegral.replace(with: ε, where: densityIntegral .< ε)
+          gradientIntegral.replace(with: ε, where: gradientIntegral .< ε)
+          densityIntegrals[nodeID] = densityIntegral
+          gradientIntegrals[nodeID] = gradientIntegral
+        }
+        
+        let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
+        var mask8 = SIMD8<UInt8>(repeating: 1) &<< shifts
+        mask8 = mask8 & octree.nodes[nodeID].branchesMask
+        let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
+        densityIntegral.replace(with: SIMD8.zero, where: mask32)
+        gradientIntegral.replace(with: SIMD8.zero, where: mask32)
+        density += Double(densityIntegral.sum())
+        squareGradient += Double(gradientIntegral.sum())
+      }
+      return (Float(density), Float(squareGradient))
     }
     
     // Perform one iteration of octree resizing.
