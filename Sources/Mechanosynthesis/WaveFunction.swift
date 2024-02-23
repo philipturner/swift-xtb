@@ -15,13 +15,12 @@ struct WaveFunctionDescriptor {
   // The nuclear position for the initial guess.
   var nucleusPosition: SIMD3<Float>?
   
-  // An octree initialized with the world bounds.
-  var octree: Octree?
+  // The power-2 size of the coarsest octree level.
+  var sizeExponent: Int?
 }
 
 public struct WaveFunction {
-  /// The values of the wavefunction in each cell. The cell is subdivided into
-  /// a 2x2x2 group of sub-cells.
+  /// The values of the wavefunction at each octree node.
   public var cellValues: [SIMD8<Float>] = []
   
   /// The number of fragments the wavefunction should attempt to remain at.
@@ -31,9 +30,73 @@ public struct WaveFunction {
   public var octree: Octree
   
   init(descriptor: WaveFunctionDescriptor) {
+    guard let atomicOrbital = descriptor.atomicOrbital,
+          let fragmentCount = descriptor.fragmentCount,
+          let nucleusPosition = descriptor.nucleusPosition,
+          let sizeExponent = descriptor.sizeExponent else {
+      fatalError("Descriptor was invalid.")
+    }
     self.fragmentCount = descriptor.fragmentCount!
-    self.octree = descriptor.octree!
     
+    var octreeDesc = OctreeDescriptor()
+    octreeDesc.sizeExponent = descriptor.sizeExponent
+    self.octree = Octree(descriptor: octreeDesc)
+    
+    // Cache the integrals so they don't need to be recomputed. Defer the
+    // initializaton of 'cellValues' until after the octree is done. That
+    // roughly halves the overhead of incremental updates. Later on, we can
+    // profile whether caching the wavefunctions improves performance.
+    var cellIntegrals: [SIMD8<Float>] = []
+    
+    func createCellValues(
+      center: SIMD3<Float>, spacing: Float
+    ) -> SIMD8<Float> {
+      var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+      var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+      var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+      let centerDelta = center - nucleusPosition
+      x = x * spacing + centerDelta.x
+      y = y * spacing + centerDelta.y
+      z = z * spacing + centerDelta.z
+      
+      let output = atomicOrbital.waveFunction(x: x, y: y, z: z)
+      return output
+    }
+    
+    // Perform one iteration of octree resizing.
+    // - returns: Whether the octree has converged.
+    func resizeOctreeNodes(_ probabilityMultiplier: Float) -> Bool {
+      return false
+    }
+    
+    // If we split at the maximum probability, the number of cells averages out
+    // to roughly 4x the intended number. Therefore, we start at a looser
+    // tolerance and repeat if the fragment count undershoots.
+    let probabilityMultipliers: [Float] = [
+      4, 2.828, 2, 1.414, 1
+    ]
+    for probabilityMultiplier in probabilityMultipliers {
+      var iterationID = 0
+      while resizeOctreeNodes(probabilityMultiplier) == false {
+        iterationID += 1
+        if iterationID > 50 {
+          fatalError("Wave function failed to converge after 50 iterations.")
+        }
+      }
+      
+      var octreeFragmentCount = 0
+      for node in octree.nodes {
+        let leafMask = ~node.branchesMask
+        octreeFragmentCount += leafMask.nonzeroBitCount
+      }
+      if octreeFragmentCount >= fragmentCount {
+        
+      } else if probabilityMultiplier == 1 {
+        fatalError("Could not create octree with the specified fragment count.")
+      }
+    }
+    
+    #if false
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
       var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
       var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
@@ -192,5 +255,8 @@ public struct WaveFunction {
         break
       }
     }
+    #endif
+    
+    fatalError("Not implemented.")
   }
 }

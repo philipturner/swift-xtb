@@ -5,46 +5,46 @@
 //  Created by Philip Turner on 2/18/24.
 //
 
-/// A configuration for an octree.
 struct OctreeDescriptor {
-  /// Required. The power-2 size of the coarsest level.
+  // Required. The power-2 size of the coarsest level.
   var sizeExponent: Int?
 }
 
-// The data needed for locating this node in 3D space and memory.
+/// The data needed for locating a node in 3D space and memory.
 public struct OctreeNode {
+  /// A four-element vector that compactly stores the center and spacing.
   public var centerAndSpacing: SIMD4<Float>
   
-  // The average 3D position of the cell's contents.
+  /// The average 3D position of the cell's contents.
   @_transparent public var center: SIMD3<Float> {
     unsafeBitCast(centerAndSpacing, to: SIMD3<Float>.self)
   }
   
-  // The cube root of the volume.
+  /// The cube root of the volume.
   @_transparent public var spacing: Float {
     centerAndSpacing.w
   }
   
-  // The array index of the parent. If there is none, this is 'UInt32.max'.
+  /// The array index of the parent. If there is none, this is 'UInt32.max'.
   public var parentIndex: UInt32
   
-  // The array index where the child nodes start. If there are none, this is
-  // 'UInt32.max'.
+  /// The array index where the child nodes start. If there are none, this is
+  /// 'UInt32.max'.
   public var branchesIndex: UInt32
   
-  // The mask index within the parent node.
+  /// The mask index within the parent node.
   public var parentMaskIndex: UInt8
   
-  // If any children have grand-children, they are marked in this mask. Such
-  // children are stored in compacted order. If the child is a leaf node, it
-  // isn't marked.
+  /// If any children have grand-children, they are marked in this mask. Such
+  /// children are stored in compacted order. If the child is a leaf node, it
+  /// isn't marked.
   public var branchesMask: UInt8
 }
 
 /// An octree data structure designed for efficient traversal.
 public struct Octree {
   /// The cells from every hierarchy level, in Morton order.
-  public internal(set) var nodes: [OctreeNode] = []
+  public var nodes: [OctreeNode] = []
   
   init(descriptor: OctreeDescriptor) {
     guard let sizeExponent = descriptor.sizeExponent else {
