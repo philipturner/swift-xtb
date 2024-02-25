@@ -76,10 +76,60 @@ public struct WaveFunction {
       for nodeID in octree.nodes.indices {
         var densityIntegral = densityIntegrals[nodeID]
         var gradientIntegral = gradientIntegrals[nodeID]
+        let node = octree.nodes[nodeID]
         
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
-          // TODO: Compute the integrals.
+          let Ψ = createCellValues(center: node.center, spacing: node.spacing)
+          let d3r = node.spacing * node.spacing * node.spacing
+          densityIntegral = Ψ * 1 * Ψ * d3r
+          
+          let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
+          let lowX = Ψ.evenHalf
+          let highX = Ψ.oddHalf
+          let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
+          let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
+          let lowZ = Ψ.lowHalf
+          let highZ = Ψ.highHalf
+          
+          let Δx = (highX - lowX) / node.spacing
+          let Δy = (highY - lowY) / node.spacing
+          let Δz = (highZ - lowZ) / node.spacing
+          let intΔx = Δx * Δx * d3r
+          let intΔy = Δy * Δy * d3r
+          let intΔz = Δz * Δz * d3r
+          
+          var castedIntΔx = unsafeBitCast(intΔx, to: SIMD4<UInt32>.self)
+          var castedIntΔx2 = SIMD4<UInt64>(truncatingIfNeeded: castedIntΔx)
+          castedIntΔx2 |= castedIntΔx2 &<< 32
+          var castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
+          let castedIntΔy2 = SIMD4(castedIntΔy[0], castedIntΔy[0],
+                                   castedIntΔy[1], castedIntΔy[1])
+          
+          let finalIntΔx = unsafeBitCast(castedIntΔx2, to: SIMD8<Float>.self)
+          let finalIntΔy = unsafeBitCast(castedIntΔy2, to: SIMD8<Float>.self)
+          let finalIntΔz = SIMD8<Float>(lowHalf: intΔz, highHalf: intΔz)
+          gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
+          
+          // Check the correctness of this optimized code by calculating it the
+          // slow way.
+          for laneID in 0..<8 {
+            // The sign of the gradient doesn't matter; it will be squared.
+            var partX = Ψ[laneID ^ 1] - Ψ[laneID]
+            var partY = Ψ[laneID ^ 2] - Ψ[laneID]
+            var partZ = Ψ[laneID ^ 4] - Ψ[laneID]
+            var partXYZ = SIMD3(partX, partY, partZ)
+            partXYZ /= node.spacing
+            partXYZ = partXYZ * partXYZ * d3r
+            
+            let expected = partXYZ.sum()
+            let actual = gradientIntegral[laneID]
+            guard expected == actual else {
+              let absoluteDifference = actual - expected
+              let relativeDifference = actual / expected
+              fatalError("Incorrect gradient integral. Expected \(expected), got \(actual) (difference: \(absoluteDifference), ratio: \(relativeDifference)).")
+            }
+          }
           
           let ε: Float = .leastNormalMagnitude
           densityIntegral.replace(with: ε, where: densityIntegral .< ε)
@@ -90,7 +140,7 @@ public struct WaveFunction {
         
         let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
         var mask8 = SIMD8<UInt8>(repeating: 1) &<< shifts
-        mask8 = mask8 & octree.nodes[nodeID].branchesMask
+        mask8 = mask8 & node.branchesMask
         let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
         densityIntegral.replace(with: SIMD8.zero, where: mask32)
         gradientIntegral.replace(with: SIMD8.zero, where: mask32)

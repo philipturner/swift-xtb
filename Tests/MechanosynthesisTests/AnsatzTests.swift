@@ -738,6 +738,4 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(0.047402453, Self.queryRadius(
       waveFunction: flerovium.spinNeutralWaveFunctions[17]), accuracy: 1e-3)
   }
-  
-  // Next, proceed with constructing the Hamiltonian.
 }
