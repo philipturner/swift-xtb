@@ -5,9 +5,14 @@
 //  Created by Philip Turner on 2/18/24.
 //
 
-struct OctreeDescriptor {
-  // Required. The power-2 size of the coarsest level.
-  var sizeExponent: Int?
+/// A configuration for an octree.
+public struct OctreeDescriptor {
+  /// Required. The power-2 size of the coarsest level.
+  public var sizeExponent: Int?
+  
+  public init() {
+    
+  }
 }
 
 /// The data needed for locating a node in 3D space and memory.
@@ -46,7 +51,7 @@ public struct Octree {
   /// The cells from every hierarchy level, in Morton order.
   public var nodes: [OctreeNode] = []
   
-  init(descriptor: OctreeDescriptor) {
+  public init(descriptor: OctreeDescriptor) {
     guard let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was invalid.")
     }
@@ -62,15 +67,15 @@ public struct Octree {
     nodes = [node]
   }
   
-  // Efficient function to expand/contract several nodes at once.
-  // - expanded: The nodes that should acquire children. Each array element is
-  //             the parent address and the mask of children that should be
-  //             expanded.
-  // - contracted: The parents who should no longer have children. The children
-  //               cannot have grandchildren.
-  // - returns: The old nodes' positions in the new list. If no such position
-  //            exists, the array element is `UInt32.max`.
-  mutating func resizeNodes(
+  /// Efficient function to expand/contract several nodes at once.
+  /// - Parameter expanded: The nodes that should acquire children. Each array
+  ///   element is the parent address and the mask of children that should be
+  ///   expanded.
+  /// - Parameter contracted: The parents who should no longer have children.
+  ///   The children cannot have grandchildren.
+  /// - returns: The old nodes' positions in the new list. If no such position
+  ///            exists, the array element is `UInt32.max`.
+  public mutating func resizeNodes(
     expanded: [(UInt32, UInt8)], contracted: [UInt32]
   ) -> [UInt32] {
     var insertionMarks = [UInt8](repeating: 0b0000_0000, count: nodes.count)

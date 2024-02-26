@@ -119,15 +119,11 @@ public struct Ansatz {
             orbitalDesc.m = m
             let atomicOrbital = AtomicOrbital(descriptor: orbitalDesc)
             
-            var octreeDesc = OctreeDescriptor()
-            octreeDesc.sizeExponent = sizeExponent
-            let octree = Octree(descriptor: octreeDesc)
-            
             var waveFunctionDesc = WaveFunctionDescriptor()
             waveFunctionDesc.atomicOrbital = atomicOrbital
             waveFunctionDesc.fragmentCount = fragmentCount
             waveFunctionDesc.nucleusPosition = positions[atomID]
-            waveFunctionDesc.octree = octree
+            waveFunctionDesc.sizeExponent = sizeExponent
             let waveFunction = WaveFunction(descriptor: waveFunctionDesc)
             waveFunctions.append(waveFunction)
             

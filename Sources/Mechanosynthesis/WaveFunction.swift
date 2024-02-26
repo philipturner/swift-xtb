@@ -20,8 +20,19 @@ struct WaveFunctionDescriptor {
 }
 
 public struct WaveFunction {
-  /// The values of the wavefunction at each octree node.
-  public var cellValues: [SIMD8<Float>] = []
+//  /// The values of the wavefunction at each octree node.
+//  public var cellValues: [SIMD8<Float>] = []
+  
+  // Replacing cell values with the atomic orbital for now, for debugging
+  // purposes.
+  var atomicOrbital: AtomicOrbital
+  public func atomicOrbitalWaveFunction(
+    x: SIMD8<Float>,
+    y: SIMD8<Float>,
+    z: SIMD8<Float>
+  ) -> SIMD8<Float> {
+    atomicOrbital.waveFunction(x: x, y: y, z: z)
+  }
   
   /// The number of fragments the wavefunction should attempt to remain at.
   public var fragmentCount: Int
@@ -36,10 +47,11 @@ public struct WaveFunction {
           let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was invalid.")
     }
-    self.fragmentCount = descriptor.fragmentCount!
+    self.atomicOrbital = atomicOrbital
+    self.fragmentCount = fragmentCount
     
     var octreeDesc = OctreeDescriptor()
-    octreeDesc.sizeExponent = descriptor.sizeExponent
+    octreeDesc.sizeExponent = sizeExponent
     self.octree = Octree(descriptor: octreeDesc)
     
     // Cache the integrals so they don't need to be recomputed. Defer the
@@ -81,7 +93,7 @@ public struct WaveFunction {
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
           let Ψ = createCellValues(center: node.center, spacing: node.spacing)
-          let d3r = node.spacing * node.spacing * node.spacing
+          let d3r = node.spacing * node.spacing * node.spacing / 8
           densityIntegral = Ψ * 1 * Ψ * d3r
           
           let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
@@ -99,10 +111,10 @@ public struct WaveFunction {
           let intΔy = Δy * Δy * d3r
           let intΔz = Δz * Δz * d3r
           
-          var castedIntΔx = unsafeBitCast(intΔx, to: SIMD4<UInt32>.self)
+          let castedIntΔx = unsafeBitCast(intΔx, to: SIMD4<UInt32>.self)
           var castedIntΔx2 = SIMD4<UInt64>(truncatingIfNeeded: castedIntΔx)
           castedIntΔx2 |= castedIntΔx2 &<< 32
-          var castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
+          let castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
           let castedIntΔy2 = SIMD4(castedIntΔy[0], castedIntΔy[0],
                                    castedIntΔy[1], castedIntΔy[1])
           
@@ -115,9 +127,9 @@ public struct WaveFunction {
           // slow way.
           for laneID in 0..<8 {
             // The sign of the gradient doesn't matter; it will be squared.
-            var partX = Ψ[laneID ^ 1] - Ψ[laneID]
-            var partY = Ψ[laneID ^ 2] - Ψ[laneID]
-            var partZ = Ψ[laneID ^ 4] - Ψ[laneID]
+            let partX = Ψ[laneID ^ 1] - Ψ[laneID]
+            let partY = Ψ[laneID ^ 2] - Ψ[laneID]
+            let partZ = Ψ[laneID ^ 4] - Ψ[laneID]
             var partXYZ = SIMD3(partX, partY, partZ)
             partXYZ /= node.spacing
             partXYZ = partXYZ * partXYZ * d3r
@@ -150,10 +162,65 @@ public struct WaveFunction {
       return (Float(density), Float(squareGradient))
     }
     
+    var consoleMessage: String = ""
+    
     // Perform one iteration of octree resizing.
     // - returns: Whether the octree has converged.
     func resizeOctreeNodes(_ probabilityMultiplier: Float) -> Bool {
-      return false
+      let (globalDensity, globalSquareGradient) = evaluateGlobalIntegrals()
+      var expanded: [(UInt32, UInt8)] = []
+      var contracted: [UInt32] = []
+      
+      for nodeID in octree.nodes.indices {
+        var importanceMetric: SIMD8<Float> = .zero
+        importanceMetric += densityIntegrals[nodeID] / globalDensity
+        importanceMetric += gradientIntegrals[nodeID] / globalSquareGradient
+        importanceMetric *= 0.5
+        
+        let branchesMask = octree.nodes[nodeID].branchesMask
+        let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
+        let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
+        let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
+        importanceMetric.replace(with: SIMD8.zero, where: mask32)
+        
+        let threshold = probabilityMultiplier / Float(fragmentCount)
+        consoleMessage += "densityIntegrals[nodeID] \(densityIntegrals[nodeID]) gradientIntegrals[nodeID] \(gradientIntegrals[nodeID]) importanceMetric \(importanceMetric) threshold \(threshold)"
+        if any(importanceMetric .> threshold) {
+          for laneID in 0..<8 {
+            if importanceMetric[laneID] > threshold {
+              expanded.append((UInt32(nodeID), UInt8(laneID)))
+            }
+          }
+        } else if branchesMask == 0, importanceMetric.sum() < threshold {
+          contracted.append(UInt32(nodeID))
+        }
+      }
+      
+      // Diagnostic information for debugging this during the first round of
+      // testing.
+      consoleMessage += "Ψ^2 = \(globalDensity), grad^2 = \(globalSquareGradient), multiplier = \(probabilityMultiplier), expanded = \(expanded.count), contracted = \(contracted.count)"
+      consoleMessage += "\n"
+      if expanded.count == 0, contracted.count == 0 {
+        return true
+      } else {
+        let oldToNewMap = octree.resizeNodes(
+          expanded: expanded, contracted: contracted)
+        
+        let count = octree.nodes.count
+        let NAN = SIMD8<Float>(repeating: .nan)
+        var newDensityIntegrals = Array(repeating: NAN, count: count)
+        var newGradientIntegrals = Array(repeating: NAN, count: count)
+        for oldNodeID in densityIntegrals.indices {
+          let newNodeID = Int(oldToNewMap[oldNodeID])
+          if newNodeID < UInt32.max {
+            newDensityIntegrals[newNodeID] = densityIntegrals[oldNodeID]
+            newGradientIntegrals[newNodeID] = gradientIntegrals[oldNodeID]
+          }
+        }
+        densityIntegrals = newDensityIntegrals
+        gradientIntegrals = newGradientIntegrals
+        return false
+      }
     }
     
     // If we split at the maximum probability, the number of cells averages out
@@ -167,7 +234,13 @@ public struct WaveFunction {
       while resizeOctreeNodes(probabilityMultiplier) == false {
         iterationID += 1
         if iterationID > 50 {
-          fatalError("Wave function failed to converge after 50 iterations.")
+          var octreeFragmentCount = 0
+          for node in octree.nodes {
+            let leafMask = ~node.branchesMask
+            octreeFragmentCount += leafMask.nonzeroBitCount
+          }
+          print("fragment count:", octreeFragmentCount)
+          fatalError("Wave function failed to converge after 50 iterations. Fragment count: \(octreeFragmentCount)\nConsole Message:\n\(consoleMessage)")
         }
       }
       
@@ -176,6 +249,7 @@ public struct WaveFunction {
         let leafMask = ~node.branchesMask
         octreeFragmentCount += leafMask.nonzeroBitCount
       }
+      print("fragment count:", octreeFragmentCount)
       if octreeFragmentCount >= fragmentCount {
         
       } else if probabilityMultiplier == 1 {

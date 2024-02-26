@@ -8,9 +8,14 @@ final class AnsatzTests: XCTestCase {
     _ expectedCount: Int,
     _ upperExpectedCount: Int? = nil
   ) {
-    XCTAssertGreaterThanOrEqual(waveFunction.cellValues.count, expectedCount)
-    XCTAssertLessThan(
-      waveFunction.cellValues.count, upperExpectedCount ?? expectedCount * 2)
+    var octreeFragmentCount = 0
+    for node in waveFunction.octree.nodes {
+      let leafMask = ~node.branchesMask
+      octreeFragmentCount += leafMask.nonzeroBitCount
+    }
+    let upperBound = upperExpectedCount ?? expectedCount * 2
+    XCTAssertGreaterThanOrEqual(octreeFragmentCount, expectedCount)
+    XCTAssertLessThan(octreeFragmentCount, upperBound)
   }
   
   static func queryRadius(
@@ -19,31 +24,35 @@ final class AnsatzTests: XCTestCase {
   ) -> Float {
     var sum: Double = .zero
     let octree = waveFunction.octree
-    for nodeID in octree.linkedList.indices {
-      if octree.linkedList[nodeID].childCount > 0 {
-        continue
-      }
-      
-      let metadata = octree.metadata[nodeID]
+    for node in octree.nodes {
       var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
       var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
       var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-      x = x * metadata.w + metadata.x
-      y = y * metadata.w + metadata.y
-      z = z * metadata.w + metadata.z
-      x -= nucleusPosition.x
-      y -= nucleusPosition.y
-      z -= nucleusPosition.z
+      let centerDelta = node.center - nucleusPosition
+      x = x * node.spacing + centerDelta.x
+      y = y * node.spacing + centerDelta.y
+      z = z * node.spacing + centerDelta.z
       
-      let Ψ = waveFunction.cellValues[nodeID]
+      let Ψ = waveFunction.atomicOrbitalWaveFunction(x: x, y: y, z: z)
+      let d3r = node.spacing * node.spacing * node.spacing / 8
       let r = (x * x + y * y + z * z).squareRoot()
-      let ΨrΨ = Ψ * r * Ψ
+      var ΨrΨ = Ψ * r * Ψ * d3r
       
-      let d3r = metadata.w * metadata.w * metadata.w
-      sum += Double(ΨrΨ.sum() / 8 * d3r)
+      let branchesMask = node.branchesMask
+      let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
+      let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
+      let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
+      ΨrΨ.replace(with: SIMD8.zero, where: mask32)
+      
+      sum += Double(ΨrΨ.sum())
     }
     
     return Float(sum) * 2 / 3
+  }
+  
+  func testOctree() throws {
+    // TODO: Resume debugging here. The octree isn't resizing. We need to add
+    // some unit tests to ensure the octree is functioning correctly.
   }
   
   func testHydrogen() throws {
