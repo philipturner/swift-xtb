@@ -42,17 +42,12 @@ final class AnsatzTests: XCTestCase {
       let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
       let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
       let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-      ΨrΨ.replace(with: SIMD8.zero, where: mask32)
+      ΨrΨ.replace(with: 0, where: mask32)
       
       sum += Double(ΨrΨ.sum())
     }
     
     return Float(sum) * 2 / 3
-  }
-  
-  func testOctree() throws {
-    // TODO: Resume debugging here. The octree isn't resizing. We need to add
-    // some unit tests to ensure the octree is functioning correctly.
   }
   
   func testHydrogen() throws {

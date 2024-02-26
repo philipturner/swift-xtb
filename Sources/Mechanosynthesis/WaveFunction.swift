@@ -154,8 +154,8 @@ public struct WaveFunction {
         var mask8 = SIMD8<UInt8>(repeating: 1) &<< shifts
         mask8 = mask8 & node.branchesMask
         let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-        densityIntegral.replace(with: SIMD8.zero, where: mask32)
-        gradientIntegral.replace(with: SIMD8.zero, where: mask32)
+        densityIntegral.replace(with: 0, where: mask32)
+        gradientIntegral.replace(with: 0, where: mask32)
         density += Double(densityIntegral.sum())
         squareGradient += Double(gradientIntegral.sum())
       }
@@ -165,8 +165,12 @@ public struct WaveFunction {
     var consoleMessage: String = ""
     
     // Perform one iteration of octree resizing.
-    // - returns: Whether the octree has converged.
-    func resizeOctreeNodes(_ probabilityMultiplier: Float) -> Bool {
+    func queryOctreeNodes(
+      probabilityMultiplier: Float
+    ) -> (
+      expanded: [(UInt32, UInt8)],
+      contracted: [UInt32]
+    ) {
       let (globalDensity, globalSquareGradient) = evaluateGlobalIntegrals()
       var expanded: [(UInt32, UInt8)] = []
       var contracted: [UInt32] = []
@@ -181,46 +185,184 @@ public struct WaveFunction {
         let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
         let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
         let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-        importanceMetric.replace(with: SIMD8.zero, where: mask32)
+        importanceMetric.replace(with: 0, where: mask32)
         
         let threshold = probabilityMultiplier / Float(fragmentCount)
-        consoleMessage += "densityIntegrals[nodeID] \(densityIntegrals[nodeID]) gradientIntegrals[nodeID] \(gradientIntegrals[nodeID]) importanceMetric \(importanceMetric) threshold \(threshold)"
-        if any(importanceMetric .> threshold) {
-          for laneID in 0..<8 {
-            if importanceMetric[laneID] > threshold {
-              expanded.append((UInt32(nodeID), UInt8(laneID)))
-            }
-          }
-        } else if branchesMask == 0, importanceMetric.sum() < threshold {
+        
+        var thresholdMask32 = SIMD8<UInt32>(repeating: .zero)
+        thresholdMask32.replace(with: 1, where: importanceMetric .> threshold)
+        var thresholdMask8 = SIMD8<UInt8>(truncatingIfNeeded: thresholdMask32)
+        thresholdMask8 = thresholdMask8 &<< shifts
+        let thresholdMaskSum = thresholdMask8.wrappedSum()
+        
+        /*
+         expanded 0 contracted 4232
+         expanded 7 contracted 505
+         expanded 1 contracted 78
+         expanded 7 contracted 0
+         expanded 0 contracted 21
+         expanded 7 contracted 0
+         expanded 0 contracted 21
+         expanded 7 contracted 0
+         expanded 0 contracted 21
+         expanded 7 contracted 0
+         probability: 4.0, fragment count: 37724, expected: 40000
+         expanded 743 contracted 0
+         expanded 0 contracted 0
+         expanded 0 contracted 53
+         expanded 39 contracted 17
+         expanded 16 contracted 54
+         expanded 39 contracted 17
+         expanded 16 contracted 53
+         expanded 39 contracted 17
+         expanded 16 contracted 53
+         expanded 39 contracted 17
+         expanded 16 contracted 53
+         expanded 39 contracted 17
+         probability: 2.828, fragment count: 50779, expected: 40000
+         
+         expanded 0 contracted 4168
+         expanded 7 contracted 505
+         expanded 1 contracted 71
+         expanded 7 contracted 1
+         expanded 0 contracted 15
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         probability: 4.0, fragment count: 38109, expected: 40000
+         expanded 713 contracted 0
+         expanded 0 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         probability: 2.828, fragment count: 50996, expected: 40000
+         
+         expanded 1 contracted 0
+         expanded 8 contracted 0
+         expanded 64 contracted 0
+         expanded 512 contracted 0
+         expanded 8 contracted 4088
+         expanded 8 contracted 4112
+         expanded 8 contracted 4136
+         expanded 8 contracted 4152
+         expanded 48 contracted 4152
+         expanded 216 contracted 4152
+         expanded 424 contracted 4152
+         expanded 112 contracted 4168
+         expanded 144 contracted 4168
+         expanded 32 contracted 4168
+         expanded 0 contracted 4168
+         expanded 7 contracted 505
+         expanded 1 contracted 71
+         expanded 7 contracted 1
+         probability: 4.0, fragment count: 38025, expected: 40000
+         expanded 704 contracted 0
+         expanded 16 contracted 14
+         expanded 0 contracted 14
+         expanded 7 contracted 0
+         probability: 2.828, fragment count: 50912, expected: 40000
+         
+         expanded 1 contracted 0
+         expanded 8 contracted 0
+         expanded 64 contracted 0
+         expanded 512 contracted 0
+         expanded 8 contracted 4088
+         expanded 8 contracted 4112
+         expanded 8 contracted 4136
+         expanded 8 contracted 4152
+         expanded 48 contracted 4168
+         expanded 216 contracted 4200
+         expanded 424 contracted 4248
+         expanded 112 contracted 4352
+         expanded 144 contracted 4480
+         expanded 32 contracted 4496
+         expanded 0 contracted 4536
+         expanded 143 contracted 564
+         probability: 4.0, fragment count: 39376, expected: 40000
+         expanded 758 contracted 504
+         expanded 128 contracted 804
+         expanded 0 contracted 876
+         expanded 174 contracted 93
+         probability: 2.828, fragment count: 48728, expected: 40000
+         
+         expanded 1 contracted 0
+         expanded 8 contracted 0
+         expanded 64 contracted 0
+         exp
+         anded 512 contracted 0
+         expanded 8 contracted 4088
+         expanded 8 contracted 4112
+         expanded 8 contracted 4136
+         expanded 8 contracted 4152
+         expanded 48 contracted 4168
+         expanded 216 contracted 4200
+         expanded 424 contracted 4248
+         expanded 112 contracted 4352
+         expanded 144 contracted 4480
+         expanded 32 contracted 4496
+         expanded 0 contracted 4536
+         expanded 143 contracted 564
+         expanded 184 contracted 60
+         expanded 185 contracted 2
+         expanded 186 contracted 1
+         expanded 186 contracted 1
+         expanded 186 contracted 1
+         expanded 186 contracted 0
+         probability: 4.0, fragment count: 34973, expected: 40000
+         expanded 757 contracted 0
+         expanded 136 contracted 300
+         expanded 0 contracted 372
+         expanded 190 contracted 37
+         expanded 225 contracted 5
+         expanded 224 contracted 2
+         expanded 224 contracted 1
+         expanded 224 contracted 1
+         expanded 224 contracted 0
+         probability: 2.828, fragment count: 48112, expected: 40000
+         */
+        if thresholdMaskSum > 0 {
+          expanded.append((UInt32(nodeID), thresholdMaskSum))
+        } else if importanceMetric.sum() < threshold,
+                  branchesMask == 0 {
           contracted.append(UInt32(nodeID))
         }
       }
       
-      // Diagnostic information for debugging this during the first round of
-      // testing.
-      consoleMessage += "Ψ^2 = \(globalDensity), grad^2 = \(globalSquareGradient), multiplier = \(probabilityMultiplier), expanded = \(expanded.count), contracted = \(contracted.count)"
+      consoleMessage += "expanded \(expanded.count) contracted \(contracted.count)"
       consoleMessage += "\n"
-      if expanded.count == 0, contracted.count == 0 {
-        return true
-      } else {
-        let oldToNewMap = octree.resizeNodes(
-          expanded: expanded, contracted: contracted)
-        
-        let count = octree.nodes.count
-        let NAN = SIMD8<Float>(repeating: .nan)
-        var newDensityIntegrals = Array(repeating: NAN, count: count)
-        var newGradientIntegrals = Array(repeating: NAN, count: count)
-        for oldNodeID in densityIntegrals.indices {
-          let newNodeID = Int(oldToNewMap[oldNodeID])
-          if newNodeID < UInt32.max {
-            newDensityIntegrals[newNodeID] = densityIntegrals[oldNodeID]
-            newGradientIntegrals[newNodeID] = gradientIntegrals[oldNodeID]
-          }
+      
+      return (expanded, contracted)
+    }
+    
+    func resizeOctreeNodes(
+      expanded: [(UInt32, UInt8)],
+      contracted: [UInt32]
+    ) {
+      let oldToNewMap = octree.resizeNodes(
+        expanded: expanded, contracted: contracted)
+      
+      let count = octree.nodes.count
+      let NAN = SIMD8<Float>(repeating: .nan)
+      var newDensityIntegrals = Array(repeating: NAN, count: count)
+      var newGradientIntegrals = Array(repeating: NAN, count: count)
+      for oldNodeID in densityIntegrals.indices {
+        let newNodeID = Int(oldToNewMap[oldNodeID])
+        if newNodeID < UInt32.max {
+          newDensityIntegrals[newNodeID] = densityIntegrals[oldNodeID]
+          newGradientIntegrals[newNodeID] = gradientIntegrals[oldNodeID]
         }
-        densityIntegrals = newDensityIntegrals
-        gradientIntegrals = newGradientIntegrals
-        return false
       }
+      densityIntegrals = newDensityIntegrals
+      gradientIntegrals = newGradientIntegrals
     }
     
     // If we split at the maximum probability, the number of cells averages out
@@ -231,7 +373,29 @@ public struct WaveFunction {
     ]
     for probabilityMultiplier in probabilityMultipliers {
       var iterationID = 0
-      while resizeOctreeNodes(probabilityMultiplier) == false {
+      var enableContraction = false
+      while true {
+        let (expanded, contracted) = queryOctreeNodes(
+          probabilityMultiplier: probabilityMultiplier)
+        
+        if expanded.count == 0 {
+          if contracted.count == 0 {
+            break
+          } else {
+            enableContraction = true
+          }
+        } else if contracted.count == 0 {
+          if enableContraction {
+            break
+          }
+        }
+        
+        if enableContraction {
+          resizeOctreeNodes(expanded: [], contracted: contracted)
+        } else {
+          resizeOctreeNodes(expanded: expanded, contracted: [])
+        }
+        
         iterationID += 1
         if iterationID > 50 {
           var octreeFragmentCount = 0
@@ -239,8 +403,11 @@ public struct WaveFunction {
             let leafMask = ~node.branchesMask
             octreeFragmentCount += leafMask.nonzeroBitCount
           }
-          print("fragment count:", octreeFragmentCount)
-          fatalError("Wave function failed to converge after 50 iterations. Fragment count: \(octreeFragmentCount)\nConsole Message:\n\(consoleMessage)")
+          fatalError("""
+            Wave function failed to converge after 50 iterations.
+            Fragment Count: \(octreeFragmentCount)
+            Probability Multiplier: \(probabilityMultiplier)
+            """)
         }
       }
       
@@ -249,13 +416,15 @@ public struct WaveFunction {
         let leafMask = ~node.branchesMask
         octreeFragmentCount += leafMask.nonzeroBitCount
       }
-      print("fragment count:", octreeFragmentCount)
+      consoleMessage += "probability: \(probabilityMultiplier), fragment count: \(octreeFragmentCount), expected: \(fragmentCount)\n"
+      
       if octreeFragmentCount >= fragmentCount {
-        
+        break
       } else if probabilityMultiplier == 1 {
         fatalError("Could not create octree with the specified fragment count.")
       }
     }
+    print(consoleMessage)
     
     #if false
     func createCellValues(metadata: SIMD4<Float>) -> SIMD8<Float> {
@@ -417,7 +586,5 @@ public struct WaveFunction {
       }
     }
     #endif
-    
-    fatalError("Not implemented.")
   }
 }

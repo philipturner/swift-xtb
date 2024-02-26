@@ -16,7 +16,7 @@ public struct OctreeDescriptor {
 }
 
 /// The data needed for locating a node in 3D space and memory.
-public struct OctreeNode {
+public struct OctreeNode: Equatable {
   /// A four-element vector that compactly stores the center and spacing.
   public var centerAndSpacing: SIMD4<Float>
   
@@ -44,6 +44,20 @@ public struct OctreeNode {
   /// children are stored in compacted order. If the child is a leaf node, it
   /// isn't marked.
   public var branchesMask: UInt8
+  
+  public init(
+    centerAndSpacing: SIMD4<Float>,
+    parentIndex: UInt32,
+    branchesIndex: UInt32,
+    parentMaskIndex: UInt8,
+    branchesMask: UInt8
+  ) {
+    self.centerAndSpacing = centerAndSpacing
+    self.parentIndex = parentIndex
+    self.branchesIndex = branchesIndex
+    self.parentMaskIndex = parentMaskIndex
+    self.branchesMask = branchesMask
+  }
 }
 
 /// An octree data structure designed for efficient traversal.
@@ -75,8 +89,10 @@ public struct Octree {
   ///   The children cannot have grandchildren.
   /// - returns: The old nodes' positions in the new list. If no such position
   ///            exists, the array element is `UInt32.max`.
+  @discardableResult
   public mutating func resizeNodes(
-    expanded: [(UInt32, UInt8)], contracted: [UInt32]
+    expanded: [(nodeID: UInt32, branchesMask: UInt8)],
+    contracted: [UInt32]
   ) -> [UInt32] {
     var insertionMarks = [UInt8](repeating: 0b0000_0000, count: nodes.count)
     var removalMarks = [Bool](repeating: false, count: nodes.count)
@@ -89,6 +105,9 @@ public struct Octree {
       let node = nodes[Int(nodeID)]
       guard expansionMask & node.branchesMask == 0 else {
         fatalError("Attempted to insert children that already exist.")
+      }
+      guard insertionMarks[Int(nodeID)] == 0b0000_0000 else {
+        fatalError("Entered a node twice for expansion.")
       }
       insertionMarks[Int(nodeID)] = expansionMask
     }
@@ -139,11 +158,10 @@ public struct Octree {
       let z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
       let selfIndex = levels[levelID].count
       
-      if node.branchesMask != 0 {
-        let insertionMask = insertionMarks[nodeID]
+      let insertionMask = insertionMarks[nodeID]
+      if node.branchesMask != 0 || insertionMask != 0 {
         for branchID in 0..<8 {
           let branchBit = UInt8(1 << branchID)
-          
           if node.branchesMask & branchBit != 0 {
             if removalMarks[previousBranchesIndex] {
               node.branchesMask ^= branchBit
