@@ -23,9 +23,6 @@ public struct WaveFunction {
 //  /// The values of the wavefunction at each octree node.
 //  public var cellValues: [SIMD8<Float>] = []
   
-  // TODO: Initialize the cell values, change the tests to use those
-  // cell values, and multithread the setup procedure.
-  
   // Replacing cell values with the atomic orbital for now, for debugging
   // purposes.
   var atomicOrbital: AtomicOrbital
@@ -95,42 +92,46 @@ public struct WaveFunction {
         
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
-          let Ψ = createCellValues(center: node.center, spacing: node.spacing)
-          let eighthNodeSpacing = node.spacing / 8
-          let d3r = node.spacing * node.spacing * eighthNodeSpacing
-          densityIntegral = Ψ * 1 * Ψ * d3r
-          
-          let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
-          let lowX = Ψ.evenHalf
-          let highX = Ψ.oddHalf
-          let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
-          let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
-          let lowZ = Ψ.lowHalf
-          let highZ = Ψ.highHalf
-          
-          let Δx = highX - lowX
-          let Δy = highY - lowY
-          let Δz = highZ - lowZ
-          let intΔx = Δx * Δx
-          let intΔy = Δy * Δy
-          let intΔz = Δz * Δz
-          
-          let finalIntΔx = SIMD8<Float>(
-            intΔx[0], intΔx[0], intΔx[1], intΔx[1],
-            intΔx[2], intΔx[2], intΔx[3], intΔx[3])
-          let castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
-          let castedIntΔy2 = SIMD4(castedIntΔy[0], castedIntΔy[0],
-                                   castedIntΔy[1], castedIntΔy[1])
-          let finalIntΔy = unsafeBitCast(castedIntΔy2, to: SIMD8<Float>.self)
-          let finalIntΔz = SIMD8<Float>(lowHalf: intΔz, highHalf: intΔz)
-          gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
-          gradientIntegral *= eighthNodeSpacing
-          
-          let ε: Float = .leastNormalMagnitude
-          densityIntegral.replace(with: ε, where: densityIntegral .< ε)
-          gradientIntegral.replace(with: ε, where: gradientIntegral .< ε)
-          densityIntegrals[nodeID] = densityIntegral
-          gradientIntegrals[nodeID] = gradientIntegral
+          // First, compute integrals with 8x higher accuracy.
+          // Second, reduce the actual fragment count by 8x.
+          do {
+            let Ψ = createCellValues(center: node.center, spacing: node.spacing)
+            let eighthNodeSpacing = node.spacing / 8
+            let d3r = node.spacing * node.spacing * eighthNodeSpacing
+            densityIntegral = Ψ * 1 * Ψ * d3r
+            
+            let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
+            let lowX = Ψ.evenHalf
+            let highX = Ψ.oddHalf
+            let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
+            let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
+            let lowZ = Ψ.lowHalf
+            let highZ = Ψ.highHalf
+            
+            let Δx = highX - lowX
+            let Δy = highY - lowY
+            let Δz = highZ - lowZ
+            let intΔx = Δx * Δx
+            let intΔy = Δy * Δy
+            let intΔz = Δz * Δz
+            
+            let finalIntΔx = SIMD8<Float>(
+              intΔx[0], intΔx[0], intΔx[1], intΔx[1],
+              intΔx[2], intΔx[2], intΔx[3], intΔx[3])
+            let castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
+            let castedIntΔy2 = SIMD4(castedIntΔy[0], castedIntΔy[0],
+                                     castedIntΔy[1], castedIntΔy[1])
+            let finalIntΔy = unsafeBitCast(castedIntΔy2, to: SIMD8<Float>.self)
+            let finalIntΔz = SIMD8<Float>(lowHalf: intΔz, highHalf: intΔz)
+            gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
+            gradientIntegral *= eighthNodeSpacing
+            
+            let ε: Float = .leastNormalMagnitude
+            densityIntegral.replace(with: ε, where: densityIntegral .< ε)
+            gradientIntegral.replace(with: ε, where: gradientIntegral .< ε)
+            densityIntegrals[nodeID] = densityIntegral
+            gradientIntegrals[nodeID] = gradientIntegral
+          }
         }
         
         if unsafeBitCast(node.branchesMask, to: UInt64.self) != .zero {
@@ -176,8 +177,10 @@ public struct WaveFunction {
             continue
           }
           
-          let importanceSum = importanceMetric.sum()
-          if importanceSum < threshold {
+          // Soon, the threshold will be increased 8x, so this comparison will
+          // represent the actual threshold.
+          let importanceMax = importanceMetric.max()
+          if importanceMax < threshold / 8 {
             contracted[nodeID] = true
             contractedIsZero = false
           }
