@@ -92,10 +92,12 @@ public struct WaveFunction {
         
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
-          // First, compute integrals with 8x higher accuracy.
-          // Second, reduce the actual fragment count by 8x.
-          // Third, optimize the integral computation, ensuring it still
-          // produces the same results to within rounding error.
+          // - Compute integrals with 8x higher accuracy.
+          // - Report what fragment count is actually being used.
+          // - Reduce the actual fragment count by 8x.
+          // - Sample importance at 64x accuracy, fixing flerovium.
+          // - Optimize the integral computation, ensuring it still
+          //   produces the same results to within rounding error.
           
           // Lookup table for child nodes.
           var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
