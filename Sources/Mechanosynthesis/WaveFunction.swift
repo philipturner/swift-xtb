@@ -93,18 +93,6 @@ public struct WaveFunction {
         var gradientIntegral = gradientIntegrals[nodeID]
         let node = octree.nodes[nodeID]
         
-        /*
-         // all integrals:
-         flerovium initialization time: 0.3652639389038086
-         flerovium initialization time: 0.41184890270233154
-         flerovium initialization time: 0.5362249612808228
-         
-         // only the integrals that need to be recomputed:
-         flerovium initialization time: 0.23807597160339355
-         flerovium initialization time: 0.24270892143249512
-         flerovium initialization time: 0.25540101528167725
-         */
-        
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
           let Ψ = createCellValues(center: node.center, spacing: node.spacing)
@@ -145,12 +133,15 @@ public struct WaveFunction {
           gradientIntegrals[nodeID] = gradientIntegral
         }
         
-        let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
-        var mask8 = SIMD8<UInt8>(repeating: 1) &<< shifts
-        mask8 = mask8 & node.branchesMask
-        let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-        densityIntegral.replace(with: 0, where: mask32)
-        gradientIntegral.replace(with: 0, where: mask32)
+        if node.branchesMask != 0 {
+          let masterMask = SIMD8<UInt8>(
+            1 << 0, 1 << 1, 1 << 2, 1 << 3,
+            1 << 4, 1 << 5, 1 << 6, 1 << 7)
+          let mask8 = masterMask & node.branchesMask
+          let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
+          densityIntegral.replace(with: 0, where: mask32)
+          gradientIntegral.replace(with: 0, where: mask32)
+        }
         density += Double(densityIntegral.sum())
         squareGradient += Double(gradientIntegral.sum())
       }
@@ -159,7 +150,8 @@ public struct WaveFunction {
     
     // Perform one iteration of octree resizing.
     func queryOctreeNodes(
-      probabilityMultiplier: Float
+      probabilityMultiplier: Float,
+      isContracting: Bool
     ) -> (
       expanded: [(UInt32, UInt8)],
       contracted: [UInt32]
@@ -167,31 +159,45 @@ public struct WaveFunction {
       let (globalDensity, globalSquareGradient) = evaluateGlobalIntegrals()
       var expanded: [(UInt32, UInt8)] = []
       var contracted: [UInt32] = []
+      
       let threshold = probabilityMultiplier / Float(fragmentCount)
+      let densityWeight = 0.5 / globalDensity
+      let gradientWeight = 0.5 / globalSquareGradient
       
       for nodeID in octree.nodes.indices {
-        var importanceMetric: SIMD8<Float> = .zero
-        importanceMetric += densityIntegrals[nodeID] / globalDensity
-        importanceMetric += gradientIntegrals[nodeID] / globalSquareGradient
-        importanceMetric *= 0.5
-        
+        let importanceMetric =
+        densityIntegrals[nodeID] * densityWeight +
+        gradientIntegrals[nodeID] * gradientWeight
         let branchesMask = octree.nodes[nodeID].branchesMask
-        let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
-        let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
-        let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-        importanceMetric.replace(with: 0, where: mask32)
         
-        var thresholdMask32 = SIMD8<UInt32>(repeating: .zero)
-        thresholdMask32.replace(with: 1, where: importanceMetric .> threshold)
-        var thresholdMask8 = SIMD8<UInt8>(truncatingIfNeeded: thresholdMask32)
-        thresholdMask8 = thresholdMask8 &<< shifts
-        let thresholdMaskSum = thresholdMask8.wrappedSum()
-        let importanceSum = importanceMetric.sum()
-        
-        if thresholdMaskSum > 0 {
-          expanded.append((UInt32(nodeID), thresholdMaskSum))
-        } else if importanceSum < threshold, branchesMask == 0 {
-          contracted.append(UInt32(nodeID))
+        if isContracting {
+          guard branchesMask == 0 else {
+            continue
+          }
+          
+          let importanceSum = importanceMetric.sum()
+          if importanceSum < threshold {
+            contracted.append(UInt32(nodeID))
+          }
+        } else {
+          let masterMask = SIMD8<UInt8>(
+            1 << 0, 1 << 1, 1 << 2, 1 << 3,
+            1 << 4, 1 << 5, 1 << 6, 1 << 7)
+          let masterMask32 = SIMD8<UInt32>(truncatingIfNeeded: masterMask)
+          
+          var thresholdMask32 = SIMD8<UInt32>(repeating: .zero)
+          thresholdMask32.replace(
+            with: masterMask32, where: importanceMetric .> threshold)
+          var thresholdMask8 = SIMD8<UInt8>(truncatingIfNeeded: thresholdMask32)
+          if branchesMask != 0 {
+            thresholdMask8.replace(
+              with: 0, where: (masterMask & branchesMask) .!= 0)
+          }
+          
+          let thresholdMaskSum = thresholdMask8.wrappedSum()
+          if thresholdMaskSum > 0 {
+            expanded.append((UInt32(nodeID), thresholdMaskSum))
+          }
         }
       }
       
@@ -226,36 +232,42 @@ public struct WaveFunction {
     let probabilityMultipliers: [Float] = [
       4, 2.828, 2, 1.414, 1
     ]
+    var timeElapsed0: Double = 0
+    var timeElapsed1: Double = 0
     for probabilityMultiplier in probabilityMultipliers {
       var iterationID = 0
       var enableContraction = false
       while true {
         let checkpoint0 = Date()
         let (expanded, contracted) = queryOctreeNodes(
-          probabilityMultiplier: probabilityMultiplier)
+          probabilityMultiplier: probabilityMultiplier,
+          isContracting: enableContraction)
         let checkpoint1 = Date()
         
-        if expanded.count == 0 {
+        if enableContraction {
           if contracted.count == 0 {
             break
-          } else {
-            enableContraction = true
           }
-        } else if contracted.count == 0 {
-          if enableContraction {
-            break
+        } else {
+          if expanded.count == 0 {
+            enableContraction = true
           }
         }
         
-        
         if enableContraction {
-          resizeOctreeNodes(expanded: [], contracted: contracted)
+          if contracted.count > 0 {
+            resizeOctreeNodes(expanded: [], contracted: contracted)
+          }
         } else {
           resizeOctreeNodes(expanded: expanded, contracted: [])
         }
         let checkpoint2 = Date()
         if octree.nodes.count > 10000 {
-          print("iteration \(iterationID): \(1_000_000 * checkpoint1.timeIntervalSince(checkpoint0)), \(1_000_000 * checkpoint2.timeIntervalSince(checkpoint1))")
+          timeElapsed0 += checkpoint1.timeIntervalSince(checkpoint0)
+          timeElapsed1 += checkpoint2.timeIntervalSince(checkpoint1)
+          let proportion0 = timeElapsed0 / (timeElapsed0 + timeElapsed1)
+          let proportion1 = timeElapsed1 / (timeElapsed0 + timeElapsed1)
+          print("iteration \(iterationID): \(proportion0), \(proportion1)")
         }
         
         iterationID += 1
