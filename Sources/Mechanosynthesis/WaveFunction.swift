@@ -94,11 +94,23 @@ public struct WaveFunction {
         if densityIntegrals[nodeID][0].isNaN {
           // First, compute integrals with 8x higher accuracy.
           // Second, reduce the actual fragment count by 8x.
-          do {
-            let Ψ = createCellValues(center: node.center, spacing: node.spacing)
-            let eighthNodeSpacing = node.spacing / 8
+          // Third, optimize the integral computation, ensuring it still
+          // produces the same results to within rounding error.
+          
+          // Lookup table for child nodes.
+          var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+          var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+          var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+          x = x * node.spacing + node.center.x
+          y = y * node.spacing + node.center.y
+          z = z * node.spacing + node.center.z
+          
+          for branchID in 0..<8 {
+            let xyz = SIMD3(x[branchID], y[branchID], z[branchID])
+            let Ψ = createCellValues(center: xyz, spacing: node.spacing / 2)
+            let eighthNodeSpacing = node.spacing / 64
             let d3r = node.spacing * node.spacing * eighthNodeSpacing
-            densityIntegral = Ψ * 1 * Ψ * d3r
+            let _densityIntegral = Ψ * 1 * Ψ * d3r
             
             let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
             let lowX = Ψ.evenHalf
@@ -123,15 +135,18 @@ public struct WaveFunction {
                                      castedIntΔy[1], castedIntΔy[1])
             let finalIntΔy = unsafeBitCast(castedIntΔy2, to: SIMD8<Float>.self)
             let finalIntΔz = SIMD8<Float>(lowHalf: intΔz, highHalf: intΔz)
-            gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
-            gradientIntegral *= eighthNodeSpacing
+            var _gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
+            _gradientIntegral *= eighthNodeSpacing
             
-            let ε: Float = .leastNormalMagnitude
-            densityIntegral.replace(with: ε, where: densityIntegral .< ε)
-            gradientIntegral.replace(with: ε, where: gradientIntegral .< ε)
-            densityIntegrals[nodeID] = densityIntegral
-            gradientIntegrals[nodeID] = gradientIntegral
+            densityIntegral[branchID] = _densityIntegral.sum()
+            gradientIntegral[branchID] = _gradientIntegral.sum()
           }
+          
+          let ε: Float = .leastNormalMagnitude
+          densityIntegral.replace(with: ε, where: densityIntegral .< ε)
+          gradientIntegral.replace(with: ε, where: gradientIntegral .< ε)
+          densityIntegrals[nodeID] = densityIntegral
+          gradientIntegrals[nodeID] = gradientIntegral
         }
         
         if unsafeBitCast(node.branchesMask, to: UInt64.self) != .zero {
