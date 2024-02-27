@@ -10,8 +10,8 @@ final class AnsatzTests: XCTestCase {
   ) {
     var octreeFragmentCount = 0
     for node in waveFunction.octree.nodes {
-      let leafMask = ~node.branchesMask
-      octreeFragmentCount += leafMask.nonzeroBitCount
+      let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
+      octreeFragmentCount += 8 - mask64.nonzeroBitCount
     }
     let upperBound = upperExpectedCount ?? expectedCount * 2
     XCTAssertGreaterThanOrEqual(octreeFragmentCount, expectedCount)
@@ -38,11 +38,9 @@ final class AnsatzTests: XCTestCase {
       let r = (x * x + y * y + z * z).squareRoot()
       var ΨrΨ = Ψ * r * Ψ * d3r
       
-      let branchesMask = node.branchesMask
-      let shifts = SIMD8<UInt8>(0, 1, 2, 3, 4, 5, 6, 7)
-      let mask8 = (SIMD8<UInt8>(repeating: 1) &<< shifts) & branchesMask
-      let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8) .!= 0
-      ΨrΨ.replace(with: 0, where: mask32)
+      let mask8 = node.branchesMask
+      let mask32 = SIMD8<UInt32>(truncatingIfNeeded: mask8)
+      ΨrΨ.replace(with: 0, where: mask32 .!= 0)
       
       sum += Double(ΨrΨ.sum())
     }
