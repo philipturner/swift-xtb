@@ -8,10 +8,8 @@
 // TODO: Remove this import!
 import Foundation
 
-// TODO: Modify the IR again. Store 'dense' layers in regions of high
-// uniformity. These ones should require less overhead to process. They are
-// handled at the 2x2x2 granularity. "Sparse" layers are handled at the 1x1x1
-// granularity, and typically appear at the top of the hierarchy.
+// TODO: Prove that the reformatting of the branches mask caused a net
+// speedup. Before the change, flerovium execution time was ~0.160 seconds.
 
 /// A configuration for an octree.
 public struct OctreeDescriptor {
@@ -45,9 +43,6 @@ public struct OctreeNode: Equatable {
   /// 'UInt32.max'.
   public var branchesIndex: UInt32
   
-  /// The mask index within the parent node.
-  public var parentMaskIndex: UInt8
-  
   /// If any children have grand-children, they are marked in this mask. Such
   /// children are stored in compacted order. If the child is a leaf node, it
   /// isn't marked.
@@ -58,13 +53,11 @@ public struct OctreeNode: Equatable {
     centerAndSpacing: SIMD4<Float>,
     parentIndex: UInt32,
     branchesIndex: UInt32,
-    parentMaskIndex: UInt8,
     branchesMask: UInt8
   ) {
     self.centerAndSpacing = centerAndSpacing
     self.parentIndex = parentIndex
     self.branchesIndex = branchesIndex
-    self.parentMaskIndex = parentMaskIndex
     self.branchesMask = branchesMask
   }
 }
@@ -85,7 +78,6 @@ public struct Octree {
       centerAndSpacing: SIMD4(origin, size),
       parentIndex: UInt32.max,
       branchesIndex: UInt32.max,
-      parentMaskIndex: 0,
       branchesMask: 0b0000_0000)
     nodes = [node]
   }
@@ -100,11 +92,11 @@ public struct Octree {
   ///            exists, the array element is `UInt32.max`.
   @discardableResult
   public mutating func resizeNodes(
-    expanded: [(nodeID: UInt32, branchesMask: UInt8)],
+    expanded: [(nodeID: UInt32, branchesMask: SIMD8<UInt8>)],
     contracted: [UInt32]
   ) -> [UInt32] {
     let checkpoint0 = Date()
-    var insertionMarks = [UInt8](repeating: 0b0000_0000, count: nodes.count)
+    var insertionMarks = [SIMD8<UInt8>](repeating: SIMD8.zero, count: nodes.count)
     var removalMarks = [Bool](repeating: false, count: nodes.count)
     
     // Assert that each specified node exists, and its child count is zero.
@@ -113,10 +105,10 @@ public struct Octree {
         fatalError("Parent does not exist.")
       }
       let node = nodes[Int(nodeID)]
-      guard expansionMask & node.branchesMask == 0 else {
+      guard all(expansionMask & node.branchesMask .== 0) else {
         fatalError("Attempted to insert children that already exist.")
       }
-      guard insertionMarks[Int(nodeID)] == 0b0000_0000 else {
+      guard insertionMarks[Int(nodeID)] == .zero else {
         fatalError("Entered a node twice for expansion.")
       }
       insertionMarks[Int(nodeID)] = expansionMask
@@ -132,7 +124,7 @@ public struct Octree {
       guard node.branchesMask == 0 else {
         fatalError("Attempted to contract node with grandchildren.")
       }
-      guard insertionMarks[Int(nodeID)] == 0 else {
+      guard insertionMarks[Int(nodeID)] == .zero else {
         fatalError("Attempted to expand and contract a node at the same time.")
       }
       removalMarks[Int(nodeID)] = true
@@ -171,17 +163,19 @@ public struct Octree {
       y = y * node.spacing + node.center.y
       z = z * node.spacing + node.center.z
       
-      let insertionMask = insertionMarks[nodeID]
-      var activeMask = node.branchesMask | insertionMask
-      if insertionMask == 0b1111_1111 {
-//        activeMask = 0
-        
-      }
+      let insertionMask = unsafeBitCast(insertionMarks[nodeID], to: UInt64.self)
+      let masterMask = SIMD8<UInt8>(
+        1 << 0, 1 << 1, 1 << 2, 1 << 3,
+        1 << 4, 1 << 5, 1 << 6, 1 << 7)
+      let branchMasterMask = node.branchesMask & masterMask
+      let branchMasterMask64 = unsafeBitCast(branchMasterMask, to: UInt64.self)
+      var activeMask = branchMasterMask64 | insertionMask
       
       while activeMask != 0 {
-        let branchID = activeMask.trailingZeroBitCount
+        let branchID = activeMask.trailingZeroBitCount / 8
         let branchBit = UInt8(1 << branchID)
-        activeMask ^= branchBit
+        let branchBit64 = UInt64(1 << activeMask.trailingZeroBitCount)
+        activeMask ^= branchBit64
         
         if node.branchesMask & branchBit != 0 {
           if removalMarks[previousBranchesIndex] {
@@ -192,7 +186,7 @@ public struct Octree {
               nodeID: previousBranchesIndex, levelID: levelID + 1)
           }
           previousBranchesIndex += 1
-        } else if insertionMask & branchBit != 0 {
+        } else if insertionMask & branchBit64 != 0 {
           node.branchesMask |= branchBit
           
           // Construct child position using the lookup table.
@@ -203,7 +197,6 @@ public struct Octree {
             centerAndSpacing: SIMD4(xyz, node.spacing / 2),
             parentIndex: UInt32(selfIndex),
             branchesIndex: UInt32.max,
-            parentMaskIndex: UInt8(branchID),
             branchesMask: 0b0000_0000)
           levels[levelID + 1].append(node)
         }

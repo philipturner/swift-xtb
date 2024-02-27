@@ -153,11 +153,11 @@ public struct WaveFunction {
       probabilityMultiplier: Float,
       isContracting: Bool
     ) -> (
-      expanded: [(UInt32, UInt8)],
+      expanded: [(UInt32, SIMD8<UInt8>)],
       contracted: [UInt32]
     ) {
       let (globalDensity, globalSquareGradient) = evaluateGlobalIntegrals()
-      var expanded: [(UInt32, UInt8)] = []
+      var expanded: [(UInt32, SIMD8<UInt8>)] = []
       var contracted: [UInt32] = []
       
       let threshold = probabilityMultiplier / Float(fragmentCount)
@@ -194,9 +194,8 @@ public struct WaveFunction {
               with: 0, where: (masterMask & branchesMask) .!= 0)
           }
           
-          let thresholdMaskSum = thresholdMask8.wrappedSum()
-          if thresholdMaskSum > 0 {
-            expanded.append((UInt32(nodeID), thresholdMaskSum))
+          if thresholdMask8 != .zero {
+            expanded.append((UInt32(nodeID), thresholdMask8))
           }
         }
       }
@@ -205,7 +204,7 @@ public struct WaveFunction {
     }
     
     func resizeOctreeNodes(
-      expanded: [(UInt32, UInt8)],
+      expanded: [(UInt32, SIMD8<UInt8>)],
       contracted: [UInt32]
     ) {
       let oldToNewMap = octree.resizeNodes(
