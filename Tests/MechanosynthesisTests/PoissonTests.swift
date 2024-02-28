@@ -271,7 +271,7 @@ final class PoissonTests: XCTestCase {
   // Insight: for a large portion of the development period, you can suffice
   // with the simplest algorithms - direct Hartree term, SD eigensolver. More
   // complex multigrid solvers are only needed once O(n^2) scaling makes the
-  // calculation intracable.
+  // calculation intractable.
   func testMultigridSolver() throws {
     
   }

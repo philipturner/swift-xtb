@@ -44,10 +44,6 @@ public struct Ansatz {
   public var spinUpWaveFunctions: [WaveFunction] = []
   
   public init(descriptor: AnsatzDescriptor) {
-    // Validate this before proceeding with Hamiltonian construction:
-    // - Test the expectation values of atomic radii for each `l` sub-shell in
-    //   each group IV atom.
-    // - Test nonzero spins on N and Cr atoms.
     guard let atomicNumbers = descriptor.atomicNumbers,
           let fragmentCount = descriptor.fragmentCount,
           let netCharges = descriptor.netCharges,

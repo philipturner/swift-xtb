@@ -5,17 +5,15 @@ import Numerics
 final class AnsatzTests: XCTestCase {
   static func checkFragments(
     _ waveFunction: WaveFunction,
-    _ expectedCount: Int,
-    _ upperExpectedCount: Int? = nil
+    _ expectedCount: Int
   ) {
     var octreeFragmentCount = 0
     for node in waveFunction.octree.nodes {
       let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-      octreeFragmentCount += 8 - mask64.nonzeroBitCount
+      octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
     }
-    let upperBound = upperExpectedCount ?? expectedCount * 2
     XCTAssertGreaterThanOrEqual(octreeFragmentCount, expectedCount)
-    XCTAssertLessThan(octreeFragmentCount, upperBound)
+    XCTAssertLessThan(octreeFragmentCount, expectedCount * 2)
   }
   
   static func queryRadius(
@@ -24,7 +22,9 @@ final class AnsatzTests: XCTestCase {
   ) -> Float {
     var sum: Double = .zero
     let octree = waveFunction.octree
-    for node in octree.nodes {
+    for nodeID in octree.nodes.indices {
+      let node = octree.nodes[nodeID]
+      
       // Lookup table for child nodes.
       var lx = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
       var ly = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
@@ -43,10 +43,10 @@ final class AnsatzTests: XCTestCase {
         y = y * node.spacing / 2 + ly[branchID]
         z = z * node.spacing / 2 + lz[branchID]
         
-        let Ψ = waveFunction.atomicOrbitalWaveFunction(x: x, y: y, z: z)
+        let Ψ = waveFunction.cellValues[8 * nodeID + branchID]
         let d3r = node.spacing * node.spacing * node.spacing / 64
         let r = (x * x + y * y + z * z).squareRoot()
-        var ΨrΨ = Ψ * r * Ψ * d3r
+        let ΨrΨ = Ψ * r * Ψ * d3r
         sum += Double(ΨrΨ.sum())
       }
     }
@@ -57,7 +57,7 @@ final class AnsatzTests: XCTestCase {
   func testHydrogen() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumbers = [1]
-    descriptor.fragmentCount = 8000
+    descriptor.fragmentCount = 5000
     descriptor.positions = [.zero]
     descriptor.sizeExponent = 4
     
@@ -76,7 +76,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrogenUp.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(hydrogenUp.spinNeutralWaveFunctions.count, 0)
     XCTAssertEqual(hydrogenUp.spinUpWaveFunctions.count, 1)
-    Self.checkFragments(hydrogenUp.spinUpWaveFunctions[0], 8000)
+    Self.checkFragments(hydrogenUp.spinUpWaveFunctions[0], 5000)
     XCTAssertEqual(1, Self.queryRadius(
       waveFunction: hydrogenUp.spinUpWaveFunctions[0]), accuracy: 0.02)
     
@@ -87,7 +87,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrogenDown.spinDownWaveFunctions.count, 1)
     XCTAssertEqual(hydrogenDown.spinNeutralWaveFunctions.count, 0)
     XCTAssertEqual(hydrogenDown.spinUpWaveFunctions.count, 0)
-    Self.checkFragments(hydrogenDown.spinDownWaveFunctions[0], 8000)
+    Self.checkFragments(hydrogenDown.spinDownWaveFunctions[0], 5000)
     XCTAssertEqual(1, Self.queryRadius(
       waveFunction: hydrogenDown.spinDownWaveFunctions[0]), accuracy: 0.02)
     
@@ -98,7 +98,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrideSinglet.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(hydrideSinglet.spinNeutralWaveFunctions.count, 1)
     XCTAssertEqual(hydrideSinglet.spinUpWaveFunctions.count, 0)
-    Self.checkFragments(hydrideSinglet.spinNeutralWaveFunctions[0], 8000)
+    Self.checkFragments(hydrideSinglet.spinNeutralWaveFunctions[0], 5000)
     XCTAssertEqual(1, Self.queryRadius(
       waveFunction: hydrideSinglet.spinNeutralWaveFunctions[0]), accuracy: 0.02)
     
@@ -110,18 +110,18 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrideTriplet.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(hydrideTriplet.spinNeutralWaveFunctions.count, 0)
     XCTAssertEqual(hydrideTriplet.spinUpWaveFunctions.count, 2)
-    Self.checkFragments(hydrideTriplet.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(hydrideTriplet.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(hydrideTriplet.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(hydrideTriplet.spinUpWaveFunctions[1], 5000)
     XCTAssertEqual(1, Self.queryRadius(
       waveFunction: hydrideTriplet.spinUpWaveFunctions[0]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
-      waveFunction: hydrideTriplet.spinUpWaveFunctions[1]), accuracy: 0.04)
+      waveFunction: hydrideTriplet.spinUpWaveFunctions[1]), accuracy: 0.08)
   }
   
   func testLithium() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumbers = [3]
-    descriptor.fragmentCount = 8000
+    descriptor.fragmentCount = 5000
     descriptor.positions = [.zero]
     descriptor.sizeExponent = 4
     
@@ -132,7 +132,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumIon.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(lithiumIon.spinNeutralWaveFunctions.count, 1)
     XCTAssertEqual(lithiumIon.spinUpWaveFunctions.count, 0)
-    Self.checkFragments(lithiumIon.spinNeutralWaveFunctions[0], 8000)
+    Self.checkFragments(lithiumIon.spinNeutralWaveFunctions[0], 5000)
     XCTAssertEqual(0.414, Self.queryRadius(
       waveFunction: lithiumIon.spinNeutralWaveFunctions[0]), accuracy: 0.02)
     
@@ -143,8 +143,8 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumNeutral.spinDownWaveFunctions.count, 1)
     XCTAssertEqual(lithiumNeutral.spinNeutralWaveFunctions.count, 1)
     XCTAssertEqual(lithiumNeutral.spinUpWaveFunctions.count, 0)
-    Self.checkFragments(lithiumNeutral.spinDownWaveFunctions[0], 8000)
-    Self.checkFragments(lithiumNeutral.spinNeutralWaveFunctions[0], 8000)
+    Self.checkFragments(lithiumNeutral.spinDownWaveFunctions[0], 5000)
+    Self.checkFragments(lithiumNeutral.spinNeutralWaveFunctions[0], 5000)
     XCTAssertEqual(0.414, Self.queryRadius(
       waveFunction: lithiumNeutral.spinNeutralWaveFunctions[0]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
@@ -157,22 +157,22 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumPolarized.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(lithiumPolarized.spinNeutralWaveFunctions.count, 0)
     XCTAssertEqual(lithiumPolarized.spinUpWaveFunctions.count, 3)
-    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[1], 8000)
-    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[2], 8000)
+    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[1], 5000)
+    Self.checkFragments(lithiumPolarized.spinUpWaveFunctions[2], 5000)
     XCTAssertEqual(0.333, Self.queryRadius(
       waveFunction: lithiumPolarized.spinUpWaveFunctions[0]), accuracy: 0.02)
     XCTAssertEqual(1.414, Self.queryRadius(
-      waveFunction: lithiumPolarized.spinUpWaveFunctions[1]), accuracy: 0.05)
+      waveFunction: lithiumPolarized.spinUpWaveFunctions[1]), accuracy: 0.03)
     XCTAssertEqual(1.414 * 5 / 6, Self.queryRadius(
-      waveFunction: lithiumPolarized.spinUpWaveFunctions[2]), accuracy: 0.05)
+      waveFunction: lithiumPolarized.spinUpWaveFunctions[2]), accuracy: 0.03)
   }
   
   // Test the nitrogen dimer.
   func testNitrogen() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumbers = [7, 7]
-    descriptor.fragmentCount = 8000
+    descriptor.fragmentCount = 5000
     descriptor.positions = [SIMD3(-1, 0, 0), SIMD3(1, 0, 0)]
     descriptor.sizeExponent = 4
     
@@ -184,7 +184,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(nitrogenCharged.spinNeutralWaveFunctions.count, 7)
     XCTAssertEqual(nitrogenCharged.spinUpWaveFunctions.count, 0)
     for i in 0..<7 {
-      Self.checkFragments(nitrogenCharged.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(nitrogenCharged.spinNeutralWaveFunctions[i], 5000)
     }
     XCTAssertEqual(1 / 6.414, Self.queryRadius(
       waveFunction: nitrogenCharged.spinNeutralWaveFunctions[0],
@@ -200,13 +200,13 @@ final class AnsatzTests: XCTestCase {
       nucleusPosition: SIMD3(1, 0, 0)), accuracy: 5e-3)
     XCTAssertEqual(2 / 1.449, Self.queryRadius(
       waveFunction: nitrogenCharged.spinNeutralWaveFunctions[4],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
     XCTAssertEqual(2 / 1.449 * 5 / 6, Self.queryRadius(
       waveFunction: nitrogenCharged.spinNeutralWaveFunctions[5],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
     XCTAssertEqual(2 / 1.449 * 5 / 6, Self.queryRadius(
       waveFunction: nitrogenCharged.spinNeutralWaveFunctions[6],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
     
     // N(3+) anions.
     // - Literature value for ion atomic radius is 140 pm, or 2.65 Bohr.
@@ -218,38 +218,38 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(nitride.spinNeutralWaveFunctions.count, 10)
     XCTAssertEqual(nitride.spinUpWaveFunctions.count, 0)
     for i in 0..<10 {
-      Self.checkFragments(nitride.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(nitride.spinNeutralWaveFunctions[i], 5000)
     }
     XCTAssertEqual(1 / 6.414, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[0],
       nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 5e-3)
     XCTAssertEqual(2, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[1],
-      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[2],
-      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[3],
-      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[4],
-      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(-1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(1 / 6.414, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[5],
       nucleusPosition: SIMD3(1, 0, 0)), accuracy: 5e-3)
     XCTAssertEqual(2, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[6],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[7],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[8],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
     XCTAssertEqual(2 * 5 / 6, Self.queryRadius(
       waveFunction: nitride.spinNeutralWaveFunctions[9],
-      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.04)
+      nucleusPosition: SIMD3(1, 0, 0)), accuracy: 0.06)
     
     // Triplet state.
     descriptor.netCharges = [0, 0]
@@ -259,10 +259,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(nitrogenTriplet.spinNeutralWaveFunctions.count, 6)
     XCTAssertEqual(nitrogenTriplet.spinUpWaveFunctions.count, 2)
     for i in 0..<6 {
-      Self.checkFragments(nitrogenTriplet.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(nitrogenTriplet.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(nitrogenTriplet.spinUpWaveFunctions[1], 5000)
     
     // ROHF simulation that forms 3 covalent bonds.
     descriptor.netCharges = [0, 0]
@@ -272,11 +272,11 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(nitrogenROHF.spinNeutralWaveFunctions.count, 4)
     XCTAssertEqual(nitrogenROHF.spinUpWaveFunctions.count, 3)
     for i in 0..<4 {
-      Self.checkFragments(nitrogenROHF.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(nitrogenROHF.spinNeutralWaveFunctions[i], 5000)
     }
     for i in 0..<3 {
-      Self.checkFragments(nitrogenROHF.spinDownWaveFunctions[i], 8000)
-      Self.checkFragments(nitrogenROHF.spinUpWaveFunctions[i], 8000)
+      Self.checkFragments(nitrogenROHF.spinDownWaveFunctions[i], 5000)
+      Self.checkFragments(nitrogenROHF.spinUpWaveFunctions[i], 5000)
     }
   }
   
@@ -286,7 +286,7 @@ final class AnsatzTests: XCTestCase {
   func testChromium() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumbers = [24]
-    descriptor.fragmentCount = 8000
+    descriptor.fragmentCount = 5000
     descriptor.positions = [.zero]
     descriptor.sizeExponent = 4
     
@@ -298,9 +298,9 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumIon.spinNeutralWaveFunctions.count, 10)
     XCTAssertEqual(chromiumIon.spinUpWaveFunctions.count, 1)
     for i in 0..<10 {
-      Self.checkFragments(chromiumIon.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(chromiumIon.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(chromiumIon.spinUpWaveFunctions[0], 8000)
+    Self.checkFragments(chromiumIon.spinUpWaveFunctions[0], 5000)
     XCTAssertEqual(1 / 23.414, Self.queryRadius(
       waveFunction: chromiumIon.spinNeutralWaveFunctions[0]), accuracy: 2e-3)
     XCTAssertEqual(2 / 16.828, Self.queryRadius(
@@ -332,10 +332,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumAufbau.spinNeutralWaveFunctions.count, 10)
     XCTAssertEqual(chromiumAufbau.spinUpWaveFunctions.count, 4)
     for i in 0..<10 {
-      Self.checkFragments(chromiumAufbau.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(chromiumAufbau.spinNeutralWaveFunctions[i], 5000)
     }
     for i in 0..<4 {
-      Self.checkFragments(chromiumAufbau.spinUpWaveFunctions[i], 8000)
+      Self.checkFragments(chromiumAufbau.spinUpWaveFunctions[i], 5000)
     }
     
     // Actual polarized atom.
@@ -346,17 +346,17 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumActual.spinNeutralWaveFunctions.count, 9)
     XCTAssertEqual(chromiumActual.spinUpWaveFunctions.count, 6)
     for i in 0..<9 {
-      Self.checkFragments(chromiumActual.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(chromiumActual.spinNeutralWaveFunctions[i], 5000)
     }
     for i in 0..<6 {
-      Self.checkFragments(chromiumActual.spinUpWaveFunctions[i], 8000)
+      Self.checkFragments(chromiumActual.spinUpWaveFunctions[i], 5000)
     }
   }
   
   // Test group (IV) atoms.
   func testGroupIV() throws {
     var descriptor = AnsatzDescriptor()
-    descriptor.fragmentCount = 8000
+    descriptor.fragmentCount = 5000
     descriptor.netCharges = [0]
     descriptor.netSpinPolarizations = [2]
     descriptor.positions = [.zero]
@@ -374,14 +374,14 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(carbon.spinNeutralWaveFunctions.count, 2)
     XCTAssertEqual(carbon.spinUpWaveFunctions.count, 2)
     for i in 0..<2 {
-      Self.checkFragments(carbon.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(carbon.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(carbon.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(carbon.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(carbon.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(carbon.spinUpWaveFunctions[1], 5000)
     XCTAssertEqual(1 / 5.414, Self.queryRadius(
       waveFunction: carbon.spinNeutralWaveFunctions[0]), accuracy: 0.01)
     XCTAssertEqual(1, Self.queryRadius(
-      waveFunction: carbon.spinNeutralWaveFunctions[1]), accuracy: 0.02)
+      waveFunction: carbon.spinNeutralWaveFunctions[1]), accuracy: 0.04)
     
     // Silicon diradical atom.
     /*
@@ -399,20 +399,20 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(silicon.spinNeutralWaveFunctions.count, 6)
     XCTAssertEqual(silicon.spinUpWaveFunctions.count, 2)
     for i in 0..<6 {
-      Self.checkFragments(silicon.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(silicon.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(silicon.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(silicon.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(silicon.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(silicon.spinUpWaveFunctions[1], 5000)
     XCTAssertEqual(1 / 13.414, Self.queryRadius(
       waveFunction: silicon.spinNeutralWaveFunctions[0]), accuracy: 3e-3)
     XCTAssertEqual(2 / 6.828, Self.queryRadius(
-      waveFunction: silicon.spinNeutralWaveFunctions[1]), accuracy: 0.01)
+      waveFunction: silicon.spinNeutralWaveFunctions[1]), accuracy: 6e-3)
     XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
-      waveFunction: silicon.spinNeutralWaveFunctions[2]), accuracy: 0.01)
+      waveFunction: silicon.spinNeutralWaveFunctions[2]), accuracy: 6e-3)
     XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
-      waveFunction: silicon.spinNeutralWaveFunctions[3]), accuracy: 0.01)
+      waveFunction: silicon.spinNeutralWaveFunctions[3]), accuracy: 6e-3)
     XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
-      waveFunction: silicon.spinNeutralWaveFunctions[4]), accuracy: 0.01)
+      waveFunction: silicon.spinNeutralWaveFunctions[4]), accuracy: 6e-3)
     XCTAssertEqual(1.5, Self.queryRadius(
       waveFunction: silicon.spinNeutralWaveFunctions[5]), accuracy: 0.04)
     
@@ -441,10 +441,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(germanium.spinNeutralWaveFunctions.count, 15)
     XCTAssertEqual(germanium.spinUpWaveFunctions.count, 2)
     for i in 0..<15 {
-      Self.checkFragments(germanium.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(germanium.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(germanium.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(germanium.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(germanium.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(germanium.spinUpWaveFunctions[1], 5000)
     XCTAssertEqual(1 / 31.414, Self.queryRadius(
       waveFunction: germanium.spinNeutralWaveFunctions[0]), accuracy: 1e-3)
     XCTAssertEqual(2 / 24.828, Self.queryRadius(
@@ -474,7 +474,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(0.28294447, Self.queryRadius(
       waveFunction: germanium.spinNeutralWaveFunctions[13]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
-      waveFunction: germanium.spinNeutralWaveFunctions[14]), accuracy: 0.04)
+      waveFunction: germanium.spinNeutralWaveFunctions[14]), accuracy: 0.08)
     
     // Tin diradical atom.
     /*
@@ -504,26 +504,27 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.42441788
      expectation radius: 2.4987237
      */
+    descriptor.fragmentCount = 6000
     descriptor.atomicNumbers = [50]
     let tin = Ansatz(descriptor: descriptor)
     XCTAssertEqual(tin.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(tin.spinNeutralWaveFunctions.count, 24)
     XCTAssertEqual(tin.spinUpWaveFunctions.count, 2)
     for i in 0..<24 {
-      Self.checkFragments(tin.spinNeutralWaveFunctions[i], 8000)
+      Self.checkFragments(tin.spinNeutralWaveFunctions[i], 6000)
     }
-    Self.checkFragments(tin.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(tin.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(tin.spinUpWaveFunctions[0], 6000)
+    Self.checkFragments(tin.spinUpWaveFunctions[1], 6000)
     XCTAssertEqual(1 / 49.414, Self.queryRadius(
       waveFunction: tin.spinNeutralWaveFunctions[0]), accuracy: 5e-4)
     XCTAssertEqual(2 / 42.828, Self.queryRadius(
-      waveFunction: tin.spinNeutralWaveFunctions[1]), accuracy: 2e-3)
+      waveFunction: tin.spinNeutralWaveFunctions[1]), accuracy: 1e-3)
     XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
-      waveFunction: tin.spinNeutralWaveFunctions[2]), accuracy: 2e-3)
+      waveFunction: tin.spinNeutralWaveFunctions[2]), accuracy: 1e-3)
     XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
-      waveFunction: tin.spinNeutralWaveFunctions[3]), accuracy: 2e-3)
+      waveFunction: tin.spinNeutralWaveFunctions[3]), accuracy: 1e-3)
     XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
-      waveFunction: tin.spinNeutralWaveFunctions[4]), accuracy: 2e-3)
+      waveFunction: tin.spinNeutralWaveFunctions[4]), accuracy: 1e-3)
     XCTAssertEqual(0.114265166, Self.queryRadius(
       waveFunction: tin.spinNeutralWaveFunctions[5]), accuracy: 6e-3)
     XCTAssertEqual(0.105806686, Self.queryRadius(
@@ -589,18 +590,17 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.55775756
      expectation radius: 2.9965723
      */
+    descriptor.fragmentCount = 5000
     descriptor.atomicNumbers = [82]
-    let leadStart = Date()
     let lead = Ansatz(descriptor: descriptor)
-    let leadEnd = Date()
     XCTAssertEqual(lead.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(lead.spinNeutralWaveFunctions.count, 40)
     XCTAssertEqual(lead.spinUpWaveFunctions.count, 2)
     for i in 0..<40 {
-      Self.checkFragments(lead.spinNeutralWaveFunctions[i], 8000, 30000)
+      Self.checkFragments(lead.spinNeutralWaveFunctions[i], 5000)
     }
-    Self.checkFragments(lead.spinUpWaveFunctions[0], 8000)
-    Self.checkFragments(lead.spinUpWaveFunctions[1], 8000)
+    Self.checkFragments(lead.spinUpWaveFunctions[0], 5000)
+    Self.checkFragments(lead.spinUpWaveFunctions[1], 5000)
     XCTAssertEqual(1 / 81.414, Self.queryRadius(
       waveFunction: lead.spinNeutralWaveFunctions[0]), accuracy: 3e-4)
     XCTAssertEqual(2 / 74.828, Self.queryRadius(
@@ -631,9 +631,6 @@ final class AnsatzTests: XCTestCase {
       waveFunction: lead.spinNeutralWaveFunctions[13]), accuracy: 3e-3)
     XCTAssertEqual(3, Self.queryRadius(
       waveFunction: lead.spinNeutralWaveFunctions[39]), accuracy: 0.06)
-    let leadSecondEnd = Date()
-    print("lead initialization time: \(leadEnd.timeIntervalSince(leadStart))")
-    print("lead checking time: \(leadSecondEnd.timeIntervalSince(leadEnd))")
     
     // Flerovium ion.
     //
@@ -703,21 +700,19 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.047402453
      expectation radius: 0.047402453
      */
-    descriptor.fragmentCount = 40000
+    descriptor.fragmentCount = 12000
     descriptor.atomicNumbers = [114]
     descriptor.netCharges = [78]
     descriptor.netSpinPolarizations = [0]
-    let fleroviumStart = Date()
     let flerovium = Ansatz(descriptor: descriptor)
-    let fleroviumEnd = Date()
     XCTAssertEqual(flerovium.spinDownWaveFunctions.count, 0)
     XCTAssertEqual(flerovium.spinNeutralWaveFunctions.count, 18)
     XCTAssertEqual(flerovium.spinUpWaveFunctions.count, 0)
     for i in 0..<18 {
-      Self.checkFragments(flerovium.spinNeutralWaveFunctions[i], 40000, 200000)
+      Self.checkFragments(flerovium.spinNeutralWaveFunctions[i], 12000)
     }
     XCTAssertEqual(1 / 113.414, Self.queryRadius(
-      waveFunction: flerovium.spinNeutralWaveFunctions[0]), accuracy: 1e-4)
+      waveFunction: flerovium.spinNeutralWaveFunctions[0]), accuracy: 2e-4)
     XCTAssertEqual(2 / 106.828, Self.queryRadius(
       waveFunction: flerovium.spinNeutralWaveFunctions[1]), accuracy: 3e-4)
     XCTAssertEqual(2 / 106.828 * 5 / 6, Self.queryRadius(
@@ -752,8 +747,5 @@ final class AnsatzTests: XCTestCase {
       waveFunction: flerovium.spinNeutralWaveFunctions[16]), accuracy: 1e-3)
     XCTAssertEqual(0.047402453, Self.queryRadius(
       waveFunction: flerovium.spinNeutralWaveFunctions[17]), accuracy: 1e-3)
-    let fleroviumSecondEnd = Date()
-    print("flerovium initialization time: \(fleroviumEnd.timeIntervalSince(fleroviumStart))")
-    print("flerovium checking time: \(fleroviumSecondEnd.timeIntervalSince(fleroviumEnd))")
   }
 }

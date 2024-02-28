@@ -20,19 +20,11 @@ struct WaveFunctionDescriptor {
 }
 
 public struct WaveFunction {
-//  /// The values of the wavefunction at each octree node.
-//  public var cellValues: [SIMD8<Float>] = []
+  /// The values of the wavefunction at each octree node.
+  public var cellValues: [SIMD8<Float>] = []
   
-  // Replacing cell values with the atomic orbital for now, for debugging
-  // purposes.
+  /// The atomic orbital that generates the initial guess.
   var atomicOrbital: AtomicOrbital
-  public func atomicOrbitalWaveFunction(
-    x: SIMD8<Float>,
-    y: SIMD8<Float>,
-    z: SIMD8<Float>
-  ) -> SIMD8<Float> {
-    atomicOrbital.waveFunction(x: x, y: y, z: z)
-  }
   
   /// The number of fragments the wavefunction should attempt to remain at.
   public var fragmentCount: Int
@@ -55,8 +47,7 @@ public struct WaveFunction {
     self.octree = Octree(descriptor: octreeDesc)
     
     // Cache the integrals so they don't need to be recomputed. Defer the
-    // initialization of 'cellValues' until after the octree is done. We can
-    // profile whether caching the wavefunctions improves performance.
+    // initialization of 'cellValues' until after the octree is done.
     var densityIntegrals: [SIMD8<Float>] = []
     var gradientIntegrals: [SIMD8<Float>] = []
     densityIntegrals.append(SIMD8(repeating: .nan))
@@ -92,57 +83,53 @@ public struct WaveFunction {
         
         // Compute the integrals and cache them.
         if densityIntegrals[nodeID][0].isNaN {
-          // - Compute integrals with 8x higher accuracy.
-          // - Report what fragment count is actually being used.
-          // - Reduce the actual fragment count by 8x.
-          // - Sample importance at 64x accuracy, fixing flerovium.
-          // - Optimize the integral computation, ensuring it still
-          //   produces the same results to within rounding error.
-          
           // Lookup table for child nodes.
-          var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
-          var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
-          var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-          x = x * node.spacing + node.center.x
-          y = y * node.spacing + node.center.y
-          z = z * node.spacing + node.center.z
+          var lx = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+          var ly = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+          var lz = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+          lx = lx * node.spacing + node.center.x
+          ly = ly * node.spacing + node.center.y
+          lz = lz * node.spacing + node.center.z
           
           for branchID in 0..<8 {
-            let xyz = SIMD3(x[branchID], y[branchID], z[branchID])
-            let Ψ = createCellValues(center: xyz, spacing: node.spacing / 2)
-            let eighthNodeSpacing = node.spacing / 64
-            let d3r = node.spacing * node.spacing * eighthNodeSpacing
-            let _densityIntegral = Ψ * 1 * Ψ * d3r
+            var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+            var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+            var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+            x = x * node.spacing / 2 + lx[branchID]
+            y = y * node.spacing / 2 + ly[branchID]
+            z = z * node.spacing / 2 + lz[branchID]
             
-            let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
-            let lowX = Ψ.evenHalf
-            let highX = Ψ.oddHalf
-            let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
-            let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
-            let lowZ = Ψ.lowHalf
-            let highZ = Ψ.highHalf
-            
-            let Δx = highX - lowX
-            let Δy = highY - lowY
-            let Δz = highZ - lowZ
-            let intΔx = Δx * Δx
-            let intΔy = Δy * Δy
-            let intΔz = Δz * Δz
-            
-            let finalIntΔx = SIMD8<Float>(
-              intΔx[0], intΔx[0], intΔx[1], intΔx[1],
-              intΔx[2], intΔx[2], intΔx[3], intΔx[3])
-            let castedIntΔy = unsafeBitCast(intΔy, to: SIMD2<UInt64>.self)
-            let castedIntΔy2 = SIMD4(castedIntΔy[0], castedIntΔy[0],
-                                     castedIntΔy[1], castedIntΔy[1])
-            let finalIntΔy = unsafeBitCast(castedIntΔy2, to: SIMD8<Float>.self)
-            let finalIntΔz = SIMD8<Float>(lowHalf: intΔz, highHalf: intΔz)
-            var _gradientIntegral = finalIntΔx + finalIntΔy + finalIntΔz
-            _gradientIntegral *= eighthNodeSpacing
-            
+            // Sample the wavefunction at (8x)->(64x) resolution to produce
+            // higher-quality integrals. This reduces the number of fragments
+            // needed for core electrons of high-Z elements.
+            var _densityIntegral: SIMD8<Float> = .zero
+            var _gradientIntegral: SIMD8<Float> = .zero
+            for subBranchID in 0..<8 {
+              let xyz = SIMD3(x[subBranchID], y[subBranchID], z[subBranchID])
+              let Ψ = createCellValues(center: xyz, spacing: node.spacing / 4)
+              let d3r = node.spacing * node.spacing * node.spacing / 512
+              let __densityIntegral = Ψ * 1 * Ψ * d3r
+              _densityIntegral[subBranchID] = __densityIntegral.sum()
+              
+              let casted = unsafeBitCast(Ψ, to: SIMD4<UInt64>.self)
+              let lowX = Ψ.evenHalf
+              let highX = Ψ.oddHalf
+              let lowY = unsafeBitCast(casted.evenHalf, to: SIMD4<Float>.self)
+              let highY = unsafeBitCast(casted.oddHalf, to: SIMD4<Float>.self)
+              let lowZ = Ψ.lowHalf
+              let highZ = Ψ.highHalf
+              
+              let Δx = highX - lowX
+              let Δy = highY - lowY
+              let Δz = highZ - lowZ
+              var __gradientIntegral: SIMD4<Float> = .zero
+              __gradientIntegral = Δx * Δx + Δy * Δy + Δz * Δz
+              _gradientIntegral[subBranchID] = __gradientIntegral.sum()
+            }
             densityIntegral[branchID] = _densityIntegral.sum()
             gradientIntegral[branchID] = _gradientIntegral.sum()
           }
+          gradientIntegral *= 2 * node.spacing / 512
           
           let ε: Float = .leastNormalMagnitude
           densityIntegral.replace(with: ε, where: densityIntegral .< ε)
@@ -194,16 +181,20 @@ public struct WaveFunction {
             continue
           }
           
-          // Soon, the threshold will be increased 8x, so this comparison will
-          // represent the actual threshold.
+          // 1x1x1 cell coordinating compute work
+          // 2x2x2 cell < threshold
+          // 4x4x4 cell < threshold / 8
           let importanceMax = importanceMetric.max()
-          if importanceMax < threshold / 8 {
+          if importanceMax < threshold {
             contracted[nodeID] = true
             contractedIsZero = false
           }
         } else {
+          // 1x1x1 cell coordinating compute work
+          // 2x2x2 cell > threshold * 8
+          // 4x4x4 cell > threshold
           var mask32 = SIMD8<UInt32>(repeating: .zero)
-          mask32.replace(with: 1, where: importanceMetric .> threshold)
+          mask32.replace(with: 1, where: importanceMetric .> threshold * 8)
           var mask8 = SIMD8<UInt8>(truncatingIfNeeded: mask32)
           mask8 &= SIMD8(repeating: 1) &- branchesMask
           
@@ -264,7 +255,7 @@ public struct WaveFunction {
             var octreeFragmentCount = 0
             for node in octree.nodes {
               let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-              octreeFragmentCount += 8 - mask64.nonzeroBitCount
+              octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
             }
             if octreeFragmentCount <= fragmentCount {
               break
@@ -296,7 +287,7 @@ public struct WaveFunction {
           var octreeFragmentCount = 0
           for node in octree.nodes {
             let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-            octreeFragmentCount += 8 - mask64.nonzeroBitCount
+            octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
           }
           fatalError("""
             Wave function failed to converge after 50 iterations.
@@ -309,13 +300,36 @@ public struct WaveFunction {
       var octreeFragmentCount = 0
       for node in octree.nodes {
         let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-        octreeFragmentCount += 8 - mask64.nonzeroBitCount
+        octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
       }
       
       if octreeFragmentCount >= fragmentCount {
         break
       } else if probabilityMultiplier == 1 {
         fatalError("Could not create octree with the specified fragment count.")
+      }
+    }
+    
+    for node in octree.nodes {
+      // Lookup table for child nodes.
+      var lx = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+      var ly = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+      var lz = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+      let centerDelta = node.center - nucleusPosition
+      lx = lx * node.spacing + centerDelta.x
+      ly = ly * node.spacing + centerDelta.y
+      lz = lz * node.spacing + centerDelta.z
+      
+      for branchID in 0..<8 {
+        var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+        var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+        var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+        x = x * node.spacing / 2 + lx[branchID]
+        y = y * node.spacing / 2 + ly[branchID]
+        z = z * node.spacing / 2 + lz[branchID]
+        
+        let Ψ = atomicOrbital.waveFunction(x: x, y: y, z: z)
+        cellValues.append(Ψ)
       }
     }
   }
