@@ -9,8 +9,9 @@ final class AnsatzTests: XCTestCase {
   ) {
     var octreeFragmentCount = 0
     for node in waveFunction.octree.nodes {
-      let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-      octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
+      let mask8 = node.branchesMask & SIMD8(repeating: 128)
+      let mask64 = unsafeBitCast(mask8, to: UInt64.self)
+      octreeFragmentCount += 8 * mask64.nonzeroBitCount
     }
     XCTAssertGreaterThanOrEqual(octreeFragmentCount, expectedCount)
     XCTAssertLessThan(octreeFragmentCount, expectedCount * 2)
@@ -35,7 +36,7 @@ final class AnsatzTests: XCTestCase {
       lz = lz * node.spacing + centerDelta.z
       
       for branchID in 0..<8
-      where node.branchesMask[branchID] == 0 {
+      where node.branchesMask[branchID] == UInt8.max {
         var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
         var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
         var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25

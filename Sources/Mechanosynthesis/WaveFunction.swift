@@ -138,9 +138,9 @@ public struct WaveFunction {
           gradientIntegrals[nodeID] = gradientIntegral
         }
         
-        if unsafeBitCast(node.branchesMask, to: UInt64.self) != .zero {
+        if unsafeBitCast(node.branchesMask, to: UInt64.self) != .max {
           var mask32 = SIMD8<UInt32>(
-            truncatingIfNeeded: SIMD8(repeating: 1) &- node.branchesMask)
+            truncatingIfNeeded: node.branchesMask &>> 7)
           mask32 &*= Float(1).bitPattern
           densityIntegral *= unsafeBitCast(mask32, to: SIMD8<Float>.self)
           gradientIntegral *= unsafeBitCast(mask32, to: SIMD8<Float>.self)
@@ -177,7 +177,7 @@ public struct WaveFunction {
         let branchesMask = octree.nodes[nodeID].branchesMask
         
         if isContracting {
-          guard unsafeBitCast(branchesMask, to: UInt64.self) == .zero else {
+          guard unsafeBitCast(branchesMask, to: UInt64.self) == .max else {
             continue
           }
           
@@ -196,7 +196,7 @@ public struct WaveFunction {
           var mask32 = SIMD8<UInt32>(repeating: .zero)
           mask32.replace(with: 1, where: importanceMetric .> threshold * 8)
           var mask8 = SIMD8<UInt8>(truncatingIfNeeded: mask32)
-          mask8 &= SIMD8(repeating: 1) &- branchesMask
+          mask8 &= branchesMask &>> 7
           
           if unsafeBitCast(mask8, to: UInt64.self) != .zero {
             expanded[nodeID] = mask8
@@ -254,8 +254,9 @@ public struct WaveFunction {
             // converged solution.
             var octreeFragmentCount = 0
             for node in octree.nodes {
-              let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-              octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
+              let mask8 = node.branchesMask & SIMD8(repeating: 128)
+              let mask64 = unsafeBitCast(mask8, to: UInt64.self)
+              octreeFragmentCount += 8 * mask64.nonzeroBitCount
             }
             if octreeFragmentCount <= fragmentCount {
               break
@@ -286,8 +287,9 @@ public struct WaveFunction {
         if iterationID > 50 {
           var octreeFragmentCount = 0
           for node in octree.nodes {
-            let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-            octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
+            let mask8 = node.branchesMask & SIMD8(repeating: 128)
+            let mask64 = unsafeBitCast(mask8, to: UInt64.self)
+            octreeFragmentCount += 8 * mask64.nonzeroBitCount
           }
           fatalError("""
             Wave function failed to converge after 50 iterations.
@@ -299,8 +301,9 @@ public struct WaveFunction {
       
       var octreeFragmentCount = 0
       for node in octree.nodes {
-        let mask64 = unsafeBitCast(node.branchesMask, to: UInt64.self)
-        octreeFragmentCount += 8 * (8 - mask64.nonzeroBitCount)
+        let mask8 = node.branchesMask & SIMD8(repeating: 128)
+        let mask64 = unsafeBitCast(mask8, to: UInt64.self)
+        octreeFragmentCount += 8 * mask64.nonzeroBitCount
       }
       
       if octreeFragmentCount >= fragmentCount {

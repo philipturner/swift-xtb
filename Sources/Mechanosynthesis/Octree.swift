@@ -72,7 +72,7 @@ public struct Octree {
       centerAndSpacing: SIMD4(origin, size),
       parentIndex: UInt32.max,
       branchesIndex: UInt32.max,
-      branchesMask: SIMD8.zero)
+      branchesMask: SIMD8(repeating: UInt8.max))
     nodes = [node]
   }
   
@@ -90,8 +90,8 @@ public struct Octree {
     contracted removalMarks: [Bool]
   ) -> [UInt32] {
     @_transparent
-    func isZero(_ vector: SIMD8<UInt8>) -> Bool {
-      unsafeBitCast(vector, to: UInt64.self) == .zero
+    func isMax(_ vector: SIMD8<UInt8>) -> Bool {
+      unsafeBitCast(vector, to: UInt64.self) == .max
     }
     
     // Create an array of arrays for the hierarchy levels.
@@ -131,19 +131,19 @@ public struct Octree {
       let insertion = unsafeBitCast(insertionMarks[nodeID], to: UInt64.self)
       
       for branchID in 0..<8 {
-        let branchBit = UInt64(1) << UInt64(branchID * 8)
+        let branchBits = UInt64(255) << UInt64(branchID * 8)
         
-        if nodeBranchesMask & branchBit != 0 {
+        if nodeBranchesMask & branchBits != branchBits {
           if removalMarks[previousBranchesIndex] {
-            nodeBranchesMask ^= branchBit
+            nodeBranchesMask |= branchBits
             mappedIndices[levelID + 1].append(UInt32.max)
           } else {
             traversalFirstPass(
               nodeID: previousBranchesIndex, levelID: levelID + 1)
           }
           previousBranchesIndex += 1
-        } else if insertion & branchBit != 0 {
-          nodeBranchesMask |= branchBit
+        } else if insertion & branchBits != 0 {
+          nodeBranchesMask &= ~branchBits
           
           // Construct child position using the lookup table.
           let xyz = SIMD3(x[branchID], y[branchID], z[branchID])
@@ -153,16 +153,44 @@ public struct Octree {
             centerAndSpacing: SIMD4(xyz, node.spacing / 2),
             parentIndex: UInt32(selfIndex),
             branchesIndex: UInt32.max,
-            branchesMask: SIMD8.zero)
+            branchesMask: SIMD8(repeating: UInt8.max))
           levels[levelID + 1].append(node)
         }
       }
       
       node.branchesMask = unsafeBitCast(nodeBranchesMask, to: SIMD8<_>.self)
-      if !isZero(node.branchesMask) {
-        node.branchesIndex = UInt32(nextBranchesIndex)
-      } else {
+      if isMax(node.branchesMask) {
         node.branchesIndex = UInt32.max
+      } else {
+        node.branchesIndex = UInt32(nextBranchesIndex)
+        
+        func prefixSum(_ x: SIMD8<UInt8>) -> SIMD8<UInt8> {
+          // 00000000
+          // 11111111
+          var output: UInt64 = .zero
+          let forwardSum0 = unsafeBitCast(x, to: UInt64.self)
+          
+          // 01010101
+          // 02020202
+          let shifted1 = (forwardSum0 & 0x00FF00FF00FF00FF) << 8
+          let forwardSum1 = (forwardSum0 &+ shifted1) & 0xFF00FF00FF00FF00
+          output = shifted1
+          
+          // 01230123
+          // 00040004
+          let shifted2 = (forwardSum1 & 0x0000FF000000FF00) << 16
+          let forwardSum2 = (forwardSum1 &+ shifted2) & 0xFF000000FF000000
+          output += (forwardSum1 & 0x0000FF000000FF00) * (0x0101 << 8)
+          
+          // 01234567
+          output += forwardSum2 * (0x01010101) << 8
+          return unsafeBitCast(output, to: SIMD8<UInt8>.self)
+        }
+        
+        var x = SIMD8<UInt8>(repeating: 0)
+        x.replace(with: 1, where: node.branchesMask .!= 255)
+        x = prefixSum(x)
+        node.branchesMask.replace(with: x, where: node.branchesMask .!= 255)
       }
       mappedIndices[levelID].append(UInt32(selfIndex))
       levels[levelID].append(node)
@@ -196,7 +224,7 @@ public struct Octree {
         if levelID > 0 {
           node.parentIndex += levelPrefixSums[levelID - 1]
         }
-        if !isZero(node.branchesMask) {
+        if !isMax(node.branchesMask) {
           node.branchesIndex += levelPrefixSums[levelID + 1]
         }
         nodes.append(node)
