@@ -2,12 +2,10 @@ import XCTest
 import Accelerate
 import Numerics
 
-// All matrices in this experiment are assumed to be row-major as well. That
-// may change when utilizing the AMX, because NT multiplications can achieve
-// higher performance. For the final optimization, GPU acceleration seems more
-// cost-effective than exploiting symmetry.
-//
-// The individual wavefunctions are rows of the eigenvector matrix.
+// All matrices in this experiment are row-major. The individual wavefunctions
+// are rows of the eigenvector matrix. However, LAPACK treats arguments as if
+// they're column-major.
+
 final class DenseDiagonalizationExperiment: XCTestCase {
   // MARK: - Algorithms
   
@@ -65,8 +63,9 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     }
   }
   
-  // Panel-factorized version of Gram-Schmidt, whose computation time scales
-  // quadratically with the number of matrix elements (matrix K * panel count).
+  // Panel-factorized version of Gram-Schmidt. Its computation time scales
+  // quadratically with the number of matrix elements (matrix K * panel count),
+  // assuming infinite compute power.
   static func panelGramSchmidtOrthonormalize(
     matrix: inout [Float], n: Int, panelSize: Int
   ) {
@@ -97,10 +96,6 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     while panelStart < n {
       let panelEnd = min(panelStart + panelSize, n)
       
-      var pattern4: Float = .zero
-      memset_pattern4(&dotProductMatrix, &pattern4, panelSize * n * 4)
-      memset_pattern4(&updateMatrix, &pattern4, panelSize * n * 4)
-      
       // Determine the magnitude of components parallel to previous vectors.
       //  for electronID in panelStart..<panelEnd {
       //    let intraPanelID = electronID - panelStart
@@ -114,7 +109,7 @@ final class DenseDiagonalizationExperiment: XCTestCase {
       //      dotProductMatrix[intraPanelID * n + neighborID] = dotProduct
       //    }
       //  }
-      if panelStart > 0 {
+      do {
         var TRANSA = CChar(Character("T").asciiValue!)
         var TRANSB = CChar(Character("N").asciiValue!)
         var M: Int32 = Int32(panelStart)
@@ -122,21 +117,21 @@ final class DenseDiagonalizationExperiment: XCTestCase {
         var K: Int32 = Int32(n)
         var ALPHA: Float = 1
         var LDA: Int32 = Int32(n)
-        var BETA: Float = 1
+        var BETA: Float = 0
         var LDB: Int32 = Int32(n)
         var LDC: Int32 = Int32(n)
         matrix.withContiguousMutableStorageIfAvailable {
-          let A = $0.baseAddress! + 0 * n
+          let A = $0.baseAddress!
           let B = $0.baseAddress! + panelStart * n
           dotProductMatrix.withContiguousMutableStorageIfAvailable {
-            let C = $0.baseAddress! + 0 * n + 0
+            let C = $0.baseAddress!
             sgemm_(
               &TRANSA, // TRANSA
               &TRANSB, // TRANSB
               &M, // M
               &N, // N
               &K, // K
-              &ALPHA, // alpha
+              &ALPHA, // ALPHA
               A, // A
               &LDA, // LDA
               B, // B
@@ -149,51 +144,51 @@ final class DenseDiagonalizationExperiment: XCTestCase {
         }
       }
       
-      for electronID in panelStart..<panelEnd {
-        let intraPanelID = electronID - panelStart
-        
-        // Negate all components parallel to previous vectors.
-        for cellID in 0..<n {
-          //          var cellUpdate: Float = .zero
-          //          for neighborID in 0..<panelStart {
-          //            let dotProduct = dotProductMatrix[intraPanelID * n + neighborID]
-          //            let value2 = matrix[neighborID * n + cellID]
-          //            cellUpdate -= dotProduct * value2
-          //          }
-          //          updateMatrix[intraPanelID * n + cellID] += cellUpdate
-          
-          var TRANSA = CChar(Character("N").asciiValue!)
-          var TRANSB = CChar(Character("T").asciiValue!)
-          var M: Int32 = 1
-          var N: Int32 = 1
-          var K: Int32 = Int32(panelStart)
-          var ALPHA: Float = -1
-          var LDA: Int32 = 1
-          var BETA: Float = 1
-          var LDB: Int32 = Int32(n)
-          var LDC: Int32 = 1
+      // Negate all components parallel to previous vectors.
+      //  for electronID in panelStart..<panelEnd {
+      //    let intraPanelID = electronID - panelStart
+      //    for cellID in 0..<n {
+      //      var cellUpdate: Float = .zero
+      //      for neighborID in panelStart..<electronID {
+      //        let dotProduct = dotProductMatrix[intraPanelID * n + neighborID]
+      //        let value2 = matrix[neighborID * n + cellID]
+      //        cellUpdate -= dotProduct * value2
+      //      }
+      //      updateMatrix[intraPanelID * n + cellID] += cellUpdate
+      //    }
+      //  }
+      do {
+        var TRANSA = CChar(Character("N").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M: Int32 = Int32(n)
+        var N: Int32 = Int32(panelEnd - panelStart)
+        var K: Int32 = Int32(panelStart)
+        var ALPHA: Float = -1
+        var LDA: Int32 = Int32(n)
+        var BETA: Float = 0
+        var LDB: Int32 = Int32(n)
+        var LDC: Int32 = Int32(n)
+        matrix.withContiguousMutableStorageIfAvailable {
+          let A = $0.baseAddress!
           dotProductMatrix.withContiguousMutableStorageIfAvailable {
-            let A = $0.baseAddress! + intraPanelID * n
-            matrix.withContiguousMutableStorageIfAvailable {
-              let B = $0.baseAddress! + cellID
-              updateMatrix.withContiguousMutableStorageIfAvailable {
-                let C = $0.baseAddress! + intraPanelID * n + cellID
-                sgemm_(
-                  &TRANSA, // TRANSA
-                  &TRANSB, // TRANSB
-                  &M, // M
-                  &N, // N
-                  &K, // K
-                  &ALPHA, // alpha
-                  A, // A
-                  &LDA, // LDA
-                  B, // B
-                  &LDB, // LDB
-                  &BETA, // BETA
-                  C, // C
-                  &LDC // LDC
-                )
-              }
+            let B = $0.baseAddress!
+            updateMatrix.withContiguousMutableStorageIfAvailable {
+              let C = $0.baseAddress!
+              sgemm_(
+                &TRANSA, // TRANSA
+                &TRANSB, // TRANSB
+                &M, // M
+                &N, // N
+                &K, // K
+                &ALPHA, // ALPHA
+                A, // A
+                &LDA, // LDA
+                B, // B
+                &LDB, // LDB
+                &BETA, // BETA
+                C, // C
+                &LDC // LDC
+              )
             }
           }
         }
@@ -298,7 +293,7 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     guard matrix.count == 49 else {
       fatalError("Not a 7x7 matrix.")
     }
-    Self.panelGramSchmidtOrthonormalize(matrix: &matrix, n: 7, panelSize: 3)
+    Self.panelGramSchmidtOrthonormalize(matrix: &matrix, n: 7, panelSize: 4)
     
     var overlapMatrix = [Float](repeating: .zero, count: 49)
     for electronID in 0..<7 {
@@ -316,14 +311,12 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     for electronID in 0..<7 {
       for neighborID in 0..<7 {
         let value = overlapMatrix[electronID * 7 + neighborID]
-        //        if electronID == neighborID {
-        //          XCTAssertEqual(value, 1.0, accuracy: 1e-5)
-        //        } else {
-        //          XCTAssertEqual(value, 0.0, accuracy: 1e-5)
-        //        }
-        print(value, terminator: ", ")
+        if electronID == neighborID {
+          XCTAssertEqual(value, 1.0, accuracy: 1e-4)
+        } else {
+          XCTAssertEqual(value, 0.0, accuracy: 1e-4)
+        }
       }
-      print()
     }
   }
 }
