@@ -26,10 +26,10 @@ parallel-steepest-descent-iteration(H, inout Ψ, inout HΨ)
   Ψ <- Ψ + λr             O(n^2)
   HΨ <- HΨ + λHr          O(n^2)
 
-// Total cost: 3 matrix multiplications
+// Total cost: 3 symmetric matrix multiplications
 parallel-orthogonalize-iteration(inout Ψ)
   W = Ψ^T * Ψ             O(n^3)
-  yield max ||W||         O(n^2)
+  yield max |W|           O(n^2)
 
   W <- lower triangle (W) O(n^2)
   F = -W * Ψ              O(n^3)
