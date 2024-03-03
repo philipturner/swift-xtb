@@ -3,8 +3,8 @@ import Numerics
 
 // All matrices in this experiment are assumed to be row-major as well. That
 // may change when utilizing the AMX, because NT multiplications can achieve
-// higher performance. In addition, matrix multiplications for orthogonalization
-// can be optimized by exploiting symmetry.
+// higher performance. For the final optimization, GPU acceleration seems more
+// cost-effective than exploiting symmetry.
 //
 // The individual wavefunctions are rows of the eigenvector matrix.
 final class DenseDiagonalizationExperiment: XCTestCase {
@@ -66,6 +66,16 @@ final class DenseDiagonalizationExperiment: XCTestCase {
   
   // This currently runs on single-core CPU, without AMX acceleration.
   // - returns: Conservative estimate of the maximum residual.
+  //
+  // Try modifying the orthogonalization algorithm to accelerate it:
+  //
+  // Perform something like panel factorization, where the matrix is divide into
+  // an octree. Each sequential step unlocks a larger panel that also uses more
+  // parallelism. For the small sequential parts along the diagonal, something
+  // akin to force-based orthogonalization could work.
+  //
+  // What about a hybrid algorithm that annihilates only the greatest sources
+  // of error with sequential Gram-Schmidt?
   static func parallelOrthogonalizeIteration(
     matrix: inout [Float], n: Int
   ) -> Float {
@@ -91,7 +101,85 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     }
     
     // Generate the force matrix (approximation to the action of Gram-Schmidt).
+    /*
+     W <- lower triangle (W) O(n^2)
+     F = -W * Ψ              O(n^3)
+     */
     var F = [Float](repeating: .zero, count: n * n)
+    for electronID in 0..<n {
+      for neighborID in 0..<n {
+        var weight = W[electronID * n + neighborID]
+        if neighborID < electronID {
+          // pass
+        } else {
+          weight = 0
+        }
+        for cellID in 0..<n {
+          var forceValue = F[electronID * n + cellID]
+          var neighborValue = matrix[neighborID * n + cellID]
+          forceValue -= weight * neighborValue
+          F[electronID * n + cellID] = forceValue
+        }
+      }
+    }
+    
+    // Construct the timestep values.
+    /*
+     l = vector-wise ||F||   O(n^2)
+     construct λ (l)         O(n^2)
+     */
+    var l = [Float](repeating: .zero, count: n)
+    for electronID in 0..<n {
+      var forceLength: Float = .zero
+      for cellID in 0..<n {
+        let value = F[electronID * n + cellID]
+        forceLength += value * value
+      }
+      forceLength.formSquareRoot()
+      l[electronID] = forceLength
+    }
+    var λ = [Float](repeating: .zero, count: n * n)
+    for electronID in 0..<n {
+      for neighborID in 0..<n {
+        let length1 = λ[electronID]
+        let length2 = λ[neighborID]
+        let maxLength = max(length1, length2)
+        
+        var timeStep: Float = 1
+        if maxLength > timeStep {
+          timeStep /= maxLength
+        }
+        λ[electronID * n + neighborID] = timeStep
+      }
+    }
+    
+    // Apply the damped force.
+    /*
+     F = -λW * Ψ             O(n^3)
+     Ψ <- Ψ + F              O(n^2)
+     */
+    F = [Float](repeating: .zero, count: n * n)
+    for electronID in 0..<n {
+      for neighborID in 0..<n {
+        var weight = W[electronID * n + neighborID]
+        if neighborID < electronID {
+          // pass
+        } else {
+          weight = 0
+        }
+        weight *= λ[electronID * n + neighborID]
+        for cellID in 0..<n {
+          var forceValue = F[electronID * n + cellID]
+          var neighborValue = matrix[neighborID * n + cellID]
+          forceValue -= weight * neighborValue
+          F[electronID * n + cellID] = forceValue
+        }
+      }
+    }
+    
+    for entryID in F.indices {
+      matrix[entryID] += F[entryID]
+    }
     
     return maxW
   }
@@ -138,6 +226,20 @@ final class DenseDiagonalizationExperiment: XCTestCase {
         }
       }
     }
+    
+    print()
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = matrix[electronID * 7 + neighborID]
+//        if electronID == neighborID {
+//          XCTAssertEqual(value, 1.0, accuracy: 1e-5)
+//        } else {
+//          XCTAssertEqual(value, 0.0, accuracy: 1e-5)
+//        }
+        print(value, terminator: ", ")
+      }
+      print()
+    }
   }
   
   // A self-contained test for the parallel orthogonalize algorithm. This is
@@ -157,10 +259,56 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     guard matrix.count == 49 else {
       fatalError("Not a 7x7 matrix.")
     }
+    func normalize(electronID: Int) {
+      var norm: Double = .zero
+      for cellID in 0..<7 {
+        let value = matrix[electronID * 7 + cellID]
+        norm += Double(value * value)
+      }
+      
+      let normalizationFactor = 1 / norm.squareRoot()
+      for cellID in 0..<7 {
+        var value = Double(matrix[electronID * 7 + cellID])
+        value *= normalizationFactor
+        matrix[electronID * 7 + cellID] = Float(value)
+      }
+    }
     
-    let residual = Self.parallelOrthogonalizeIteration(matrix: &matrix, n: 7)
+    for electronID in 0..<7 {
+      normalize(electronID: electronID)
+    }
+    
     print()
-    print("residual:", residual)
+    for _ in 0..<10 {
+      let residual = Self.parallelOrthogonalizeIteration(matrix: &matrix, n: 7)
+      for electronID in 0..<7 {
+        normalize(electronID: electronID)
+      }
+      print("residual:", residual)
+      print("overlap:")
+      
+      var overlapMatrix = [Float](repeating: .zero, count: 49)
+      for electronID in 0..<7 {
+        for neighborID in 0..<7 {
+          var overlap: Float = .zero
+          for cellID in 0..<7 {
+            let value1 = matrix[electronID * 7 + cellID]
+            let value2 = matrix[neighborID * 7 + cellID]
+            overlap += value1 * value2
+          }
+          overlapMatrix[electronID * 7 + neighborID] = overlap
+        }
+      }
+      
+      for electronID in 0..<7 {
+        print("-", terminator: " ")
+        for neighborID in 0..<7 {
+          let value = overlapMatrix[electronID * 7 + neighborID]
+          print(String(format: "%.3f", value.magnitude), terminator: ", ")
+        }
+        print()
+      }
+    }
     
     var overlapMatrix = [Float](repeating: .zero, count: 49)
     for electronID in 0..<7 {
@@ -178,7 +326,7 @@ final class DenseDiagonalizationExperiment: XCTestCase {
     print()
     for electronID in 0..<7 {
       for neighborID in 0..<7 {
-        let value = overlapMatrix[electronID * 7 + neighborID]
+        let value = matrix[electronID * 7 + neighborID]
 //        if electronID == neighborID {
 //          XCTAssertEqual(value, 1.0, accuracy: 1e-5)
 //        } else {
