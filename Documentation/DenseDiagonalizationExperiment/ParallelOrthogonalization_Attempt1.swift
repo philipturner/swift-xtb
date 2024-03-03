@@ -3,8 +3,7 @@ import Numerics
 
 // All matrices in this experiment are assumed to be row-major as well. That
 // may change when utilizing the AMX, because NT multiplications can achieve
-// higher performance. For the final optimization, GPU acceleration seems more
-// cost-effective than exploiting symmetry.
+// higher performance.
 //
 // The individual wavefunctions are rows of the eigenvector matrix.
 final class DenseDiagonalizationExperiment: XCTestCase {
