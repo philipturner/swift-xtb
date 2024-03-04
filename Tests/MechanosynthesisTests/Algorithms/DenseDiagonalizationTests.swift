@@ -6,7 +6,7 @@ import Numerics
 // are rows of the eigenvector matrix. However, LAPACK treats arguments as if
 // they're column-major.
 
-final class DenseDiagonalizationExperiment: XCTestCase {
+final class DenseDiagonalizationTests: XCTestCase {
   // MARK: - Algorithms
   
   // Orthonormalizes the matrix in mixed precision, as a reference

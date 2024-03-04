@@ -40,7 +40,7 @@ final class OctreeTests: XCTestCase {
     }
     
     do {
-      var branchesMask = SIMD8<UInt8>(0, 0, 255, 255, 255, 255, 255, 255)
+      let branchesMask = SIMD8<UInt8>(0, 0, 255, 255, 255, 255, 255, 255)
       var x = SIMD8<UInt8>(repeating: 0)
       x.replace(with: 1, where: branchesMask .!= 255)
       x = prefixSum(x)
@@ -49,7 +49,7 @@ final class OctreeTests: XCTestCase {
     }
     
     do {
-      var branchesMask = SIMD8<UInt8>(255, 0, 255, 255, 0, 0, 255, 255)
+      let branchesMask = SIMD8<UInt8>(255, 0, 255, 255, 0, 0, 255, 255)
       var x = SIMD8<UInt8>(repeating: 0)
       x.replace(with: 1, where: branchesMask .!= 255)
       x = prefixSum(x)
