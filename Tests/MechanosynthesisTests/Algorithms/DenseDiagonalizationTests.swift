@@ -317,6 +317,83 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
   }
   
+  // Direct diagonalization using divide-and-conquer from LAPACK.
+  // - eigenvalues: n-element array
+  // - eigenvalues: n x n matrix
+  static func diagonalize(
+    matrix: [Float], n: Int
+  ) -> (eigenvalues: [Float], eigenvectors: [Float]) {
+    var JOBZ = CChar(Character("V").asciiValue!)
+    var UPLO = CChar(Character("L").asciiValue!)
+    var N: Int32 = Int32(n)
+    var A = [Float](repeating: 0, count: n * n)
+    memcpy(&A, matrix, n * n * 4)
+    var LDA: Int32 = Int32(n)
+    var W = [Float](repeating: 0, count: n)
+    var WORK: [Float] = [0]
+    var LWORK: Int32 = -1
+    var IWORK: [Int32] = [0]
+    var LIWORK: Int32 = -1
+    var INFO: Int32 = 0
+    A.withContiguousMutableStorageIfAvailable {
+      let A = $0.baseAddress!
+      W.withContiguousMutableStorageIfAvailable {
+        let W = $0.baseAddress!
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+        
+        LWORK = Int32(WORK[0])
+        LIWORK = Int32(IWORK[0])
+        WORK = [Float](repeating: 0, count: Int(LWORK))
+        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+      }
+    }
+    
+    return (W, A)
+  }
+  
   // MARK: - Tests
   
   func testMatrixMultiply() throws {
@@ -484,6 +561,217 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
   }
   
-  // Next: Test LAPACK eigensolver, with both regular and degenerate eigenvalue
-  // clusters.
+  // Test the eigensolvers with regular eigenvalues.
+  func testEigendecomposition() throws {
+    var Ψ: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: 7)
+    
+    print("eigenvectors")
+    for electronID in 0..<7 {
+      for cellID in 0..<7 {
+        let value = Ψ[cellID * 7 + electronID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    let eigenvalues: [Float] = [
+      4, 3, 2, 1, 0, -1, -2
+    ]
+    var E = [Float](repeating: 0, count: 7 * 7)
+    for i in 0..<7 {
+      let address = i * 7 + i
+      let value = eigenvalues[i]
+      E[address] = value
+    }
+    
+    print("eigenvalues")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = E[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var EΨT = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: E, transposeA: false,
+      matrixB: Ψ, transposeB: true,
+      matrixC: &EΨT, n: 7)
+    var H = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: false,
+      matrixB: EΨT, transposeB: false,
+      matrixC: &H, n: 7)
+    
+    print("hamiltonian")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = H[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var HΨ = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: H, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &HΨ, n: 7)
+    
+    for electronID in 0..<7 {
+      var rNorm: Float = .zero
+      let expectedEigenvalue = eigenvalues[electronID]
+      for cellID in 0..<7 {
+        var value = HΨ[cellID * 7 + electronID]
+        value -= expectedEigenvalue * Ψ[cellID * 7 + electronID]
+        rNorm += value * value
+      }
+      rNorm.formSquareRoot()
+      XCTAssertLessThan(rNorm, 1e-4)
+    }
+    
+    let (lapackEigenvalues, lapackEigenvectors) = Self.diagonalize(
+      matrix: H, n: 7)
+    print("lapack eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[6 - electronID]
+      let actual = lapackEigenvalues[electronID]
+      XCTAssertEqual(actual, expected, accuracy: 1e-5)
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("lapack eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let reversedID = 6 - electronID
+        let actual = lapackEigenvectors[reversedID * 7 + cellID]
+        let expected = Ψ[cellID * 7 + electronID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
+      print("[\(dotProduct)]")
+    }
+  }
+  
+  // Test the eigensolvers with degenerate eigenvalue clusters.
+  func testDegenerateEigenspaces() throws {
+    var Ψ: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: 7)
+    
+    print("eigenvectors")
+    for electronID in 0..<7 {
+      for cellID in 0..<7 {
+        let value = Ψ[cellID * 7 + electronID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    // Cluster 1: close, but not equal eigenvalues
+    // Cluster 2: equal eigenvalues, meaning infinitely many eigenvectors
+    let eigenvalues: [Float] = [
+      4, 3.01, 3, 2.99, 0, -2, -2
+    ]
+    var E = [Float](repeating: 0, count: 7 * 7)
+    for i in 0..<7 {
+      let address = i * 7 + i
+      let value = eigenvalues[i]
+      E[address] = value
+    }
+    
+    print("eigenvalues")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = E[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var EΨT = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: E, transposeA: false,
+      matrixB: Ψ, transposeB: true,
+      matrixC: &EΨT, n: 7)
+    var H = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: false,
+      matrixB: EΨT, transposeB: false,
+      matrixC: &H, n: 7)
+    
+    print("hamiltonian")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = H[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var HΨ = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: H, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &HΨ, n: 7)
+    
+    for electronID in 0..<7 {
+      var rNorm: Float = .zero
+      let expectedEigenvalue = eigenvalues[electronID]
+      for cellID in 0..<7 {
+        var value = HΨ[cellID * 7 + electronID]
+        value -= expectedEigenvalue * Ψ[cellID * 7 + electronID]
+        rNorm += value * value
+      }
+      rNorm.formSquareRoot()
+      XCTAssertLessThan(rNorm, 1e-4)
+    }
+    
+    let (lapackEigenvalues, lapackEigenvectors) = Self.diagonalize(
+      matrix: H, n: 7)
+    print("lapack eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[6 - electronID]
+      let actual = lapackEigenvalues[electronID]
+      XCTAssertEqual(actual, expected, accuracy: 1e-4)
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("lapack eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let reversedID = 6 - electronID
+        let actual = lapackEigenvectors[reversedID * 7 + cellID]
+        let expected = Ψ[cellID * 7 + electronID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      if electronID != 5, electronID != 6 {
+        XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
+      }
+      print("[\(dotProduct)]")
+    }
+  }
 }
