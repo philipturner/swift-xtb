@@ -394,6 +394,17 @@ final class DenseDiagonalizationTests: XCTestCase {
     return (W, A)
   }
   
+  // Custom eigensolver using iterative techniques.
+  // - eigenvalues: n-element array
+  // - eigenvalues: n x n matrix
+  static func customDiagonalize(
+    matrix H: [Float], n: Int
+  ) -> (eigenvalues: [Float], eigenvectors: [Float]) {
+    var E = [Float](repeating: .zero, count: n)
+    var Ψ = [Float](repeating: .zero, count: n * n)
+    return (E, Ψ)
+  }
+  
   // MARK: - Tests
   
   func testMatrixMultiply() throws {
@@ -563,6 +574,7 @@ final class DenseDiagonalizationTests: XCTestCase {
   
   // Test the eigensolvers with regular eigenvalues.
   func testEigendecomposition() throws {
+    // Ψ is already stored in a transposed format.
     var Ψ: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -577,7 +589,7 @@ final class DenseDiagonalizationTests: XCTestCase {
     print("eigenvectors")
     for electronID in 0..<7 {
       for cellID in 0..<7 {
-        let value = Ψ[cellID * 7 + electronID]
+        let value = Ψ[electronID * 7 + cellID]
         print(value, terminator: ", ")
       }
       print()
@@ -586,31 +598,31 @@ final class DenseDiagonalizationTests: XCTestCase {
     let eigenvalues: [Float] = [
       4, 3, 2, 1, 0, -1, -2
     ]
-    var E = [Float](repeating: 0, count: 7 * 7)
+    var Λ = [Float](repeating: 0, count: 7 * 7)
     for i in 0..<7 {
       let address = i * 7 + i
       let value = eigenvalues[i]
-      E[address] = value
+      Λ[address] = value
     }
     
     print("eigenvalues")
     for electronID in 0..<7 {
       for neighborID in 0..<7 {
-        let value = E[electronID * 7 + neighborID]
+        let value = Λ[electronID * 7 + neighborID]
         print(value, terminator: ", ")
       }
       print()
     }
     
-    var EΨT = [Float](repeating: 0, count: 7 * 7)
+    var ΛΣT = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: E, transposeA: false,
-      matrixB: Ψ, transposeB: true,
-      matrixC: &EΨT, n: 7)
+      matrixA: Λ, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &ΛΣT, n: 7)
     var H = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: Ψ, transposeA: false,
-      matrixB: EΨT, transposeB: false,
+      matrixA: Ψ, transposeA: true,
+      matrixB: ΛΣT, transposeB: false,
       matrixC: &H, n: 7)
     
     print("hamiltonian")
@@ -624,16 +636,16 @@ final class DenseDiagonalizationTests: XCTestCase {
     
     var HΨ = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: H, transposeA: false,
-      matrixB: Ψ, transposeB: false,
+      matrixA: Ψ, transposeA: false,
+      matrixB: H, transposeB: true,
       matrixC: &HΨ, n: 7)
     
     for electronID in 0..<7 {
       var rNorm: Float = .zero
       let expectedEigenvalue = eigenvalues[electronID]
       for cellID in 0..<7 {
-        var value = HΨ[cellID * 7 + electronID]
-        value -= expectedEigenvalue * Ψ[cellID * 7 + electronID]
+        var value = HΨ[electronID * 7 + cellID]
+        value -= expectedEigenvalue * Ψ[electronID * 7 + cellID]
         rNorm += value * value
       }
       rNorm.formSquareRoot()
@@ -657,17 +669,40 @@ final class DenseDiagonalizationTests: XCTestCase {
       for cellID in 0..<7 {
         let reversedID = 6 - electronID
         let actual = lapackEigenvectors[reversedID * 7 + cellID]
-        let expected = Ψ[cellID * 7 + electronID]
+        let expected = Ψ[electronID * 7 + cellID]
         print(actual, terminator: ", ")
         dotProduct += actual * expected
       }
       XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
       print("[\(dotProduct)]")
     }
+    
+    let (customEigenvalues, customEigenvectors) = Self.customDiagonalize(
+      matrix: H, n: 7)
+    print("custom eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[electronID]
+      let actual = customEigenvalues[electronID]
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("custom eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let actual = customEigenvectors[cellID * 7 + electronID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      print("[\(dotProduct)]")
+    }
   }
   
   // Test the eigensolvers with degenerate eigenvalue clusters.
   func testDegenerateEigenspaces() throws {
+    // Ψ is already stored in a transposed format.
     var Ψ: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -682,7 +717,7 @@ final class DenseDiagonalizationTests: XCTestCase {
     print("eigenvectors")
     for electronID in 0..<7 {
       for cellID in 0..<7 {
-        let value = Ψ[cellID * 7 + electronID]
+        let value = Ψ[electronID * 7 + cellID]
         print(value, terminator: ", ")
       }
       print()
@@ -693,31 +728,31 @@ final class DenseDiagonalizationTests: XCTestCase {
     let eigenvalues: [Float] = [
       4, 3.01, 3, 2.99, 0, -2, -2
     ]
-    var E = [Float](repeating: 0, count: 7 * 7)
+    var Λ = [Float](repeating: 0, count: 7 * 7)
     for i in 0..<7 {
       let address = i * 7 + i
       let value = eigenvalues[i]
-      E[address] = value
+      Λ[address] = value
     }
     
     print("eigenvalues")
     for electronID in 0..<7 {
       for neighborID in 0..<7 {
-        let value = E[electronID * 7 + neighborID]
+        let value = Λ[electronID * 7 + neighborID]
         print(value, terminator: ", ")
       }
       print()
     }
     
-    var EΨT = [Float](repeating: 0, count: 7 * 7)
+    var ΛΣT = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: E, transposeA: false,
-      matrixB: Ψ, transposeB: true,
-      matrixC: &EΨT, n: 7)
+      matrixA: Λ, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &ΛΣT, n: 7)
     var H = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: Ψ, transposeA: false,
-      matrixB: EΨT, transposeB: false,
+      matrixA: Ψ, transposeA: true,
+      matrixB: ΛΣT, transposeB: false,
       matrixC: &H, n: 7)
     
     print("hamiltonian")
@@ -731,16 +766,16 @@ final class DenseDiagonalizationTests: XCTestCase {
     
     var HΨ = [Float](repeating: 0, count: 7 * 7)
     Self.matrixMultiply(
-      matrixA: H, transposeA: false,
-      matrixB: Ψ, transposeB: false,
+      matrixA: Ψ, transposeA: false,
+      matrixB: H, transposeB: true,
       matrixC: &HΨ, n: 7)
     
     for electronID in 0..<7 {
       var rNorm: Float = .zero
       let expectedEigenvalue = eigenvalues[electronID]
       for cellID in 0..<7 {
-        var value = HΨ[cellID * 7 + electronID]
-        value -= expectedEigenvalue * Ψ[cellID * 7 + electronID]
+        var value = HΨ[electronID * 7 + cellID]
+        value -= expectedEigenvalue * Ψ[electronID * 7 + cellID]
         rNorm += value * value
       }
       rNorm.formSquareRoot()
@@ -757,6 +792,7 @@ final class DenseDiagonalizationTests: XCTestCase {
       print(actual, terminator: ", ")
     }
     print()
+    print()
     
     print("lapack eigenvectors")
     for electronID in 0..<7 {
@@ -764,7 +800,7 @@ final class DenseDiagonalizationTests: XCTestCase {
       for cellID in 0..<7 {
         let reversedID = 6 - electronID
         let actual = lapackEigenvectors[reversedID * 7 + cellID]
-        let expected = Ψ[cellID * 7 + electronID]
+        let expected = Ψ[electronID * 7 + cellID]
         print(actual, terminator: ", ")
         dotProduct += actual * expected
       }
