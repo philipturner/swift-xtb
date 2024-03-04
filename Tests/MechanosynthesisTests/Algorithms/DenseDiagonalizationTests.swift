@@ -447,7 +447,7 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
     
     print("diagonalization")
-    for iterationID in 0..<60 {
+    for iterationID in 0..<50 {
       print("iteration \(iterationID)", terminator: ": ")
       
       // MARK: - Power Iteration (Reference Implementation)
@@ -485,6 +485,7 @@ final class DenseDiagonalizationTests: XCTestCase {
       updateEnergies(HΨ: HΨ)
       
       // Refine each eigenvector in isolation.
+      var converged = [Bool](repeating: false, count: n)
       for _ in 0..<5 {
         var E = [Float](repeating: 0, count: n)
         var norm = [Float](repeating: 0, count: n)
@@ -545,6 +546,7 @@ final class DenseDiagonalizationTests: XCTestCase {
           
           if rr.squareRoot() < 1e-5 {
             λ[electronID] = 0
+            converged[electronID] = true
           }
         }
         for electronID in 0..<n {
@@ -556,11 +558,16 @@ final class DenseDiagonalizationTests: XCTestCase {
           }
         }
       }
+      print("iteration \(iterationID):", converged)
       
       // If a contiguous set of the lowest 'm' eigenvectors have all
       // converged, we can omit them from the O(n^3) orthogonalization
       // and the expensive SD iterations. Simply mask out the lower
       // portion of the matrix, making it a dense linear algebra kernel.
+      //
+      // Before doing this optimization, test the algorithm's robustness
+      // for large and degenerate problems. Ensure the number of
+      // iterations doesn't scale with system size.
       sortEigenpairs(rule: { $0 < $1 })
       
       // Form an orthonormal set.
@@ -897,9 +904,39 @@ final class DenseDiagonalizationTests: XCTestCase {
     // Cluster 1: close, but not equal eigenvalues
     // Cluster 2: pathological zero eigenvalue
     // Cluster 3: equal eigenvalues, meaning infinitely many eigenvectors
-    let eigenvalues: [Float] = [
-      4, 3.01, 3, 2.99, 0, -2, -2
+    //
+    // Problematic for the custom diagonalizer:
+    // 4, 3.01, 3.00, 2.99, 0, -2, -2
+    // 4, 3.5, 3, 2, 0, -1, -2
+    // 2, 2, 0, -2.99, -3.00, -3.01, -4
+    // 2, 1, 0, -2.99, -3.00, -3.01, -4
+    //
+    // Not problematic for the custom diagonalizer:
+    // 4, 3.01, 3.00, 2.99, 0, -1, -2
+    // 4, 3.5, 3, 2, 0, -2, -2
+    // 2, 2, 0, -2, -3, -3.5, -4
+    //
+    // It seems that adding a few non-occupied electron states improves
+    // convergence of the diagonalizer. Either that, or we need to
+    // explicitly search for degenerate clusters and treat them specially.
+    var eigenvalues: [Float] = [
+      4,
+      3.01,
+      3.00,
+      2.99,
+      0,
+      -1,
+      -2,
+//      4,
+//      3.5,
+//      3,
+//      2,
+//       0,
+//      -2,
+//      -2,
     ]
+//    eigenvalues = eigenvalues.reversed().map(-)
+    
     var Λ = [Float](repeating: 0, count: 7 * 7)
     for i in 0..<7 {
       let address = i * 7 + i
@@ -978,6 +1015,28 @@ final class DenseDiagonalizationTests: XCTestCase {
       }
       if electronID != 5, electronID != 6 {
         XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
+      }
+      print("[\(dotProduct)]")
+    }
+    
+    let (customEigenvalues, customEigenvectors) = Self.customDiagonalize(
+      matrix: H, n: 7)
+    print("custom eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[electronID]
+      let actual = customEigenvalues[electronID]
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("custom eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let actual = customEigenvectors[electronID * 7 + cellID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
       }
       print("[\(dotProduct)]")
     }
