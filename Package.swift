@@ -19,7 +19,11 @@ let package = Package(
     .macOS(.v13)
   ],
   products: [
-    // Products define the executables and libraries a package produces, making them visible to other packages.
+    .library(
+      // Drop-in replacement for the JIT compiler that supports async copies.
+      // TODO: Gate this module under an #if APPLE macro.
+      name: "MetalCompiler",
+      targets: ["MetalCompiler"]),
     .library(
       name: "Mechanosynthesis",
       targets: ["Mechanosynthesis"]),
@@ -28,12 +32,15 @@ let package = Package(
       targets: ["libxc"]),
   ],
   dependencies: [
+    // The OpenCL dependency is primarily for AMD and Nvidia GPUs.
     .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
     .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
   ],
   targets: [
-    // Targets are the basic building blocks of a package, defining a module or a test suite.
-    // Targets can depend on other targets in this package and products from dependencies.
+    // Modules
+    .target(
+      name: "MetalCompiler",
+      dependencies: []),
     .target(
       name: "Mechanosynthesis",
       dependencies: [
@@ -44,7 +51,14 @@ let package = Package(
     .target(
       name: "libxc",
       dependencies: [],
-    linkerSettings: linkerSettings),
+      linkerSettings: linkerSettings),
+    
+    // Tests
+    .testTarget(
+      name: "MetalCompilerTests",
+      dependencies: [
+        "MetalCompiler"
+      ]),
     .testTarget(
       name: "MechanosynthesisTests",
       dependencies: [
