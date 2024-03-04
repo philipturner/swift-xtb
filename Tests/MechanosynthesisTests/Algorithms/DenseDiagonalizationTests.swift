@@ -400,8 +400,86 @@ final class DenseDiagonalizationTests: XCTestCase {
   static func customDiagonalize(
     matrix H: [Float], n: Int
   ) -> (eigenvalues: [Float], eigenvectors: [Float]) {
+    // Initialize the wavefunctions to the identity matrix.
     var E = [Float](repeating: .zero, count: n)
     var Ψ = [Float](repeating: .zero, count: n * n)
+    for electronID in 0..<n {
+      let address = electronID * n + electronID
+      Ψ[address] = 1
+    }
+    
+    func sortEigenpairs(rule: (Float, Float) -> Bool) {
+      var sortedE: [SIMD2<Float>] = []
+      for electronID in 0..<7 {
+        let key = E[electronID]
+        let value = Float(electronID)
+        sortedE.append(SIMD2(key, value))
+      }
+      sortedE.sort(by: { rule($0.x, $1.x) })
+      
+      var newE = Array(repeating: Float.zero, count: E.count)
+      var newΨ = Array(repeating: Float.zero, count: Ψ.count)
+      for newElectronID in 0..<7 {
+        let oldElectronID = Int(sortedE[newElectronID][1])
+        newE[newElectronID] = E[oldElectronID]
+        
+        for cellID in 0..<7 {
+          let oldAddress = oldElectronID * n + cellID
+          let newAddress = newElectronID * n + cellID
+          newΨ[newAddress] = Ψ[oldAddress]
+        }
+      }
+      E = newE
+      Ψ = newΨ
+    }
+    
+    print("diagonalization")
+    for iterationID in 0..<20 {
+      print("iteration \(iterationID)", terminator: ": ")
+      var HΨ = [Float](repeating: .zero, count: n * n)
+      Self.matrixMultiply(
+        matrixA: Ψ, transposeA: false,
+        matrixB: H, transposeB: true,
+        matrixC: &HΨ, n: 7)
+      
+      for electronID in 0..<n {
+        var ΨHΨ: Float = .zero
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          ΨHΨ += Ψ[address] * HΨ[address]
+        }
+        E[electronID] = ΨHΨ
+        print(ΨHΨ, terminator: ", ")
+      }
+      print()
+      
+      for electronID in 0..<n {
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          Ψ[address] = HΨ[address]
+        }
+      }
+      for electronID in 0..<n {
+        var norm: Float = .zero
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          norm += Ψ[address] * Ψ[address]
+        }
+        norm = 1 / norm.squareRoot()
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          Ψ[address] *= norm
+        }
+      }
+      
+      // Sort the eigenpairs for the next iteration.
+      sortEigenpairs(rule: { $0.magnitude > $1.magnitude })
+      
+      Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: n)
+    }
+    
+    sortEigenpairs(rule: { $0 > $1 })
+    
     return (E, Ψ)
   }
   
@@ -595,8 +673,10 @@ final class DenseDiagonalizationTests: XCTestCase {
       print()
     }
     
+    // TODO: Try a "steepest descent" diagonalizer. See whether it can handle
+    // the eigenspectrum [4, 3, 2, 1, 0, -1, 2].
     let eigenvalues: [Float] = [
-      4, 3, 2, 1, 0, -1, -2
+      4, 3, 2, 1, 0.1, -1.3, -2.3
     ]
     var Λ = [Float](repeating: 0, count: 7 * 7)
     for i in 0..<7 {
@@ -691,7 +771,7 @@ final class DenseDiagonalizationTests: XCTestCase {
     for electronID in 0..<7 {
       var dotProduct: Float = .zero
       for cellID in 0..<7 {
-        let actual = customEigenvectors[cellID * 7 + electronID]
+        let actual = customEigenvectors[electronID * 7 + cellID]
         let expected = Ψ[electronID * 7 + cellID]
         print(actual, terminator: ", ")
         dotProduct += actual * expected
@@ -724,7 +804,8 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
     
     // Cluster 1: close, but not equal eigenvalues
-    // Cluster 2: equal eigenvalues, meaning infinitely many eigenvectors
+    // Cluster 2: pathological zero eigenvalue
+    // Cluster 3: equal eigenvalues, meaning infinitely many eigenvectors
     let eigenvalues: [Float] = [
       4, 3.01, 3, 2.99, 0, -2, -2
     ]
