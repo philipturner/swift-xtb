@@ -95,3 +95,9 @@ Compare the custom algorithm to the LAPACK diagonalizer.
 ```
 GFLOPS/k = (matrix dimension)^3 / (time to solution) / 1e9
 ```
+
+## Orthonormalization
+
+I found that the "fast orthogonalization" algorithm above had some flaws. There seems to be a critical slowing down, where each iteration only annihiliates one column. I settled for a panel-factorized version of Gram-Schmidt. This should have near-optimal performance, and is still amenable to parallelization within a single compute node.
+
+I also created a custom Metal compiler that supports async copies. There will be a need to author dense linear algebra kernels for the Apple GPU.

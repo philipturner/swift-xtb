@@ -9,6 +9,89 @@ import Numerics
 final class DenseDiagonalizationTests: XCTestCase {
   // MARK: - Algorithms
   
+  // Multiplies two matrices in mixed precision, as a reference implementation
+  // for faster methods.
+  static func matrixMultiply(
+    matrixA: [Float], transposeA: Bool,
+    matrixB: [Float], transposeB: Bool,
+    matrixC: inout [Float], n: Int
+  ) {
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        var dotProduct: Double = .zero
+        for k in 0..<n {
+          var value1: Float
+          var value2: Float
+          if !transposeA {
+            value1 = matrixA[rowID * n + k]
+          } else {
+            value1 = matrixA[k * n + rowID]
+          }
+          if !transposeB {
+            value2 = matrixB[k * n + columnID]
+          } else {
+            value2 = matrixB[columnID * n + k]
+          }
+          dotProduct += Double(value1 * value2)
+        }
+        matrixC[rowID * n + columnID] = Float(dotProduct)
+      }
+    }
+  }
+  
+  // Block version of matrix multiplication, utilizing the AMX coprocessor.
+  static func blockMatrixMultiply(
+    matrixA: [Float], transposeA: Bool,
+    matrixB: [Float], transposeB: Bool,
+    matrixC: inout [Float], n: Int
+  ) {
+    var TRANSA: CChar
+    var TRANSB: CChar
+    if transposeB {
+      TRANSA = CChar(Character("T").asciiValue!)
+    } else {
+      TRANSA = CChar(Character("N").asciiValue!)
+    }
+    if transposeA {
+      TRANSB = CChar(Character("T").asciiValue!)
+    } else {
+      TRANSB = CChar(Character("N").asciiValue!)
+    }
+    
+    var M: Int32 = Int32(n)
+    var N: Int32 = Int32(n)
+    var K: Int32 = Int32(n)
+    var ALPHA: Float = 1
+    var LDA: Int32 = Int32(n)
+    var BETA: Float = 0
+    var LDB: Int32 = Int32(n)
+    var LDC: Int32 = Int32(n)
+    matrixA.withContiguousStorageIfAvailable {
+      let B = UnsafeMutablePointer(mutating: $0.baseAddress!)
+      matrixB.withContiguousStorageIfAvailable {
+        let A = UnsafeMutablePointer(mutating: $0.baseAddress!)
+        matrixC.withContiguousMutableStorageIfAvailable {
+          let C = $0.baseAddress!
+          sgemm_(
+            &TRANSA, // TRANSA
+            &TRANSB, // TRANSB
+            &M, // M
+            &N, // N
+            &K, // K
+            &ALPHA, // ALPHA
+            A, // A
+            &LDA, // LDA
+            B, // B
+            &LDB, // LDB
+            &BETA, // BETA
+            C, // C
+            &LDC // LDC
+          )
+        }
+      }
+    }
+  }
+  
   // Orthonormalizes the matrix in mixed precision, as a reference
   // implementation for more approximate methods.
   static func gramSchmidtOrthonormalize(
@@ -236,9 +319,92 @@ final class DenseDiagonalizationTests: XCTestCase {
   
   // MARK: - Tests
   
+  func testMatrixMultiply() throws {
+    let a: Float = 1.5
+    let b: Float = 2.5
+    let c: Float = 3.5
+    let d: Float = 4.5
+    let ac = a * c
+    let ad = a * d
+    let bc = b * c
+    let bd = b * d
+    let matrixA: [Float] = [
+      a, b, 0, 0,
+      0, a, b, 0,
+      0, 0, a, b,
+      0, 0, 0, a,
+    ]
+    let matrixB: [Float] = [
+      c, d, 0, 0,
+      0, c, d, 0,
+      0, 0, c, d,
+      0, 0, 0, c,
+    ]
+    var matrixC = [Float](repeating: 0, count: 4 * 4)
+    
+    typealias MultiplyFunction = (
+      [Float], Bool,
+      [Float], Bool,
+      inout [Float], Int
+    ) -> Void
+    var functions: [MultiplyFunction] = []
+    functions.append(Self.matrixMultiply(
+      matrixA:transposeA:matrixB:transposeB:matrixC:n:))
+    functions.append(Self.blockMatrixMultiply(
+      matrixA:transposeA:matrixB:transposeB:matrixC:n:))
+    
+    for multiplyFunction in functions {
+      matrixC = [Float](repeating: 0, count: 4 * 4)
+      multiplyFunction(
+        matrixA, false,
+        matrixB, false,
+        &matrixC, 4)
+      XCTAssertEqual(matrixC, [
+        ac, ad + bc, bd, 0,
+        0, ac, ad + bc, bd,
+        0, 0, ac, ad + bc,
+        0, 0, 0, ac,
+      ])
+      
+      matrixC = [Float](repeating: 0, count: 4 * 4)
+      multiplyFunction(
+        matrixA, false,
+        matrixB, true,
+        &matrixC, 4)
+      XCTAssertEqual(matrixC, [
+        ac + bd, bc, 0, 0,
+        ad, ac + bd, bc, 0,
+        0, ad, ac + bd, bc,
+        0, 0, ad, ac,
+      ])
+      
+      matrixC = [Float](repeating: 0, count: 4 * 4)
+      multiplyFunction(
+        matrixA, true,
+        matrixB, false,
+        &matrixC, 4)
+      XCTAssertEqual(matrixC, [
+        ac, ad, 0, 0,
+        bc, bd + ac, ad, 0,
+        0, bc, bd + ac, ad,
+        0, 0, bc, bd + ac,
+      ])
+      
+      matrixC = [Float](repeating: 0, count: 4 * 4)
+      multiplyFunction(
+        matrixA, true,
+        matrixB, true,
+        &matrixC, 4)
+      XCTAssertEqual(matrixC, [
+        ac, 0, 0, 0,
+        ad + bc, ac, 0, 0,
+        bd, ad + bc, ac, 0,
+        0, bd, ad + bc, ac,
+      ])
+    }
+  }
+  
   func testGramSchmidt() throws {
-    // Generate a pre-determined matrix, test that the current version of
-    // Gram-Schmidt normalizes them.
     var matrix: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -279,8 +445,6 @@ final class DenseDiagonalizationTests: XCTestCase {
   }
   
   func testPanelGramSchmidt() throws {
-    // Generate a pre-determined matrix, test that the current version of
-    // Gram-Schmidt normalizes them.
     var matrix: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -319,4 +483,7 @@ final class DenseDiagonalizationTests: XCTestCase {
       }
     }
   }
+  
+  // Next: Test LAPACK eigensolver, with both regular and degenerate eigenvalue
+  // clusters.
 }

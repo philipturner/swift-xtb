@@ -347,22 +347,21 @@ METAL_FUNC void store_accumulator(thread simdgroup_matrix_storage<T> *sram,
 
 // MARK: - Kernels
 
-template <typename T>
-void _gemm_impl(device T *A [[buffer(0)]],
-                device T *B [[buffer(1)]],
-                device T *C [[buffer(2)]],
-                
-                threadgroup T *threadgroup_block [[threadgroup(0)]],
-                
-                uint3 gid [[threadgroup_position_in_grid]],
-                ushort sidx [[simdgroup_index_in_threadgroup]],
-                ushort lane_id [[thread_index_in_simdgroup]])
+kernel void sgemm(device float *A [[buffer(0)]],
+                  device float *B [[buffer(1)]],
+                  device float *C [[buffer(2)]],
+                  
+                  threadgroup float *threadgroup_block [[threadgroup(0)]],
+                  
+                  uint3 gid [[threadgroup_position_in_grid]],
+                  ushort sidx [[simdgroup_index_in_threadgroup]],
+                  ushort lane_id [[thread_index_in_simdgroup]])
 {
-  simdgroup_matrix_storage<T> sram[1024];
+  simdgroup_matrix_storage<float> sram[1024];
   auto A_block = threadgroup_block + A_block_offset;
   auto B_block = threadgroup_block + B_block_offset;
   ushort2 sid(sidx % N_splits, sidx / N_splits);
-  ushort2 offset_in_simd = simdgroup_matrix_storage<T>::offset(lane_id);
+  ushort2 offset_in_simd = simdgroup_matrix_storage<float>::offset(lane_id);
   
   uint2 A_offset(0, gid.y * M_group);
   uint2 B_offset(gid.x * N_group, 0);
@@ -391,7 +390,7 @@ void _gemm_impl(device T *A [[buffer(0)]],
     for (ushort m = 0; m < M_padded; m += 8) {
 #pragma clang loop unroll(full)
       for (ushort n = 0; n < N_padded; n += 8) {
-        *C_sram(sram, ushort2(n, m)) = simdgroup_matrix_storage<T>(0);
+        *C_sram(sram, ushort2(n, m)) = simdgroup_matrix_storage<float>(0);
       }
     }
   }
@@ -399,8 +398,10 @@ void _gemm_impl(device T *A [[buffer(0)]],
   for (uint K_floor = 0; K_floor < K; K_floor += K_simd) {
     ushort2 A_block_offset(offset_in_simd.x, offset_in_group.y);
     ushort2 B_block_offset(offset_in_group.x, offset_in_simd.y);
-    auto A_block_src = simdgroup_matrix_storage<T>::apply_offset(A_block, A_block_leading_dim, A_block_offset, A_trans);
-    auto B_block_src = simdgroup_matrix_storage<T>::apply_offset(B_block, B_block_leading_dim, B_block_offset, B_trans);
+    auto A_block_src = simdgroup_matrix_storage<float>::apply_offset(
+      A_block, A_block_leading_dim, A_block_offset, A_trans);
+    auto B_block_src = simdgroup_matrix_storage<float>::apply_offset(
+      B_block, B_block_leading_dim, B_block_offset, B_trans);
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
 #pragma clang loop unroll(full)
@@ -449,14 +450,14 @@ void _gemm_impl(device T *A [[buffer(0)]],
     }
     threadgroup_barrier(mem_flags::mem_threadgroup);
     
-    auto C_block = simdgroup_matrix_storage<T>::apply_offset(
+    auto C_block = simdgroup_matrix_storage<float>::apply_offset(
      threadgroup_block, N_group, C_block_offset);
     partial_accumulate(sram, C_block, false);
     threadgroup_barrier(mem_flags::mem_threadgroup);
   }
   
   if ((M % 8 != 0) || (N % 8 != 0)) {
-    auto C_block = simdgroup_matrix_storage<T>::apply_offset(
+    auto C_block = simdgroup_matrix_storage<float>::apply_offset(
       threadgroup_block, N_group, C_block_offset);
     partial_store(sram, C_block, false);
     threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -466,7 +467,8 @@ void _gemm_impl(device T *A [[buffer(0)]],
     }
   } else {
     uint2 matrix_origin = C_offset + uint2(C_block_offset);
-    auto C_src = simdgroup_matrix_storage<T>::apply_offset(C, N, matrix_origin);
+    auto C_src = simdgroup_matrix_storage<float>::apply_offset(
+      C, N, matrix_origin);
     store_accumulator(sram, C_src, false, false);
     
     const uint M_edge_floor = M - M % M_simd;
@@ -481,18 +483,5 @@ void _gemm_impl(device T *A [[buffer(0)]],
       }
     }
   }
-}
-
-kernel void sgemm(device float *A [[buffer(0)]],
-                  device float *B [[buffer(1)]],
-                  device float *C [[buffer(2)]],
-                  
-                  threadgroup float *threadgroup_block [[threadgroup(0)]],
-                  
-                  uint3 gid [[threadgroup_position_in_grid]],
-                  ushort sidx [[simdgroup_index_in_threadgroup]],
-                  ushort lane_id [[thread_index_in_simdgroup]])
-{
-  _gemm_impl<float>(A, B, C, threadgroup_block, gid, sidx, lane_id);
 }
 """
