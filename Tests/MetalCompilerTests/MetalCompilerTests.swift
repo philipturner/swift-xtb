@@ -14,6 +14,8 @@ final class MetalCompilerTests: XCTestCase {
   func testVectorAddition() throws {
     let compiler = MTLCompiler()
     let library = compiler.compile("""
+      #include <metal_stdlib>
+      
       kernel void vectorAddition(
         device float *A [[buffer(0)]],
         device float *B [[buffer(1)]],
@@ -34,8 +36,8 @@ final class MetalCompilerTests: XCTestCase {
     let contents = buffer.contents().assumingMemoryBound(to: Float.self)
     
     // Define the input operands.
-    var operandA: [Float] = [1, 2, 3.3, -9, 1, 5, 59]
-    var operandB: [Float] = [-9, 7, 72, 0.123, 5.9, 3.141592, 2.718]
+    let operandA: [Float] = [1, 2, 3.3, -9, 1, 5, 59]
+    let operandB: [Float] = [-9, 7, 72, 0.123, 5.9, 3.141592, 2.718]
     XCTAssertEqual(operandA.count, 7)
     XCTAssertEqual(operandB.count, 7)
     
@@ -70,10 +72,5 @@ final class MetalCompilerTests: XCTestCase {
       let actual = contents[16 + i]
       XCTAssertEqual(expected, actual)
     }
-  }
-  
-  // Test that async copies compile and execute properly at runtime.
-  func testAsyncCopy() throws {
-    
   }
 }
