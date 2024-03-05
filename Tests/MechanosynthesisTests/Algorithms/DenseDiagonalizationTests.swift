@@ -636,5 +636,57 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
   }
   
-  
+  // Test the performance of eigensolvers in LAPACK.
+  func testDiagonalization() throws {
+    let n: Int = 10
+    var Λ = [Float](repeating: 0, count: n * n)
+    var ΣT = [Float](repeating: 0, count: n * n)
+    for electronID in 0..<n {
+      let eigenvalue = Float(n / 2 - electronID)
+      let address = electronID * n + electronID
+      Λ[address] = eigenvalue
+    }
+    for entry in ΣT.indices {
+      ΣT[entry] = Float.random(in: -1...1)
+    }
+    Self.panelGramSchmidtOrthonormalize(matrix: &ΣT, n: n, panelSize: 32)
+    
+    for electronID in 0..<n {
+      var norm: Float = .zero
+      for cellID in 0..<n {
+        let address = electronID * n + cellID
+        norm += ΣT[address] * ΣT[address]
+      }
+      XCTAssertEqual(norm, 1, accuracy: 1e-3)
+    }
+    
+    var ΛΣT = [Float](repeating: 0, count: n * n)
+    var ΣΛΣT = [Float](repeating: 0, count: n * n)
+    Self.blockMatrixMultiply(
+      matrixA: Λ, transposeA: false,
+      matrixB: ΣT, transposeB: false,
+      matrixC: &ΛΣT, n: n)
+    Self.blockMatrixMultiply(
+      matrixA: ΣT, transposeA: true,
+      matrixB: ΛΣT, transposeB: false,
+      matrixC: &ΣΛΣT, n: n)
+    
+    let A = ΣΛΣT
+    var hamiltonianPsi = [Float](repeating: 0, count: n * n)
+    Self.blockMatrixMultiply(
+      matrixA: ΣT, transposeA: false,
+      matrixB: A, transposeB: true,
+      matrixC: &hamiltonianPsi, n: n)
+    for electronID in 0..<n {
+      var λ: Float = .zero
+      for cellID in 0..<n {
+        let address = electronID * n + cellID
+        λ += ΣT[address] * hamiltonianPsi[address]
+      }
+      
+      let address = electronID * n + electronID
+      let eigenvalue = Λ[address]
+      XCTAssertEqual(eigenvalue, λ, accuracy: 1e-3)
+    }
+  }
 }
