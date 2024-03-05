@@ -469,6 +469,273 @@ final class DenseDiagonalizationTests: XCTestCase {
     return W
   }
   
+  // Custom eigensolver using iterative techniques.
+  // - eigenvalues: n-element array
+  // - eigenvalues: n x n matrix
+  static func customDiagonalize(
+    matrix H: [Float], n: Int
+  ) -> (eigenvalues: [Float], eigenvectors: [Float]) {
+    // Initialize the wavefunctions to the identity matrix.
+    var E = [Float](repeating: .zero, count: n)
+    var Ψ = [Float](repeating: .zero, count: n * n)
+    for electronID in 0..<n {
+      let address = electronID * n + electronID
+      Ψ[address] = 1
+    }
+    
+    let directEigenvalues = Self.findEigenvalues(matrix: H, n: n)
+    
+    func updateEnergies(HΨ: [Float]) {
+      for electronID in 0..<n {
+        var ΨHΨ: Float = .zero
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          ΨHΨ += Ψ[address] * HΨ[address]
+        }
+        E[electronID] = ΨHΨ
+        print(ΨHΨ, terminator: ", ")
+      }
+      print()
+    }
+    
+    func sortEigenpairs(rule: (Float, Float) -> Bool) {
+      var sortedE: [SIMD2<Float>] = []
+      for electronID in 0..<n {
+        let key = E[electronID]
+        let value = Float(electronID)
+        sortedE.append(SIMD2(key, value))
+      }
+      sortedE.sort(by: { rule($0.x, $1.x) })
+      
+      var newE = Array(repeating: Float.zero, count: E.count)
+      var newΨ = Array(repeating: Float.zero, count: Ψ.count)
+      for newElectronID in 0..<n {
+        let oldElectronID = Int(sortedE[newElectronID][1])
+        newE[newElectronID] = E[oldElectronID]
+        
+        for cellID in 0..<n {
+          let oldAddress = oldElectronID * n + cellID
+          let newAddress = newElectronID * n + cellID
+          newΨ[newAddress] = Ψ[oldAddress]
+        }
+      }
+      E = newE
+      Ψ = newΨ
+    }
+    
+    print("diagonalization")
+    for iterationID in 0..<30 {
+      print("iteration \(iterationID)", terminator: ": ")
+      
+      // Multiply by the Hamiltonian and query the eigenvalues.
+      var HΨ = [Float](repeating: .zero, count: n * n)
+      Self.blockMatrixMultiply(
+        matrixA: Ψ, transposeA: false,
+        matrixB: H, transposeB: true,
+        matrixC: &HΨ, n: n)
+      updateEnergies(HΨ: HΨ)
+      
+      // MARK: - Power Iteration (Reference Implementation)
+      #if false
+      // Refine each eigenvector in isolation.
+      for electronID in 0..<n {
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          Ψ[address] = HΨ[address]
+        }
+      }
+      
+      // Sort the eigenpairs for the next iteration.
+      sortEigenpairs(rule: { $0.magnitude > $1.magnitude })
+      
+      // Form an orthonormal set.
+      Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: n)
+      
+      // MARK: - Steepest Descent w/ Direct Eigenvalues
+      #elseif true
+      
+      var rhs = [Float](repeating: 0, count: n * n)
+      for electronID in 0..<n {
+        let directEigenvalue = directEigenvalues[electronID]
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          rhs[address] = directEigenvalue * Ψ[address]
+        }
+      }
+      
+      // Refine each eigenvector in isolation.
+      var normres = [Float](repeating: .zero, count: n)
+      for _ in 0..<5 {
+        var HΨ = [Float](repeating: .zero, count: n * n)
+        var r = [Float](repeating: .zero, count: n * n)
+        Self.blockMatrixMultiply(
+          matrixA: Ψ, transposeA: false,
+          matrixB: H, transposeB: true,
+          matrixC: &HΨ, n: n)
+        for electronID in 0..<n {
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            r[address] = HΨ[address] - rhs[address]
+          }
+        }
+        
+        // Multiply the residual by the Hamiltonian.
+        var Hr = [Float](repeating: .zero, count: n * n)
+        Self.blockMatrixMultiply(
+          matrixA: r, transposeA: false,
+          matrixB: H, transposeB: true,
+          matrixC: &Hr, n: n)
+        
+        // Construct the timesteps.
+        var λ = [Float](repeating: .zero, count: n)
+        for electronID in 0..<n {
+          var HrHr: Float = .zero
+          var rHr: Float = .zero
+          var rr: Float = .zero
+          var ΨHΨ: Float = .zero
+          var ΨΨ: Float = .zero
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            HrHr += Hr[address] * Hr[address]
+            rHr += r[address] * Hr[address]
+            rr += r[address] * r[address]
+            ΨHΨ += Ψ[address] * HΨ[address]
+            ΨΨ += Ψ[address] * Ψ[address]
+          }
+          
+          let (m0, m1, m2) = (HrHr, rHr, rr)
+          let ca = m0
+          let cb = 4 * m1
+          let cc = m2
+          let sqarg = cb * cb - 4 * ca * cc
+          let signb: Float = (cb * sqarg >= 0) ? 1 : -1
+          
+          let sqrtTerm = Complex.sqrt(Complex(sqarg))
+          let determinant = Complex(cb) + Complex(signb) * sqrtTerm
+          let qq = Complex<Float>(0.5) * determinant
+          λ[electronID] = -(Complex(cc) / qq).real
+          
+          if rr.squareRoot() < 1e-5 {
+            λ[electronID] = 0
+          }
+          normres[electronID] = rr.squareRoot()
+        }
+        
+        for electronID in 0..<n {
+          let timeStep = λ[electronID]
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            Ψ[address] += timeStep * r[address]
+          }
+        }
+      }
+      print("iteration \(iterationID):", normres)
+      
+      sortEigenpairs(rule: { $0 < $1 })
+      
+      // Form an orthonormal set.
+      Self.panelGramSchmidtOrthonormalize(
+        matrix: &Ψ, n: n, panelSize: 4)
+      
+      // MARK: - Steepest Descent
+      #else
+      // Refine each eigenvector in isolation.
+      var converged = [Bool](repeating: false, count: n)
+      for _ in 0..<5 {
+        var E = [Float](repeating: 0, count: n)
+        var norm = [Float](repeating: 0, count: n)
+        var r = [Float](repeating: 0, count: n * n)
+        for electronID in 0..<n {
+          var currentE: Float = .zero
+          var currentNorm: Float = .zero
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            let valueΨ = Ψ[address]
+            let valueHΨ = HΨ[address]
+            currentE += valueΨ * valueHΨ
+            currentNorm += valueΨ * valueΨ
+          }
+          E[electronID] = currentE
+          norm[electronID] = currentNorm
+          
+          let rayleigh = currentE / currentNorm
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            let valueΨ = Ψ[address]
+            let valueHΨ = HΨ[address]
+            r[address] = valueHΨ - rayleigh * valueΨ
+          }
+        }
+        
+        // Multiply the residual by the Hamiltonian.
+        var Hr = [Float](repeating: .zero, count: n * n)
+        Self.blockMatrixMultiply(
+          matrixA: r, transposeA: false,
+          matrixB: H, transposeB: true,
+          matrixC: &Hr, n: n)
+        
+        // Construct the timesteps.
+        var λ = [Float](repeating: .zero, count: n)
+        for electronID in 0..<n {
+          var rr: Float = .zero
+          var Ψr: Float = .zero
+          var rHr: Float = .zero
+          var ΨHr: Float = .zero
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            rr += r[address] * r[address]
+            Ψr += Ψ[address] * r[address]
+            rHr += r[address] * Hr[address]
+            ΨHr += Ψ[address] * Hr[address]
+          }
+          
+          let (m0, m1, m2, m3) = (rr, Ψr, rHr, ΨHr)
+          let (m4, m5) = (E[electronID], norm[electronID])
+          let ca = (m0 * m3 - m2 * m1)
+          let cb = (m5 * m2 - m4 * m0)
+          let cc = (m4 * m1 - m3 * m5)
+          let determinant = cb + (cb * cb - 4 * ca * cc).squareRoot()
+          if determinant.magnitude > 1e-15 {
+            λ[electronID] = 2 * cc / determinant
+          }
+          
+          if rr.squareRoot() < 1e-5 {
+            λ[electronID] = 0
+            converged[electronID] = true
+          }
+        }
+        for electronID in 0..<n {
+          let timeStep = λ[electronID]
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            Ψ[address] += timeStep * r[address]
+            HΨ[address] += timeStep * Hr[address]
+          }
+        }
+      }
+      print("iteration \(iterationID):", converged)
+      
+      // If a contiguous set of the lowest 'm' eigenvectors have all
+      // converged, we can omit them from the O(n^3) orthogonalization
+      // and the expensive SD iterations. Simply mask out the lower
+      // portion of the matrix, making it a dense linear algebra kernel.
+      //
+      // Before doing this optimization, test the algorithm's robustness
+      // for large and degenerate problems. Ensure the number of
+      // iterations doesn't scale with system size.
+      sortEigenpairs(rule: { $0 < $1 })
+      
+      // Form an orthonormal set.
+      Self.panelGramSchmidtOrthonormalize(
+        matrix: &Ψ, n: n, panelSize: 4)
+      #endif
+    }
+    
+    sortEigenpairs(rule: { $0 > $1 })
+    
+    return (E, Ψ)
+  }
+  
   // MARK: - Tests
   
   func testMatrixMultiply() throws {
@@ -636,5 +903,297 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
   }
   
+  // Test the eigensolvers with regular eigenvalues.
+  func testEigendecomposition() throws {
+    // Ψ is already stored in a transposed format.
+    var Ψ: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: 7)
+    
+    print("eigenvectors")
+    for electronID in 0..<7 {
+      for cellID in 0..<7 {
+        let value = Ψ[electronID * 7 + cellID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    // Alternative eigenspectrum for testing the power method:
+    // 4, 3, 2, 1, 0.1, -1.3, -2.3
+    let eigenvalues: [Float] = [
+      4, 3, 2, 1, 0, -1, -2
+    ]
+    var Λ = [Float](repeating: 0, count: 7 * 7)
+    for i in 0..<7 {
+      let address = i * 7 + i
+      let value = eigenvalues[i]
+      Λ[address] = value
+    }
+    
+    print("eigenvalues")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = Λ[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var ΛΣT = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Λ, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &ΛΣT, n: 7)
+    var H = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: true,
+      matrixB: ΛΣT, transposeB: false,
+      matrixC: &H, n: 7)
+    
+    print("hamiltonian")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = H[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var HΨ = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: false,
+      matrixB: H, transposeB: true,
+      matrixC: &HΨ, n: 7)
+    
+    for electronID in 0..<7 {
+      var rNorm: Float = .zero
+      let expectedEigenvalue = eigenvalues[electronID]
+      for cellID in 0..<7 {
+        var value = HΨ[electronID * 7 + cellID]
+        value -= expectedEigenvalue * Ψ[electronID * 7 + cellID]
+        rNorm += value * value
+      }
+      rNorm.formSquareRoot()
+      XCTAssertLessThan(rNorm, 1e-4)
+    }
+    
+    let (lapackEigenvalues, lapackEigenvectors) = Self.diagonalize(
+      matrix: H, n: 7)
+    print("lapack eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[6 - electronID]
+      let actual = lapackEigenvalues[electronID]
+      XCTAssertEqual(actual, expected, accuracy: 1e-5)
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("lapack eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let reversedID = 6 - electronID
+        let actual = lapackEigenvectors[reversedID * 7 + cellID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
+      print("[\(dotProduct)]")
+    }
+    
+    let (customEigenvalues, customEigenvectors) = Self.customDiagonalize(
+      matrix: H, n: 7)
+    print("custom eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[electronID]
+      let actual = customEigenvalues[electronID]
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("custom eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let actual = customEigenvectors[electronID * 7 + cellID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      print("[\(dotProduct)]")
+    }
+  }
   
+  // Test the eigensolvers with degenerate eigenvalue clusters.
+  func testDegenerateEigenspaces() throws {
+    // Ψ is already stored in a transposed format.
+    var Ψ: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: 7)
+    
+    print("eigenvectors")
+    for electronID in 0..<7 {
+      for cellID in 0..<7 {
+        let value = Ψ[electronID * 7 + cellID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    // Cluster 1: close, but not equal eigenvalues
+    // Cluster 2: pathological zero eigenvalue
+    // Cluster 3: equal eigenvalues, meaning infinitely many eigenvectors
+    //
+    // Problematic for the custom diagonalizer:
+    // 4, 3.01, 3.00, 2.99, 0, -2, -2
+    // 4, 3.5, 3, 2, 0, -1, -2
+    // 2, 2, 0, -2.99, -3.00, -3.01, -4
+    // 2, 1, 0, -2.99, -3.00, -3.01, -4
+    //
+    // Not problematic for the custom diagonalizer:
+    // 4, 3.01, 3.00, 2.99, 0, -1, -2
+    // 4, 3.5, 3, 2, 0, -2, -2
+    // 2, 2, 0, -2, -3, -3.5, -4
+    //
+    // It seems that adding a few non-occupied electron states improves
+    // convergence of the diagonalizer. Either that, or we need to
+    // explicitly search for degenerate clusters and treat them specially.
+    var eigenvalues: [Float] = [
+      4,
+      3.01,
+      3.00,
+      2.99,
+      0,
+      -1,
+      -2,
+//      4,
+//      3.5,
+//      3,
+//      2,
+//       0,
+//      -2,
+//      -2,
+    ]
+//    eigenvalues = eigenvalues.reversed().map(-)
+    
+    var Λ = [Float](repeating: 0, count: 7 * 7)
+    for i in 0..<7 {
+      let address = i * 7 + i
+      let value = eigenvalues[i]
+      Λ[address] = value
+    }
+    
+    print("eigenvalues")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = Λ[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var ΛΣT = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Λ, transposeA: false,
+      matrixB: Ψ, transposeB: false,
+      matrixC: &ΛΣT, n: 7)
+    var H = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: true,
+      matrixB: ΛΣT, transposeB: false,
+      matrixC: &H, n: 7)
+    
+    print("hamiltonian")
+    for electronID in 0..<7 {
+      for neighborID in 0..<7 {
+        let value = H[electronID * 7 + neighborID]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    var HΨ = [Float](repeating: 0, count: 7 * 7)
+    Self.matrixMultiply(
+      matrixA: Ψ, transposeA: false,
+      matrixB: H, transposeB: true,
+      matrixC: &HΨ, n: 7)
+    
+    for electronID in 0..<7 {
+      var rNorm: Float = .zero
+      let expectedEigenvalue = eigenvalues[electronID]
+      for cellID in 0..<7 {
+        var value = HΨ[electronID * 7 + cellID]
+        value -= expectedEigenvalue * Ψ[electronID * 7 + cellID]
+        rNorm += value * value
+      }
+      rNorm.formSquareRoot()
+      XCTAssertLessThan(rNorm, 1e-4)
+    }
+    
+    let (lapackEigenvalues, lapackEigenvectors) = Self.diagonalize(
+      matrix: H, n: 7)
+    print("lapack eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[6 - electronID]
+      let actual = lapackEigenvalues[electronID]
+      XCTAssertEqual(actual, expected, accuracy: 1e-4)
+      print(actual, terminator: ", ")
+    }
+    print()
+    print()
+    
+    print("lapack eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let reversedID = 6 - electronID
+        let actual = lapackEigenvectors[reversedID * 7 + cellID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      if electronID != 5, electronID != 6 {
+        XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
+      }
+      print("[\(dotProduct)]")
+    }
+    
+    let (customEigenvalues, customEigenvectors) = Self.customDiagonalize(
+      matrix: H, n: 7)
+    print("custom eigenvalues")
+    for electronID in 0..<7 {
+      let expected = eigenvalues[electronID]
+      let actual = customEigenvalues[electronID]
+      print(actual, terminator: ", ")
+    }
+    print()
+    
+    print("custom eigenvectors")
+    for electronID in 0..<7 {
+      var dotProduct: Float = .zero
+      for cellID in 0..<7 {
+        let actual = customEigenvectors[electronID * 7 + cellID]
+        let expected = Ψ[electronID * 7 + cellID]
+        print(actual, terminator: ", ")
+        dotProduct += actual * expected
+      }
+      print("[\(dotProduct)]")
+    }
+  }
 }
