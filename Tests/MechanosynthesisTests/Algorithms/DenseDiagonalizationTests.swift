@@ -394,6 +394,81 @@ final class DenseDiagonalizationTests: XCTestCase {
     return (W, A)
   }
   
+  // Direct derivation of eigenvalues using 2-stage tridiagonalization.
+  static func findEigenvalues(
+    matrix: [Float], n: Int
+  ) -> [Float] {
+    var JOBZ = CChar(Character("N").asciiValue!)
+    var UPLO = CChar(Character("L").asciiValue!)
+    var N: Int32 = Int32(n)
+    var A = [Float](repeating: 0, count: n * n)
+    memcpy(&A, matrix, n * n * 4)
+    var LDA: Int32 = Int32(n)
+    var W = [Float](repeating: 0, count: n)
+    var WORK: [Float] = [0]
+    var LWORK: Int32 = -1
+    var IWORK: [Int32] = [0]
+    var LIWORK: Int32 = -1
+    var INFO: Int32 = 0
+    A.withContiguousMutableStorageIfAvailable {
+      let A = $0.baseAddress!
+      W.withContiguousMutableStorageIfAvailable {
+        let W = $0.baseAddress!
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_2stage_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+        
+        LWORK = Int32(WORK[0])
+        LIWORK = Int32(IWORK[0])
+        WORK = [Float](repeating: 0, count: Int(LWORK))
+        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_2stage_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+      }
+    }
+    
+    return W
+  }
+  
   // Custom eigensolver using iterative techniques.
   // - eigenvalues: n-element array
   // - eigenvalues: n x n matrix
@@ -407,6 +482,8 @@ final class DenseDiagonalizationTests: XCTestCase {
       let address = electronID * n + electronID
       Ψ[address] = 1
     }
+    
+    let directEigenvalues = Self.findEigenvalues(matrix: H, n: n)
     
     func updateEnergies(HΨ: [Float]) {
       for electronID in 0..<n {
@@ -447,19 +524,19 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
     
     print("diagonalization")
-    for iterationID in 0..<50 {
+    for iterationID in 0..<30 {
       print("iteration \(iterationID)", terminator: ": ")
       
-      // MARK: - Power Iteration (Reference Implementation)
-      #if false
       // Multiply by the Hamiltonian and query the eigenvalues.
       var HΨ = [Float](repeating: .zero, count: n * n)
-      Self.matrixMultiply(
+      Self.blockMatrixMultiply(
         matrixA: Ψ, transposeA: false,
         matrixB: H, transposeB: true,
         matrixC: &HΨ, n: n)
       updateEnergies(HΨ: HΨ)
       
+      // MARK: - Power Iteration (Reference Implementation)
+      #if false
       // Refine each eigenvector in isolation.
       for electronID in 0..<n {
         for cellID in 0..<n {
@@ -474,16 +551,94 @@ final class DenseDiagonalizationTests: XCTestCase {
       // Form an orthonormal set.
       Self.gramSchmidtOrthonormalize(matrix: &Ψ, n: n)
       
+      // MARK: - Steepest Descent w/ Direct Eigenvalues
+      #elseif true
+      
+      var rhs = [Float](repeating: 0, count: n * n)
+      for electronID in 0..<n {
+        let directEigenvalue = directEigenvalues[electronID]
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          rhs[address] = directEigenvalue * Ψ[address]
+        }
+      }
+      
+      // Refine each eigenvector in isolation.
+      var normres = [Float](repeating: .zero, count: n)
+      for _ in 0..<5 {
+        var HΨ = [Float](repeating: .zero, count: n * n)
+        var r = [Float](repeating: .zero, count: n * n)
+        Self.blockMatrixMultiply(
+          matrixA: Ψ, transposeA: false,
+          matrixB: H, transposeB: true,
+          matrixC: &HΨ, n: n)
+        for electronID in 0..<n {
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            r[address] = HΨ[address] - rhs[address]
+          }
+        }
+        
+        // Multiply the residual by the Hamiltonian.
+        var Hr = [Float](repeating: .zero, count: n * n)
+        Self.blockMatrixMultiply(
+          matrixA: r, transposeA: false,
+          matrixB: H, transposeB: true,
+          matrixC: &Hr, n: n)
+        
+        // Construct the timesteps.
+        var λ = [Float](repeating: .zero, count: n)
+        for electronID in 0..<n {
+          var HrHr: Float = .zero
+          var rHr: Float = .zero
+          var rr: Float = .zero
+          var ΨHΨ: Float = .zero
+          var ΨΨ: Float = .zero
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            HrHr += Hr[address] * Hr[address]
+            rHr += r[address] * Hr[address]
+            rr += r[address] * r[address]
+            ΨHΨ += Ψ[address] * HΨ[address]
+            ΨΨ += Ψ[address] * Ψ[address]
+          }
+          
+          let (m0, m1, m2) = (HrHr, rHr, rr)
+          let ca = m0
+          let cb = 4 * m1
+          let cc = m2
+          let sqarg = cb * cb - 4 * ca * cc
+          let signb: Float = (cb * sqarg >= 0) ? 1 : -1
+          
+          let sqrtTerm = Complex.sqrt(Complex(sqarg))
+          let determinant = Complex(cb) + Complex(signb) * sqrtTerm
+          let qq = Complex<Float>(0.5) * determinant
+          λ[electronID] = -(Complex(cc) / qq).real
+          
+          if rr.squareRoot() < 1e-5 {
+            λ[electronID] = 0
+          }
+          normres[electronID] = rr.squareRoot()
+        }
+        
+        for electronID in 0..<n {
+          let timeStep = λ[electronID]
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            Ψ[address] += timeStep * r[address]
+          }
+        }
+      }
+      print("iteration \(iterationID):", normres)
+      
+      sortEigenpairs(rule: { $0 < $1 })
+      
+      // Form an orthonormal set.
+      Self.panelGramSchmidtOrthonormalize(
+        matrix: &Ψ, n: n, panelSize: 4)
+      
       // MARK: - Steepest Descent
       #else
-      // Multiply by the Hamiltonian and query the eigenvalues.
-      var HΨ = [Float](repeating: .zero, count: n * n)
-      Self.blockMatrixMultiply(
-        matrixA: Ψ, transposeA: false,
-        matrixB: H, transposeB: true,
-        matrixC: &HΨ, n: n)
-      updateEnergies(HΨ: HΨ)
-      
       // Refine each eigenvector in isolation.
       var converged = [Bool](repeating: false, count: n)
       for _ in 0..<5 {

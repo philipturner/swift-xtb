@@ -1,4 +1,4 @@
-// swift-tools-version: 5.8
+// swift-tools-version: 5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -16,7 +16,7 @@ if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
 let package = Package(
   name: "mechanosynthesis",
   platforms: [
-    .macOS(.v13)
+    .macOS(.v14)
   ],
   products: [
     .library(
@@ -63,6 +63,9 @@ let package = Package(
       name: "MechanosynthesisTests",
       dependencies: [
         "Mechanosynthesis",
+      ],
+      cSettings: [
+        CSetting.define("ACCELERATE_NEW_LAPACK")
       ]),
   ]
 )
