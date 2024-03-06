@@ -10,6 +10,7 @@ final class DenseDiagonalizationTests: XCTestCase {
   
   // Multiplies two matrices in mixed precision, as a reference implementation
   // for faster methods.
+  // - Requires row-major ordering.
   static func matrixMultiply(
     matrixA: [Float], transposeA: Bool,
     matrixB: [Float], transposeB: Bool,
@@ -39,6 +40,7 @@ final class DenseDiagonalizationTests: XCTestCase {
   }
   
   // Block version of matrix multiplication, utilizing the AMX coprocessor.
+  // - Requires row-major ordering.
   static func blockMatrixMultiply(
     matrixA: [Float], transposeA: Bool,
     matrixB: [Float], transposeB: Bool,
@@ -93,6 +95,8 @@ final class DenseDiagonalizationTests: XCTestCase {
   
   // Orthonormalizes the matrix in mixed precision, as a reference
   // implementation for more approximate methods.
+  // - Row-major order: orthonormalizes the rows.
+  // - Column-major order: orthonormalizes the columns.
   static func gramSchmidtOrthonormalize(
     matrix: inout [Float], n: Int
   ) {
@@ -148,6 +152,8 @@ final class DenseDiagonalizationTests: XCTestCase {
   // Panel-factorized version of Gram-Schmidt. Its computation time scales
   // quadratically with the number of matrix elements (matrix K * panel count),
   // assuming infinite compute power.
+  // - Row-major order: orthonormalizes the rows.
+  // - Column-major order: orthonormalizes the columns.
   static func panelGramSchmidtOrthonormalize(
     matrix: inout [Float], n: Int, panelSize: Int
   ) {
@@ -633,6 +639,125 @@ final class DenseDiagonalizationTests: XCTestCase {
         }
       }
     }
+  }
+  
+  // Benchmark of Accelerate performance with skinny matrices.
+  func testBlockSizePerformance() throws {
+    // Tasks:
+    // - Make a test to validate correctness of the Accelerate kernel.
+    // - Benchmark matrices with height in { 512, 1024, 2048 }.
+    // - Archive the functions above this, along with their updated comments.
+    let n: Int = 4
+    let height: Int = 512
+    let transposeA: Bool = false
+    let transposeB: Bool = true
+    
+    // These matrices are stored in row-major order.
+    var matrixA = [Float](repeating: 0, count: height * n)
+    var matrixB = [Float](repeating: 0, count: height * n)
+    var expectedMatrixC = [Float](repeating: 0, count: n * n)
+    for rowID in 0..<height {
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
+        let randomA = Float.random(in: -1...1)
+        let randomB = Float.random(in: -1...1)
+        matrixA[address] = randomA
+        matrixB[address] = randomB
+      }
+    }
+    for columnA in 0..<n {
+      for columnB in 0..<n {
+        var dotProduct: Double = .zero
+        for rowID in 0..<height {
+          let valueA = matrixA[rowID * n + columnA]
+          let valueB = matrixB[rowID * n + columnB]
+          dotProduct += Double(valueA) * Double(valueB)
+        }
+        
+        // LAPACK returns C in reverse order (column-major). We should aim for
+        // that format as well.
+        let address = columnB * n + columnA
+        expectedMatrixC[address] = Float(dotProduct)
+      }
+    }
+    
+    func transpose(matrix: [Float]) -> [Float] {
+      var transposedMatrix = [Float](repeating: 0, count: n * height)
+      for rowID in 0..<height {
+        for columnID in 0..<n {
+          let addressOriginal = rowID * n + columnID
+          let addressTransposed = columnID * height + rowID
+          transposedMatrix[addressTransposed] = matrix[addressOriginal]
+        }
+      }
+      return transposedMatrix
+    }
+    var transposedMatrixA: [Float]
+    var transposedMatrixB: [Float]
+    if transposeA {
+      transposedMatrixA = transpose(matrix: matrixA)
+    } else {
+      transposedMatrixA = matrixA
+    }
+    if transposeB {
+      transposedMatrixB = matrixB
+    } else {
+      transposedMatrixB = transpose(matrix: matrixB)
+    }
+    
+    var actualMatrixC = [Float](repeating: 0, count: n * n)
+    var TRANSA = CChar(Character(transposeA ? "T" : "N").asciiValue!)
+    var TRANSB = CChar(Character(transposeB ? "T" : "N").asciiValue!)
+    var M: Int32 = Int32(n)
+    var N: Int32 = Int32(n)
+    var K: Int32 = Int32(height)
+    var ALPHA: Float = 1
+    var LDA: Int32 = transposeA ? Int32(height) : Int32(n)
+    var BETA: Float = 0
+    var LDB: Int32 = transposeB ? Int32(n) : Int32(height)
+    var LDC: Int32 = Int32(n)
+    transposedMatrixA.withContiguousStorageIfAvailable {
+      let A = UnsafeMutablePointer(mutating: $0.baseAddress!)
+      transposedMatrixB.withContiguousStorageIfAvailable {
+        let B = UnsafeMutablePointer(mutating: $0.baseAddress!)
+        actualMatrixC.withContiguousMutableStorageIfAvailable {
+          let C = $0.baseAddress!
+          sgemm_(
+            &TRANSA, // TRANSA
+            &TRANSB, // TRANSB
+            &M, // M
+            &N, // N
+            &K, // K
+            &ALPHA, // ALPHA
+            A, // A
+            &LDA, // LDA
+            B, // B
+            &LDB, // LDB
+            &BETA, // BETA
+            C, // C
+            &LDC // LDC
+          )
+        }
+      }
+    }
+    
+    var passRate: Float = .zero
+    for columnA in 0..<n {
+      for columnB in 0..<n {
+        // LAPACK returns C in reverse order (column-major)
+        let address = columnB * n + columnA
+        let actual = actualMatrixC[address]
+        let expected = expectedMatrixC[address]
+        
+        let error = 1e-6 * Float(height).squareRoot()
+        if (actual - expected).magnitude < error {
+          passRate += 1 / Float(n * n)
+        }
+        XCTAssertEqual(actual, expected, accuracy: error)
+      }
+    }
+    XCTAssertGreaterThan(
+      passRate, 0.99, "\n \(actualMatrixC) \n \(expectedMatrixC) \n")
   }
   
   // TODO: Create a custom direct diagonalization kernel. Start with the
