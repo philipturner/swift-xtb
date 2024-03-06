@@ -175,11 +175,11 @@ I am deciding whether to attempt to harness the AMX instructions from Swift, or 
 | 1x1        | 25   | 1.6        | 16        | NEON       |
 | 2x2        | 50   | 5.7        | 4–21      | NEON       |
 | 4x4        | 50   | 18.2       | 8–42      | NEON       |
-| 8x8        | 50   | 42.5       | 17–83     | NEON       |
+| 8x8        | 50   | 42.5       | 17–83     | Accelerate |
 | 16x16      | 50   | 172.4      | 66–83     | Accelerate |
 | 32x32      | 105  | 566.2      | 175–262   | Accelerate |
 | 64x64      | 400  | 581.9      | 175–524   | Accelerate |
-| 128x128    | 400  | 592.0      | 466–1400  | GPU        |
+| 128x128    | 400  | 592.0      | 466–1400  | Accelerate |
 | 256x256    | 400  | 995.4      | 1500–2560 | GPU        |
 | 512x512    | 400  | 1071.1     | 3000      | GPU        |
 | 1024x1024  | 400  | 942.3      | 3800      | GPU        |
