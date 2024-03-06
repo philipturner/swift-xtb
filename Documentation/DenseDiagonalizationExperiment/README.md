@@ -109,13 +109,13 @@ The attempts at a custom iterative diagonalizer failed. Therefore, I am relying 
 Here is the `GFLOPS/k` for various methods of decomposition. Two-stage tridiagonalization fixes the bottleneck, but the results are often inaccurate. Using double precision does not fix the results. That suggests it could be a bug in Accelerate or the LAPACK open-source reference code.
 
 | n   | Algorithm | Λ | Σ | (Λ, Σ) |
-| --: | :-------- | --: | --: | --: | --: |
+| --: | :-------- | --: | --: | --: |
 | 1000 | `ssyev_`         | 18.7 | 3.0 | 2.6 |
 | 1000 | `ssyevd_`        | 14.8 | 130.4 | 13.3 |
 | 1000 | `ssyevd_2stage_` | 60.5 | -   | -   |
 
 | n   | Algorithm | Λ | Σ | (Λ, Σ) |
-| --: | :-------- | --: | --: | --: | --: |
+| --: | :-------- | --: | --: | --: |
 |  125 | `ssyev_`         | 5.2 | 0.8 | 0.7 |
 |  250 | `ssyev_`         | 9.8 | 1.9 | 1.6 |
 |  500 | `ssyev_`         | 15.0 | 1.9 | 1.7 |
