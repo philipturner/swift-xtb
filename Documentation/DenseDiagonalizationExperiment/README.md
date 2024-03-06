@@ -137,3 +137,54 @@ Here is the `GFLOPS/k` for various methods of decomposition. Two-stage tridiagon
 > Table of GFLOPS/k performance. The maximum possible is ~750-1500 for Apple AMX with GEMM. Most data was truncated at n ≤ 1000 because benchmark quality deteriorated rapidly for larger matrices.
 
 It seems worthwhile to write a two-stage kernel for the AMX from scratch. That should both fix the bug, and allow `ssyevd_2stage_` to generate eigenvectors.
+
+## Accelerate Performance
+
+I am deciding whether to attempt to harness the AMX instructions from Swift, or use the built-in GEMM kernel from Accelerate.
+
+| Block Size | NN     | NT    | TN    | TT    | Best   |
+| :----------: | :------: | :-----: | :-----: | :-----: | :-----: |
+| 1x1        | 1.6    | 1.6   | 1.6   | 1.6   | 1.6    |
+| 2x2        | 3.8    | 1.6   | 5.7   | 1.8   | 5.7    |
+| 4x4        | 12.4   | 12.3  | 18.2  | 12.3  | 18.2   |
+| 8x8        | 27.7   | 42.5  | 23.1  | 28.7  | 42.5   |
+| 16x16      | 98.3   | 172.4 | 71.5  | 95.3  | 172.4  |
+| 32x32      | 267.8  | 566.2 | 172.4 | 262.2 | 566.2  |
+| 64x64      | 377.9  | 581.9 | 290.1 | 378.5 | 581.9  |
+| 128x128    | 499.7  | 592.0 | 408.3 | 499.9 | 592.0  |
+| 256x256    | 995.4  | 989.9 | 733.9 | 831.7 | 995.4  |
+| 512x512    | 1071.1 | 892.8 | 876.3 | 952.5 | 1071.1 |
+| 1024x1024  | 917.3  | 772.5 | 942.3 | 885.3 | 942.3  |
+
+| Block Size | Best   | AMX Theoretical Limit | AMX Utilization |
+| :----------: | :------: | :---------------------: | :---------------: |
+| 1x1        | 1.6    | 0.7                   | 228.6%          |
+| 2x2        | 5.7    | 2.9                   | 196.6%          |
+| 4x4        | 18.2   | 12                    | 151.7%          |
+| 8x8        | 42.5   | 46                    | 92.4%           |
+| 16x16      | 172.4  | 183                   | 94.2%           |
+| 32x32      | 566.2  | 733                   | 77.2%           |
+| 64x64      | 581.9  | 740                   | 78.6%           |
+| 128x128    | 592.0  | 1470                  | 40.3%           |
+| 256x256    | 995.4  | 1480                  | 67.3%           |
+| 512x512    | 1071.1 | 1480                  | 72.4%           |
+| 1024x1024  | 942.3  | 1480                  | 63.7%           |
+
+| Block Size | NEON | Accelerate | GPU       | Fastest    |
+| :----------: | :----: | :----------: | :---------: | :----------: |
+| 1x1        | 25   | 1.6        | 16        | NEON       |
+| 2x2        | 50   | 5.7        | 4–21      | NEON       |
+| 4x4        | 50   | 18.2       | 8–42      | NEON       |
+| 8x8        | 50   | 42.5       | 17–83     | NEON       |
+| 16x16      | 50   | 172.4      | 66–83     | Accelerate |
+| 32x32      | 105  | 566.2      | 175–262   | Accelerate |
+| 64x64      | 400  | 581.9      | 175–524   | Accelerate |
+| 128x128    | 400  | 592.0      | 466–1400  | GPU        |
+| 256x256    | 400  | 995.4      | 1500–2560 | GPU        |
+| 512x512    | 400  | 1071.1     | 3000      | GPU        |
+| 1024x1024  | 400  | 942.3      | 3800      | GPU        |
+
+Conclusion:
+- NEON (Swift SIMD) is suitable for block sizes 1&mdash;8.
+- AMX (Accelerate `sgemm_`) is suitable for block sizes 8&mdash;128.
+- GPU (Metal `simdgroup_async_copy`) is suitable for block sizes 128&mdash;1024.
