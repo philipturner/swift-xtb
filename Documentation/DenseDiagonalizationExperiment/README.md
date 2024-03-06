@@ -142,6 +142,8 @@ It seems worthwhile to write a two-stage kernel for the AMX from scratch. That s
 
 I am deciding whether to attempt to harness the AMX instructions from Swift, or use the built-in GEMM kernel from Accelerate.
 
+> The tables show maximum GFLOPS/k on each processor.
+
 | Block Size | NN     | NT    | TN    | TT    | Best   |
 | :----------: | :------: | :-----: | :-----: | :-----: | :-----: |
 | 1x1        | 1.6    | 1.6   | 1.6   | 1.6   | 1.6    |
