@@ -1,6 +1,7 @@
 import XCTest
-import Accelerate // Gate out once there are Swift kernels for CPUs without AMX.
+import Accelerate // replace with a cross-platform import later
 import Numerics
+import QuartzCore // replace with a cross-platform import later
 
 // All matrices in this experiment are row-major. The individual wavefunctions
 // are rows of the eigenvector matrix. However, LAPACK treats arguments as if
@@ -635,6 +636,196 @@ final class DenseDiagonalizationTests: XCTestCase {
     }
   }
   
-  // TODO: Create a custom direct diagonalization kernel. Start with the
-  // simplest one known, then move on to more advanced solvers.
+  // Test the performance of eigensolvers in LAPACK.
+  func testDiagonalization() throws {
+    let checkingEigenvalueCorrectness = true
+    
+    func benchmarkProblemSize(n: Int, trialCount: Int) {
+      func createEigenvalue(electronID: Int) -> Float {
+        let position = Float(n / 2 - electronID)
+        var sign: Float
+        if position > 0 {
+          sign = 1
+        } else if position == 0 {
+          sign = 0
+        } else {
+          sign = -1
+        }
+        
+        let powerPart = Float.pow(1.02, position.magnitude)
+        return sign * powerPart
+      }
+      
+      var Λ = [Float](repeating: 0, count: n * n)
+      var ΣT = [Float](repeating: 0, count: n * n)
+      for electronID in 0..<n {
+        let eigenvalue = createEigenvalue(electronID: electronID)
+        let address = electronID * n + electronID
+        Λ[address] = eigenvalue
+      }
+      for entry in ΣT.indices {
+        ΣT[entry] = Float.random(in: -1...1)
+      }
+      Self.gramSchmidtOrthonormalize(matrix: &ΣT, n: n)
+      
+      for electronID in 0..<n {
+        var norm: Float = .zero
+        for cellID in 0..<n {
+          let address = electronID * n + cellID
+          norm += ΣT[address] * ΣT[address]
+        }
+        XCTAssertEqual(norm, 1, accuracy: 1e-3)
+      }
+      
+      var ΛΣT = [Float](repeating: 0, count: n * n)
+      var ΣΛΣT = [Float](repeating: 0, count: n * n)
+      Self.blockMatrixMultiply(
+        matrixA: Λ, transposeA: false,
+        matrixB: ΣT, transposeB: false,
+        matrixC: &ΛΣT, n: n)
+      Self.blockMatrixMultiply(
+        matrixA: ΣT, transposeA: true,
+        matrixB: ΛΣT, transposeB: false,
+        matrixC: &ΣΛΣT, n: n)
+      
+      let A = ΣΛΣT
+      var hamiltonianPsi = [Float](repeating: 0, count: n * n)
+      Self.blockMatrixMultiply(
+        matrixA: ΣT, transposeA: false,
+        matrixB: A, transposeB: true,
+        matrixC: &hamiltonianPsi, n: n)
+      
+      do {
+        var eigenvaluePassRate: Float = .zero
+        for electronID in 0..<n {
+          var λ: Float = .zero
+          for cellID in 0..<n {
+            let address = electronID * n + cellID
+            λ += ΣT[address] * hamiltonianPsi[address]
+          }
+          
+          let address = electronID * n + electronID
+          let eigenvalue = Λ[address]
+          let error = max(
+            1, createEigenvalue(electronID: electronID).magnitude)
+          
+          if (eigenvalue - λ).magnitude < 1e-3 * error {
+           eigenvaluePassRate += 1 / Float(n)
+          }
+        }
+        XCTAssertGreaterThan(eigenvaluePassRate, 0.90)
+      }
+      
+      var minEigenvalueTime: Float = .greatestFiniteMagnitude
+      var minEigenvectorTime: Float = .greatestFiniteMagnitude
+      for trialID in 0..<trialCount {
+        do {
+          let start = CACurrentMediaTime()
+          let eigenvalues = Self.findEigenvalues(matrix: A, n: n)
+          let end = CACurrentMediaTime()
+          minEigenvalueTime = min(minEigenvalueTime, Float(end - start))
+          
+          if trialID == 0 {
+            // Validate correctness of eigenvalues.
+            var eigenvaluePassRate: Float = .zero
+            for electronID in 0..<n {
+              let expected = Λ[electronID * n + electronID]
+              let actual = eigenvalues[n - 1 - electronID]
+              let error = max(
+                1, createEigenvalue(electronID: electronID).magnitude)
+              
+              if (actual - expected).magnitude < 1e-3 * error {
+                eigenvaluePassRate += 1 / Float(n)
+              }
+            }
+            if checkingEigenvalueCorrectness {
+              XCTAssertGreaterThan(eigenvaluePassRate, 0.90)
+            }
+          }
+        }
+        
+        do {
+          let start = CACurrentMediaTime()
+          let (eigenvalues, eigenvectors) = Self.diagonalize(matrix: A, n: n)
+          let end = CACurrentMediaTime()
+          minEigenvectorTime = min(minEigenvectorTime, Float(end - start))
+          
+          if trialID == 0 {
+            // Validate correctness of eigenvalues.
+            var eigenvaluePassRate: Float = .zero
+            for electronID in 0..<n {
+              let expected = Λ[electronID * n + electronID]
+              let actual = eigenvalues[n - 1 - electronID]
+              let error = max(
+                1, createEigenvalue(electronID: electronID).magnitude)
+              
+              if (actual - expected).magnitude < 1e-3 * error {
+                eigenvaluePassRate += 1 / Float(n)
+              }
+            }
+            XCTAssertGreaterThan(eigenvaluePassRate, 0.90)
+            
+            // Validate correctness of eigenvectors.
+            var eigenvectorPassRate: Float = .zero
+            for electronID in 0..<n {
+              var dotProduct: Float = .zero
+              for cellID in 0..<n {
+                let address1 = electronID * n + cellID
+                let address2 = (n - 1 - electronID) * n + cellID
+                let expected = ΣT[address1]
+                let actual = eigenvectors[address2]
+                dotProduct += expected * actual
+              }
+              if (dotProduct.magnitude - 1).magnitude < 1e-3 {
+                eigenvectorPassRate += 1 / Float(n)
+              }
+            }
+            XCTAssertGreaterThan(eigenvectorPassRate, 0.90)
+          }
+        }
+      }
+      
+      #if false
+      minEigenvectorTime -= minEigenvalueTime
+      let minOverallTime = minEigenvalueTime + minEigenvectorTime
+      
+      let latencyΛ = Int(minEigenvalueTime * 1e6)
+      let latencyΣ = Int(minEigenvectorTime * 1e6)
+      let latencyΛΣ = Int(minOverallTime * 1e6)
+      func createGFLOPSk(time: Float) -> String {
+        let computeCost = Float(n * n * n)
+        let speed = computeCost / time / 1e9
+        return String(format: "%.2f", speed)
+      }
+      let gflopsΛ = createGFLOPSk(time: minEigenvalueTime)
+      let gflopsΣ = createGFLOPSk(time: minEigenvectorTime)
+      let gflopsΛΣ = createGFLOPSk(time: minOverallTime)
+      print("n=\(n)", terminator: " ")
+      print("| latency (μs)", terminator: " ")
+      print("Λ=\(latencyΛ) Σ=\(latencyΣ) ΛΣ=\(latencyΛΣ)", terminator: " ")
+      print("| GFLOPS/k", terminator: " ")
+      print("Λ=\(gflopsΛ) Σ=\(gflopsΣ) ΛΣ=\(gflopsΛΣ)", terminator: " ")
+      print()
+      #endif
+    }
+    
+    for n in 1...20 {
+      benchmarkProblemSize(n: n, trialCount: 3)
+    }
+    #if false
+    for nTenth in 3...10 {
+      benchmarkProblemSize(n: 10 * nTenth, trialCount: 3)
+    }
+    benchmarkProblemSize(n: 125, trialCount: 3)
+    benchmarkProblemSize(n: 200, trialCount: 3)
+    benchmarkProblemSize(n: 250, trialCount: 3)
+    benchmarkProblemSize(n: 300, trialCount: 3)
+    benchmarkProblemSize(n: 400, trialCount: 3)
+    benchmarkProblemSize(n: 500, trialCount: 3)
+    benchmarkProblemSize(n: 600, trialCount: 3)
+    benchmarkProblemSize(n: 750, trialCount: 3)
+    benchmarkProblemSize(n: 800, trialCount: 3)
+    benchmarkProblemSize(n: 1000, trialCount: 3)
+    #endif
+  }
 }

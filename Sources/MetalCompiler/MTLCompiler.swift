@@ -6,7 +6,6 @@
 //
 
 import Metal
-import QuartzCore
 
 public class MTLCompiler {
   public internal(set) var buildProductsDirectory: URL
