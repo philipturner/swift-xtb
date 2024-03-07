@@ -112,4 +112,141 @@ final class DenseDiagonalizationTests: XCTestCase {
     checkAbsoluteValuePair(first: 1e36, second: 1e-36)
     checkAbsoluteValuePair(first: 1e-36, second: 1e36)
   }
+  
+  // Reproduce the example on Wikipedia for tridiagonalization through
+  // Householder transformations.
+  // https://en.wikipedia.org/wiki/Householder_transformation#Tridiagonalization
+  func testTridiagonalization() throws {
+    // The matrix A is implicitly stored in row-major form. However, it's
+    // symmetric, so the ordering doesn't matter.
+    let n: Int = 4
+    var matrixA = [Float](repeating: 0, count: n * n)
+    matrixA = [
+      4, 1, -2, 2,
+      1, 2, 0, 1,
+      -2, 0, 3, -2,
+      2, 1, -2, -1
+    ]
+    
+    // Check that the original matrix is symmetric.
+    for rowID in 0..<n {
+      for columnID in rowID..<n {
+        let upperAddress = rowID * n + columnID
+        let lowerAddress = columnID * n + rowID
+        let upperValue = matrixA[upperAddress]
+        let lowerValue = matrixA[lowerAddress]
+        XCTAssertEqual(upperValue, lowerValue)
+      }
+    }
+    
+    #if true
+    // Matrix entries are 1-indexed on Wikipedia.
+    let a21 = matrixA[1 * n + 0]
+    var alpha: Float = .zero
+    for j in 1..<n {
+      let value = matrixA[j * n + 0]
+      alpha += value * value
+    }
+    alpha.formSquareRoot()
+    alpha *= (a21 >= 0) ? -1 : 1
+    
+    var r = alpha * alpha - a21 * alpha
+    r = (r / 2).squareRoot()
+    print(a21)
+    print(alpha)
+    print(r)
+    
+    // Construct the vector 'v'.
+    var v1 = [Float](repeating: 0, count: n)
+    v1[0] = 0
+    v1[1] = (a21 - alpha) / (2 * r)
+    for k in 2..<n {
+      let value = matrixA[k * n + 0]
+      v1[k] = value / (2 * r)
+    }
+    print(v1)
+    
+    /*
+     1.0
+     -3.0
+     2.4494898
+     [0.0, 0.81649655, -0.40824828, 0.40824828]
+
+     Q1 matrix:
+     1.0, 0.0, 0.0, 0.0,
+     0.0, -0.33333325, 0.6666666, -0.6666666,
+     0.0, 0.6666666, 0.6666667, 0.3333333,
+     0.0, -0.6666666, 0.3333333, 0.6666667,
+     */
+    #else
+    var xNorm: Float = .zero
+    for rowID in 0..<n {
+      let address = rowID * n + 0
+      let xValue = matrixA[address]
+      xNorm += xValue * xValue
+    }
+    xNorm.formSquareRoot()
+    xNorm *= (matrixA[0] > 0) ? 1 : -1
+    print("x-norm:", xNorm)
+    
+    var u = [Float](repeating: 0, count: n)
+    for rowID in 0..<n {
+      let address = rowID * n + 0
+      let xValue = matrixA[address]
+      let eValue: Float = (rowID == 0) ? 1 : 0
+      u[rowID] = xValue - xNorm * eValue
+    }
+    print("u:", u)
+    var uNorm: Float = .zero
+    for rowID in 0..<n {
+      let uValue = u[rowID]
+      uNorm += uValue * uValue
+    }
+    uNorm.formSquareRoot()
+    print("u-norm:", uNorm)
+    
+    var v1 = [Float](repeating: 0, count: n)
+    for rowID in 0..<n {
+      let uValue = u[rowID]
+      v1[rowID] = uValue / uNorm
+    }
+    
+    /*
+     x-norm: 5.0
+     u: [-1.0, 1.0, -2.0, 2.0]
+     u-norm: 3.1622777
+
+     Q1 matrix:
+     0.8, 0.2, -0.4, 0.4,
+     0.2, 0.8, 0.4, -0.4,
+     -0.4, 0.4, 0.19999999, 0.8,
+     0.4, -0.4, 0.8, 0.19999999,
+     */
+    #endif
+    
+    // Display the matrix 'Q'.
+    var Q1 = [Float](repeating: 0, count: n * n)
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let start: Float = (rowID == columnID) ? 1 : 0
+        let rowPart = v1[rowID]
+        let columnPart = v1[columnID]
+        let value = start - 2 * rowPart * columnPart
+//        let value = rowPart * columnPart
+        
+        let address = rowID * n + columnID
+        Q1[address] = value
+      }
+    }
+    print()
+    print("Q1 matrix:")
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
+        let value = Q1[address]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+  }
 }
