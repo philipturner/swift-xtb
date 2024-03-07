@@ -214,12 +214,4 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(errors[5], 0)
     }
   }
-  
-  // Evaluate the kinetic energy of the N2 dimer. Test 2nd-order, 4th-order,
-  // and Mehrstellen discretization. Observe how each one behaves in the limit
-  // of large and small grid spacings. Find which one enables the highest
-  // precision with FP32.
-  func testMehrstellenDiscretization() throws {
-    
-  }
 }
