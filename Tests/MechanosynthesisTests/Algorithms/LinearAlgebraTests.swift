@@ -125,7 +125,7 @@ final class LinearAlgebraTests: XCTestCase {
       // Form the 1-by-1 T matrix.
       let householderCoefficient: Float = 2
       
-      // Operation 1: gemv(A, v)
+      // Operation 1: AVT
       var X = [Float](repeating: 0, count: n)
       for rowID in 0..<n {
         var dotProduct: Float = .zero
@@ -133,35 +133,29 @@ final class LinearAlgebraTests: XCTestCase {
           let address = rowID * n + columnID
           dotProduct += currentMatrixA[address] * V[columnID]
         }
-        X[rowID] = householderCoefficient * dotProduct
+        X[rowID] = dotProduct * householderCoefficient
       }
       
-      // Operation 2: scatter(..., v)
-      var temporaryA = currentMatrixA
+      // Operation 2: V^H X
+      var VX: Float = .zero
       for rowID in 0..<n {
-        for columnID in 0..<n {
-          let address = rowID * n + columnID
-          temporaryA[address] -= X[rowID] * V[columnID]
-        }
+        VX += V[rowID] * X[rowID]
       }
       
-      // Operation 3: gemv(vT, A)
+      // Operation 3: X - (1 / 2) VT^H (V^H X)
       var W = [Float](repeating: 0, count: n)
-      for columnID in 0..<n {
-        var dotProduct: Float = .zero
-        for rowID in 0..<n {
-          let address = rowID * n + columnID
-          dotProduct += V[rowID] * temporaryA[address]
-        }
-        W[columnID] = householderCoefficient * dotProduct
+      for rowID in 0..<n {
+        W[rowID] = X[rowID] - 0.5 * V[rowID] * householderCoefficient * VX
       }
       
-      // Operation 4: scatter(v, ...)
+      // Operation 4: A - WV^H - VW^H
       for rowID in 0..<n {
         for columnID in 0..<n {
           let address = rowID * n + columnID
-          currentMatrixA[address] -= X[rowID] * V[columnID]
-          currentMatrixA[address] -= V[rowID] * W[columnID]
+          var entry = currentMatrixA[address]
+          entry -= W[rowID] * V[columnID]
+          entry -= V[rowID] * W[columnID]
+          currentMatrixA[address] = entry
         }
       }
     }
