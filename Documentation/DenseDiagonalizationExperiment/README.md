@@ -190,3 +190,24 @@ Conclusion:
 - NEON (Swift SIMD) is suitable for block sizes 1&mdash;8.
 - AMX (Accelerate `sgemm_`) is suitable for block sizes 8&mdash;128.
 - GPU (Metal `simdgroup_async_copy`) is suitable for block sizes 128&mdash;1024.
+
+## Conclusion
+
+This experiment is finished. I found a solution:
+- Two-stage or multi-stage reduction to tridiagonal form
+- LAPACK built-in function for the divide-and-conquer part
+- Back-transformation of eigenvectors is very well-suited for GPU
+- Likely tens or hundreds of times speedup over `dsyevd_`
+
+The end product of such an endeavor would be very useful. I could compile a wrapper over LAPACK that intercepts API calls, redirecting `dsyevd_` to a mixed-precision custom diagonalizer. Inject this dependency into `libxtb.dylib` downloaded from Homebrew, drastically accelerating semiempirical simulations.
+
+### Availability of extremely low-latency SEQM changes the design constraints for a custom DFT library.
+
+I have freedom to:
+- Prioritize accuracy, designing the library heavily around the DM21 functional.
+- Employ quadratic-scaling integration or target very small systems.
+- Target non-interactive use cases (not ab initio MD).
+- Employ CPMD for reasons besides MD. Previously, pseudopotentials seemed necessary, because large MD timesteps don't mesh with fine grid spacings.
+- Avoid the dependency on DFT-D4.
+
+For near-term development of a custom DFT library, the `ssyevd_` from Accelerate should be sufficient. A highly optimized alternative should only be created when there is significant need.

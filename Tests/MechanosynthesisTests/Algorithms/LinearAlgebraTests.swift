@@ -1,5 +1,5 @@
 import XCTest
-import Accelerate // Gate out once there are Swift kernels for CPUs without AMX.
+import Accelerate
 import Numerics
 import QuartzCore
 
@@ -193,6 +193,88 @@ final class LinearAlgebraTests: XCTestCase {
   
   // MARK: - Tests
   
-  // Reproduce the divide-and-conquer algorithm. This time, produce
-  // eigenvectors in addition to eigenvalues.
+  // Use the utility function from LAPACK to diagonalize a tridiagonal matrix.
+  func testDivideAndConquer() throws {
+    // TODO: Also test various 7x7 matrices from previous calculations,
+    // especially the ones with degenerate eigenspaces.
+    let n: Int = 4
+    let originalMatrixA: [Float] = [
+      4, 1, -2, 2,
+      1, 2, 0, 1,
+      -2, 0, 3, -2,
+      2, 1, -2, -1
+    ]
+    let originalMatrixT = Self.tridiagonalize(matrix: originalMatrixA, n: n)
+    print()
+    print("original T")
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
+        let value = originalMatrixT[address]
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    // Store the tridiagonal matrix in a compact form.
+    var D = [Float](repeating: 0, count: n)
+    var E = [Float](repeating: 0, count: n - 1)
+    for diagonalID in 0..<n {
+      let matrixAddress = diagonalID * n + diagonalID
+      let vectorAddress = diagonalID
+      D[vectorAddress] = originalMatrixT[matrixAddress]
+    }
+    for subDiagonalID in 0..<n - 1 {
+      let rowID = subDiagonalID
+      let columnID = subDiagonalID + 1
+      let matrixAddress = rowID * n + columnID
+      let vectorAddress = rowID
+      E[vectorAddress] = originalMatrixT[matrixAddress]
+    }
+    
+    // Query the workspace size.
+    var JOBZ = CChar(Character("V").asciiValue!)
+    var N = Int32(n)
+    var LDZ = Int32(n)
+    var WORK = [Float](repeating: 0, count: 1)
+    var LWORK = Int32(-1)
+    var IWORK = [Int32](repeating: 0, count: 1)
+    var LIWORK = Int32(-1)
+    var INFO = Int32(0)
+    sstevd_(
+      &JOBZ, &N, nil, nil, nil, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
+    print("INFO:", INFO)
+    print("LWORK:", WORK[0])
+    print("LIWORK:", IWORK[0])
+    print("D:", D)
+    print("E:", E)
+    
+    // Call into LAPACK.
+    var Z = [Float](repeating: 0, count: n * n)
+    LWORK = Int32(WORK[0])
+    LIWORK = Int32(IWORK[0])
+    WORK = [Float](repeating: 0, count: Int(LWORK))
+    IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+    sstevd_(
+      &JOBZ, &N, &D, &E, &Z, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
+    print("INFO:", INFO)
+    print("D:", D)
+    print("E:", E)
+    print("Z:", Z)
+    
+    // Check that the eigenvectors produce the eigenvalues.
+    let HΨ = Self.matrixMultiply(
+      matrixA: originalMatrixT, matrixB: Z, transposeB: true, n: n)
+    for electronID in 0..<n {
+      var actualE: Float = .zero
+      for cellID in 0..<n {
+        let address = cellID * n + electronID
+        actualE += HΨ[address] * HΨ[address]
+      }
+      actualE.formSquareRoot()
+      
+      let expectedE = D[electronID]
+      XCTAssertEqual(actualE, expectedE.magnitude, accuracy: 1e-5)
+    }
+  }
 }
