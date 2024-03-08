@@ -101,54 +101,56 @@ final class LinearAlgebraTests: XCTestCase {
     for transformID in 0..<n - 2 {
       // Load the column into the cache.
       var V = [Float](repeating: 0, count: n)
-      var newSubdiagonal: Float = .zero
+      var columnNorm: Float = .zero
       for rowID in (transformID + 1)..<n {
         let address = rowID * n + transformID
         let entry = currentMatrixA[address]
         V[rowID] = entry
-        newSubdiagonal += entry * entry
+        columnNorm += entry * entry
       }
-      newSubdiagonal.formSquareRoot()
+      columnNorm.formSquareRoot()
       
-      // Form the 1-by-1 R matrix.
+      // Form the 'v' output of Householder(j,x).
       let oldSubdiagonal = V[transformID + 1]
-      newSubdiagonal *= (oldSubdiagonal >= 0) ? -1 : 1
-      V[transformID + 1] -= newSubdiagonal
-      
-      // Form the n-by-1 Q matrix.
-      var norm = 2 * newSubdiagonal * (newSubdiagonal - oldSubdiagonal)
-      norm = 1 / norm.squareRoot()
-      for rowID in 0..<n {
-        V[rowID] *= norm
+      let newSubdiagonal = columnNorm * Float((oldSubdiagonal >= 0) ? -1 : 1)
+      V[transformID + 1] = 1
+      for rowID in (transformID + 2)..<n {
+        V[rowID] /= oldSubdiagonal - newSubdiagonal
       }
       
-      // Form the 1-by-1 T matrix.
-      let householderCoefficient: Float = 2
+      // Form the 'τ' output of Householder(j,x).
+      let T = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
       
-      // Operation 1: AVT
+      // Operation 1: VT
+      var VT = [Float](repeating: 0, count: n)
+      for rowID in 0..<n {
+        VT[rowID] = V[rowID] * T
+      }
+      
+      // Operation 2: AVT
       var X = [Float](repeating: 0, count: n)
       for rowID in 0..<n {
         var dotProduct: Float = .zero
         for columnID in 0..<n {
           let address = rowID * n + columnID
-          dotProduct += currentMatrixA[address] * V[columnID]
+          dotProduct += currentMatrixA[address] * VT[columnID]
         }
-        X[rowID] = dotProduct * householderCoefficient
+        X[rowID] = dotProduct
       }
       
-      // Operation 2: V^H X
+      // Operation 3: V^H X
       var VX: Float = .zero
       for rowID in 0..<n {
         VX += V[rowID] * X[rowID]
       }
       
-      // Operation 3: X - (1 / 2) VT^H (V^H X)
+      // Operation 4: X - (1 / 2) VT^H (V^H X)
       var W = [Float](repeating: 0, count: n)
       for rowID in 0..<n {
-        W[rowID] = X[rowID] - 0.5 * V[rowID] * householderCoefficient * VX
+        W[rowID] = X[rowID] - 0.5 * V[rowID] * T * VX
       }
       
-      // Operation 4: A - WV^H - VW^H
+      // Operation 5: A - WV^H - VW^H
       for rowID in 0..<n {
         for columnID in 0..<n {
           let address = rowID * n + columnID
