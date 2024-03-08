@@ -15,7 +15,7 @@ final class LinearAlgebraTests: XCTestCase {
     var matrixC = [Float](repeating: 0, count: n * n)
     for rowID in 0..<n {
       for columnID in 0..<n {
-        var dotProduct: Double = .zero
+        var dotProduct: Float = .zero
         for k in 0..<n {
           var value1: Float
           var value2: Float
@@ -29,9 +29,9 @@ final class LinearAlgebraTests: XCTestCase {
           } else {
             value2 = matrixB[columnID * n + k]
           }
-          dotProduct += Double(value1 * value2)
+          dotProduct += value1 * value2
         }
-        matrixC[rowID * n + columnID] = Float(dotProduct)
+        matrixC[rowID * n + columnID] = dotProduct
       }
     }
     return matrixC
@@ -45,16 +45,16 @@ final class LinearAlgebraTests: XCTestCase {
     var matrix = originalMatrix
     
     func normalize(electronID: Int) {
-      var norm: Double = .zero
+      var norm: Float = .zero
       for cellID in 0..<n {
         let value = matrix[cellID * n + electronID]
-        norm += Double(value * value)
+        norm += value * value
       }
       
       let normalizationFactor = 1 / norm.squareRoot()
       for cellID in 0..<n {
         var value = matrix[cellID * n + electronID]
-        value *= Float(normalizationFactor)
+        value *= normalizationFactor
         matrix[cellID * n + electronID] = value
       }
     }
@@ -67,18 +67,18 @@ final class LinearAlgebraTests: XCTestCase {
     for electronID in 0..<n {
       for neighborID in 0..<electronID {
         // Determine the magnitude of the parallel component.
-        var dotProduct: Double = .zero
+        var dotProduct: Float = .zero
         for cellID in 0..<n {
           let value1 = matrix[cellID * n + electronID]
           let value2 = matrix[cellID * n + neighborID]
-          dotProduct += Double(value1) * Double(value2)
+          dotProduct += value1 * value2
         }
         
         // Subtract the parallel component.
         for cellID in 0..<n {
           var value1 = matrix[cellID * n + electronID]
           let value2 = matrix[cellID * n + neighborID]
-          value1 -= Float(dotProduct) * value2
+          value1 -= dotProduct * value2
           matrix[cellID * n + electronID] = value1
         }
       }
@@ -100,73 +100,68 @@ final class LinearAlgebraTests: XCTestCase {
     // This requires that n > 1.
     for transformID in 0..<n - 2 {
       // Load the column into the cache.
-      var v = [Float](repeating: 0, count: n)
+      var V = [Float](repeating: 0, count: n)
       var newSubdiagonal: Float = .zero
       for rowID in (transformID + 1)..<n {
         let address = rowID * n + transformID
-        let value = currentMatrixA[address]
-        v[rowID] = value
-        newSubdiagonal += value * value
+        let entry = currentMatrixA[address]
+        V[rowID] = entry
+        newSubdiagonal += entry * entry
       }
       newSubdiagonal.formSquareRoot()
       
       // Form the 1-by-1 R matrix.
-      let oldSubdiagonal = v[transformID + 1]
+      let oldSubdiagonal = V[transformID + 1]
       newSubdiagonal *= (oldSubdiagonal >= 0) ? -1 : 1
-      v[transformID + 1] -= newSubdiagonal
+      V[transformID + 1] -= newSubdiagonal
       
       // Form the n-by-1 Q matrix.
       var norm = 2 * newSubdiagonal * (newSubdiagonal - oldSubdiagonal)
       norm = 1 / norm.squareRoot()
       for rowID in 0..<n {
-        v[rowID] *= norm
+        V[rowID] *= norm
       }
       
+      // Form the 1-by-1 T matrix.
+      let householderCoefficient: Float = 2
+      
       // Operation 1: gemv(A, v)
-      var operationResult1 = [Float](repeating: 0, count: n)
+      var X = [Float](repeating: 0, count: n)
       for rowID in 0..<n {
         var dotProduct: Float = .zero
         for columnID in 0..<n {
-          let matrixAddress = rowID * n + columnID
-          let vectorAddress = columnID
-          let matrixValue = currentMatrixA[matrixAddress]
-          let vectorValue = v[vectorAddress]
-          dotProduct += matrixValue * vectorValue
+          let address = rowID * n + columnID
+          dotProduct += currentMatrixA[address] * V[columnID]
         }
-        operationResult1[rowID] = dotProduct
+        X[rowID] = householderCoefficient * dotProduct
       }
       
       // Operation 2: scatter(..., v)
+      var temporaryA = currentMatrixA
       for rowID in 0..<n {
         for columnID in 0..<n {
-          let rowValue = operationResult1[rowID]
-          let columnValue = v[columnID]
-          let matrixAddress = rowID * n + columnID
-          currentMatrixA[matrixAddress] -= 2 * rowValue * columnValue
+          let address = rowID * n + columnID
+          temporaryA[address] -= X[rowID] * V[columnID]
         }
       }
       
       // Operation 3: gemv(vT, A)
-      var operationResult3 = [Float](repeating: 0, count: n)
+      var W = [Float](repeating: 0, count: n)
       for columnID in 0..<n {
         var dotProduct: Float = .zero
         for rowID in 0..<n {
-          let vectorAddress = rowID
-          let matrixAddress = rowID * n + columnID
-          let vectorValue = v[vectorAddress]
-          let matrixValue = currentMatrixA[matrixAddress]
-          dotProduct += vectorValue * matrixValue
+          let address = rowID * n + columnID
+          dotProduct += V[rowID] * temporaryA[address]
         }
-        operationResult3[columnID] = dotProduct
+        W[columnID] = householderCoefficient * dotProduct
       }
       
       // Operation 4: scatter(v, ...)
       for rowID in 0..<n {
         for columnID in 0..<n {
-          let rowValue = v[rowID]
-          let columnValue = operationResult3[columnID]
-          let matrixAddress = rowID * n + columnID
-          currentMatrixA[matrixAddress] -= 2 * rowValue * columnValue
+          let address = rowID * n + columnID
+          currentMatrixA[address] -= X[rowID] * V[columnID]
+          currentMatrixA[address] -= V[rowID] * W[columnID]
         }
       }
     }
