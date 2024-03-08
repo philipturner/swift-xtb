@@ -98,31 +98,28 @@ final class LinearAlgebraTests: XCTestCase {
     var currentMatrixA = originalMatrix
     
     // This requires that n > 1.
-    for k in 0..<n - 2 {
-      // Determine 'α' and 'r'.
-      let address_k1k = (k + 1) * n + k
-      let ak1k = currentMatrixA[address_k1k]
-      var alpha: Float = .zero
-      
-      for rowID in (k + 1)..<n {
-        let columnID = k
-        let address = rowID * n + columnID
-        let value = currentMatrixA[address]
-        alpha += value * value
-      }
-      alpha.formSquareRoot()
-      alpha *= (ak1k >= 0) ? -1 : 1
-      
-      var r = alpha * alpha - ak1k * alpha
-      r = (r / 2).squareRoot()
-      
-      // Construct 'v'.
+    for transformID in 0..<n - 2 {
+      // Load the column into the cache.
       var v = [Float](repeating: 0, count: n)
-      v[k + 1] = (ak1k - alpha) / (2 * r)
-      for vectorLane in (k + 2)..<n {
-        let matrixAddress = vectorLane * n + k
-        let matrixValue = currentMatrixA[matrixAddress]
-        v[vectorLane] = matrixValue / (2 * r)
+      var newSubdiagonal: Float = .zero
+      for rowID in (transformID + 1)..<n {
+        let address = rowID * n + transformID
+        let value = currentMatrixA[address]
+        v[rowID] = value
+        newSubdiagonal += value * value
+      }
+      newSubdiagonal.formSquareRoot()
+      
+      // Form the 1-by-1 R matrix.
+      let oldSubdiagonal = v[transformID + 1]
+      newSubdiagonal *= (oldSubdiagonal >= 0) ? -1 : 1
+      v[transformID + 1] -= newSubdiagonal
+      
+      // Form the n-by-1 Q matrix.
+      var norm = 2 * newSubdiagonal * (newSubdiagonal - oldSubdiagonal)
+      norm = 1 / norm.squareRoot()
+      for rowID in 0..<n {
+        v[rowID] *= norm
       }
       
       // Operation 1: gemv(A, v)
