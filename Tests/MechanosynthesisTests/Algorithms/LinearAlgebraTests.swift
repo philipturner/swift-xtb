@@ -345,22 +345,19 @@ final class LinearAlgebraTests: XCTestCase {
     }
     A = Self.transpose(matrix: A, n: n)
     
-    var N = Int32(n)
-    var K = Int32(1)
-    var NB = Int32(n)
+    var M = Int32(n)
+    var N = Int32(3)
     var LDA = Int32(n)
-    var TAU = [Float](repeating: 0, count: n)
     var T = [Float](repeating: 0, count: n * n)
     var LDT = Int32(n)
-    var Y = [Float](repeating: 0, count: n * n)
-    var LDY = Int32(n)
-    let INFO = slahr2_(&N, &K, &NB, &A, &LDA, &TAU, &T, &LDT, &Y, &LDY)
+    var WORK = [Float](repeating: 0, count: n * n)
+    var INFO = Int32(0)
+    sgeqrt2_(&M, &N, &A, &LDA, &T, &LDT, &INFO)
     XCTAssertEqual(INFO, 0, "Received LAPACK error code: \(INFO)")
     
     // Return to row-major format.
     A = Self.transpose(matrix: A, n: n)
     T = Self.transpose(matrix: T, n: n)
-    Y = Self.transpose(matrix: Y, n: n)
     
     func displayMatrix(_ matrix: [Float], name: String) {
       print()
@@ -376,18 +373,10 @@ final class LinearAlgebraTests: XCTestCase {
     }
     displayMatrix(A, name: "LAPACK A")
     displayMatrix(T, name: "LAPACK T")
-    displayMatrix(Y, name: "LAPACK Y")
-    print()
-    print("LAPACK TAU")
-    for columnID in 0..<n {
-      let value = TAU[columnID]
-      print(value, terminator: ", ")
-    }
-    print()
     
     // TODO:
-    // - Reproduce SLAHR2 in Swift.
+    // - Reproduce SGEQRT2 in Swift.
     // - Make the Swift results agree with LAPACK.
-    // - Make it blocked to reproduce SGEHRD.
+    // - Remove the dependency on the LAPACK function that requires Swift 5.9.
   }
 }
