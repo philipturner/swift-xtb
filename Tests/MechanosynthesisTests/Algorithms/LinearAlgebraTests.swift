@@ -37,7 +37,7 @@ final class LinearAlgebraTests: XCTestCase {
     return matrixC
   }
   
-  // Forms an orthogonal basis of the matrix's columns.
+  // Forms an orthogonal basis from a square matrix's columns.
   static func modifiedGramSchmidt(
     matrix originalMatrix: [Float], n: Int
   ) -> [Float] {
@@ -324,4 +324,86 @@ final class LinearAlgebraTests: XCTestCase {
       }
     }
   }
+  
+  // Reproduce QR panel factorization (DLAHR2) from the Dongarra 2010 paper.
+  func testPanelFactorization() {
+    // A partial elaboration of the pseudocode is shown below. Tasks:
+    // - Set up a matrix to partially factorize.
+    // - Perform Gram-Schmidt orthogonalization to get the Q and R matrices for
+    //   the first few columns.
+    // - Start implementing the pseudocode in Swift.
+  }
 }
+
+/*
+ allocate A
+ allocate V
+ allocate T
+ allocate Y
+ n = 100
+ nb = 10
+ i = 0 // reduces the verbosity of some expressions
+ 
+ for j in 0..<nb {
+   // A[1..<n][j] -= Y[...][0..<j - 1] * A[j - 1][0..<j - 1]
+   for rowID in 1..<n {
+     load A[rowID][j]
+     var accumulator = A value
+     for columnID in 0..<j - 1 {
+       load Y[rowID][columnID]
+       load A[j - 1][columnID]
+       accumulator -= Y value * A value
+     }
+     store A[rowID][j] <- accumulator
+   }
+   
+   // A[1..<n][j] = (I - VT^H V^H) A[1..<n][j]
+   var vectorVA = [Float](count: j - 1)
+   for columnID in 0..<j - 1 {
+     var dotProduct = 0
+     for rowID in 1..<n {
+       load V[rowID][columnID]
+       load A[rowID][j]
+       dotProduct += V value * A value
+     }
+     store vectorVA[columnID] <- dotProduct
+   }
+   var vectorTVA = [Float](count: j - 1)
+   for columnID in 0..<j {
+     var dotProduct = 0
+     for rowID in 0..<j {
+       load T[rowID][columnID]
+       load vectorVA[rowID]
+       dotProduct += T value * vectorVA value
+     }
+     store vectorTVA[columnID] <- dotProduct
+   }
+   for rowID in 1..<n {
+     var accumulator = A value
+     for columnID in 0..<j - 1 {
+       load V[rowID][columnID]
+       load vectorTVA[columnID]
+       accumulator -= V value * vectorTVA value
+     }
+     store A[rowID][j] <- accumulator
+   }
+ 
+   // (V[...][j], tau) = householder(j, A[j + 1..<n][j])
+   See the Householder transform generation in 'tridiagonalize'.
+ 
+   // Y[...][j] = A[1..<n][j + 1..<n] V[...][j]
+   V[...][j] has zeroes above row j + 1
+   
+   T[0..<j - 1][j] = -tau T V^H V[...][j]
+   var vectorVHV = [Float](count: j - 1)
+   for columnID in 0..<j {
+     var dotProduct = 0
+     for rowID in 1..<n {
+       ...
+     }
+   }
+   for rowID in 0..<j - 1 {
+     ...
+   }
+ }
+ */
