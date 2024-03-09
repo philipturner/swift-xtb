@@ -1,7 +1,6 @@
 import XCTest
 import Accelerate
 import Numerics
-import QuartzCore
 
 final class LinearAlgebraTests: XCTestCase {
   // MARK: - Linear Algebra Functions
@@ -327,83 +326,68 @@ final class LinearAlgebraTests: XCTestCase {
   
   // Reproduce QR panel factorization (DLAHR2) from the Dongarra 2010 paper.
   func testPanelFactorization() {
-    // A partial elaboration of the pseudocode is shown below. Tasks:
-    // - Set up a matrix to partially factorize.
-    // - Perform Gram-Schmidt orthogonalization to get the Q and R matrices for
-    //   the first few columns.
-    // - Start implementing the pseudocode in Swift.
+    let originalMatrixA: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    let n: Int = 7
+    
+    // This represents 'A' for LAPACK. Do not confuse it with other variables
+    // that represent 'A' in custom code.
+    var A = [Float](repeating: 0, count: n * n)
+    for i in originalMatrixA.indices {
+      A[i] = originalMatrixA[i]
+    }
+    A = Self.transpose(matrix: A, n: n)
+    
+    var N = Int32(n)
+    var K = Int32(1)
+    var NB = Int32(n)
+    var LDA = Int32(n)
+    var TAU = [Float](repeating: 0, count: n)
+    var T = [Float](repeating: 0, count: n * n)
+    var LDT = Int32(n)
+    var Y = [Float](repeating: 0, count: n * n)
+    var LDY = Int32(n)
+    let INFO = slahr2_(&N, &K, &NB, &A, &LDA, &TAU, &T, &LDT, &Y, &LDY)
+    XCTAssertEqual(INFO, 0, "Received LAPACK error code: \(INFO)")
+    
+    // Return to row-major format.
+    A = Self.transpose(matrix: A, n: n)
+    T = Self.transpose(matrix: T, n: n)
+    Y = Self.transpose(matrix: Y, n: n)
+    
+    func displayMatrix(_ matrix: [Float], name: String) {
+      print()
+      print(name)
+      for rowID in 0..<n {
+        for columnID in 0..<n {
+          let address = rowID * n + columnID
+          let value = matrix[address]
+          print(value, terminator: ", ")
+        }
+        print()
+      }
+    }
+    displayMatrix(A, name: "LAPACK A")
+    displayMatrix(T, name: "LAPACK T")
+    displayMatrix(Y, name: "LAPACK Y")
+    print()
+    print("LAPACK TAU")
+    for columnID in 0..<n {
+      let value = TAU[columnID]
+      print(value, terminator: ", ")
+    }
+    print()
+    
+    // TODO:
+    // - Reproduce SLAHR2 in Swift.
+    // - Make the Swift results agree with LAPACK.
+    // - Make it blocked to reproduce SGEHRD.
   }
 }
-
-/*
- allocate A
- allocate V
- allocate T
- allocate Y
- n = 100
- nb = 10
- i = 0 // reduces the verbosity of some expressions
- 
- for j in 0..<nb {
-   // A[1..<n][j] -= Y[...][0..<j - 1] * A[j - 1][0..<j - 1]
-   for rowID in 1..<n {
-     load A[rowID][j]
-     var accumulator = A value
-     for columnID in 0..<j - 1 {
-       load Y[rowID][columnID]
-       load A[j - 1][columnID]
-       accumulator -= Y value * A value
-     }
-     store A[rowID][j] <- accumulator
-   }
-   
-   // A[1..<n][j] = (I - VT^H V^H) A[1..<n][j]
-   var vectorVA = [Float](count: j - 1)
-   for columnID in 0..<j - 1 {
-     var dotProduct = 0
-     for rowID in 1..<n {
-       load V[rowID][columnID]
-       load A[rowID][j]
-       dotProduct += V value * A value
-     }
-     store vectorVA[columnID] <- dotProduct
-   }
-   var vectorTVA = [Float](count: j - 1)
-   for columnID in 0..<j {
-     var dotProduct = 0
-     for rowID in 0..<j {
-       load T[rowID][columnID]
-       load vectorVA[rowID]
-       dotProduct += T value * vectorVA value
-     }
-     store vectorTVA[columnID] <- dotProduct
-   }
-   for rowID in 1..<n {
-     var accumulator = A value
-     for columnID in 0..<j - 1 {
-       load V[rowID][columnID]
-       load vectorTVA[columnID]
-       accumulator -= V value * vectorTVA value
-     }
-     store A[rowID][j] <- accumulator
-   }
- 
-   // (V[...][j], tau) = householder(j, A[j + 1..<n][j])
-   See the Householder transform generation in 'tridiagonalize'.
- 
-   // Y[...][j] = A[1..<n][j + 1..<n] V[...][j]
-   V[...][j] has zeroes above row j + 1
-   
-   T[0..<j - 1][j] = -tau T V^H V[...][j]
-   var vectorVHV = [Float](count: j - 1)
-   for columnID in 0..<j {
-     var dotProduct = 0
-     for rowID in 1..<n {
-       ...
-     }
-   }
-   for rowID in 0..<j - 1 {
-     ...
-   }
- }
- */
