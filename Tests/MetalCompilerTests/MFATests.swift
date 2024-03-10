@@ -181,19 +181,25 @@ constant ushort B_block_offset = A_block_offset + A_block_length;
 // MARK: - Utilities
 
 template <typename T>
-METAL_FUNC thread simdgroup_matrix_storage<T>* A_sram(thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin) {
+METAL_FUNC thread simdgroup_matrix_storage<T>* A_sram(
+  thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin
+) {
   // A_sram[M_simd][8]
   return sram + A_sram_offset + (matrix_origin.y / 8) * (8 / 8) + (matrix_origin.x / 8);
 }
 
 template <typename T>
-METAL_FUNC thread simdgroup_matrix_storage<T>* B_sram(thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin) {
+METAL_FUNC thread simdgroup_matrix_storage<T>* B_sram(
+  thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin
+) {
   // A_sram[8][N_simd]
   return sram + B_sram_offset + (matrix_origin.y / 8) * (N_simd / 8) + (matrix_origin.x / 8);
 }
 
 template <typename T>
-METAL_FUNC thread simdgroup_matrix_storage<T>* C_sram(thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin) {
+METAL_FUNC thread simdgroup_matrix_storage<T>* C_sram(
+  thread simdgroup_matrix_storage<T> *sram, ushort2 matrix_origin
+) {
   // C_sram[M_simd][N_simd]
   return sram + C_sram_offset + (matrix_origin.y / 8) * (N_simd / 8) + (matrix_origin.x / 8);
 }
@@ -226,7 +232,8 @@ METAL_FUNC void prefetch(threadgroup T *A_block, device T *A,
   simdgroup_event events[2];
   events[0].async_copy(A_block, A_block_leading_dim, A_tile_dst, A_src, 
                        A_leading_dim, A_tile_src, A_trans);
-  events[1].async_copy(B_block, B_block_leading_dim, B_tile_dst, B_src,                              B_leading_dim, B_tile_src, B_trans);
+  events[1].async_copy(B_block, B_block_leading_dim, B_tile_dst, B_src,                              
+                       B_leading_dim, B_tile_src, B_trans);
   simdgroup_event::wait(2, events);
 }
 

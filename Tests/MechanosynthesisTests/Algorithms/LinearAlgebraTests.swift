@@ -90,6 +90,11 @@ final class LinearAlgebraTests: XCTestCase {
   }
   
   // Reduce the matrix to tridiagonal form.
+  //
+  // No intermediate householder reflectors are returned, as this isn't
+  // the best algorithm for finding eigenvectors. When debugging, use
+  // tridiagonalization as a reference for eigenvalues, and the power method as
+  // a reference for eigenvectors.
   static func tridiagonalize(
     matrix originalMatrix: [Float],
     n: Int
@@ -336,10 +341,10 @@ final class LinearAlgebraTests: XCTestCase {
       69, 23, 9, -48, 7, 1, 9,
     ]
     let n: Int = 7
-    let blockSize: Int = 3
+    let nb: Int = 1
     
     var lapackA = [Float](repeating: 0, count: n * n)
-    var lapackT = [Float](repeating: 0, count: blockSize * blockSize)
+    var lapackT = [Float](repeating: 0, count: n * n)
     do {
       for i in originalMatrixA.indices {
         lapackA[i] = originalMatrixA[i]
@@ -347,16 +352,16 @@ final class LinearAlgebraTests: XCTestCase {
       lapackA = Self.transpose(matrix: lapackA, n: n)
       
       var M = Int32(n)
-      var N = Int32(blockSize)
+      var N = Int32(n)
       var LDA = Int32(n)
-      var LDT = Int32(blockSize)
+      var LDT = Int32(n)
       var INFO = Int32(0)
       sgeqrt2_(&M, &N, &lapackA, &LDA, &lapackT, &LDT, &INFO)
       XCTAssertEqual(INFO, 0, "Received LAPACK error code: \(INFO)")
       
       // Return to row-major format.
       lapackA = Self.transpose(matrix: lapackA, n: n)
-      lapackT = Self.transpose(matrix: lapackT, n: blockSize)
+      lapackT = Self.transpose(matrix: lapackT, n: n)
       
       print()
       print("LAPACK A")
@@ -371,9 +376,9 @@ final class LinearAlgebraTests: XCTestCase {
       
       print()
       print("LAPACK T")
-      for rowID in 0..<blockSize {
-        for columnID in 0..<blockSize {
-          let address = rowID * blockSize + columnID
+      for rowID in 0..<n {
+        for columnID in 0..<n {
+          let address = rowID * n + columnID
           let value = lapackT[address]
           print(value, terminator: ", ")
         }
@@ -381,108 +386,232 @@ final class LinearAlgebraTests: XCTestCase {
       }
     }
     
-    
-    
     var currentMatrixA = originalMatrixA
-    var currentMatrixT = [Float](repeating: 0, count: blockSize * blockSize)
+    var currentMatrixT = [Float](repeating: 0, count: n * n)
     var currentMatrixV = [Float](repeating: 0, count: n * n)
     
-    // Generate the reflectors.
-    for transformID in 0..<blockSize {
-      // Load the column into the cache.
-      var v = [Float](repeating: 0, count: n)
-      var columnNorm: Float = .zero
-      for rowID in transformID..<n {
-        let address = rowID * n + transformID
-        let entry = currentMatrixA[address]
-        v[rowID] = entry
-        columnNorm += entry * entry
-      }
-      columnNorm.formSquareRoot()
+    // TODO: Wrap this into a utility function that accepts an 'n by nb' panel.
+    // func panelFactorize(matrix:n:nb:) -> (V: [Float], T: [Float])
+    var blockStart: Int = 0
+    while blockStart < n {
+      let blockEnd = min(blockStart + nb, n)
+      defer { blockStart += nb }
       
-      // Generate elem. refl. H(i) to annihilate A(i+1:m,i), tau(I) -> T(I,1)
-      let oldSubdiagonal = v[transformID]
-      let newSubdiagonal = columnNorm * Float((oldSubdiagonal >= 0) ? -1 : 1)
-      v[transformID] = 1
-      for rowID in (transformID + 1)..<n {
-        v[rowID] /= oldSubdiagonal - newSubdiagonal
-      }
-      let τ = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+      // Load the panel into the cache. Note that, until some debugging is done,
+      // the panel memory allocation will be excessively large.
+      var panelMatrixA = [Float](repeating: 0, count: n * n)
+      panelMatrixA = currentMatrixA
       
-      // Store the column in main memory.
-      for rowID in 0..<n {
-        let address = rowID * n + transformID
-        currentMatrixV[address] = v[rowID]
-      }
-      currentMatrixT[transformID * blockSize + transformID] = τ
-      
-      // Apply H(i) to A(I:M,I+1:N) from the left
-      for columnID in 0..<blockSize {
-        var dotProduct: Float = .zero
-        for rowID in 0..<n {
-          let matrixAddress = rowID * n + columnID
-          let matrixValue = currentMatrixA[matrixAddress]
-          dotProduct += v[rowID] * matrixValue
+      // Generate the reflectors.
+      for transformID in blockStart..<blockEnd {
+        // Load the column into the cache.
+        var v = [Float](repeating: 0, count: n)
+        var columnNorm: Float = .zero
+        for rowID in transformID..<n {
+          let address = rowID * n + transformID
+          let entry = panelMatrixA[address]
+          v[rowID] = entry
+          columnNorm += entry * entry
         }
-        for rowID in 0..<n {
-          let matrixAddress = rowID * n + columnID
-          var matrixValue = currentMatrixA[matrixAddress]
-          matrixValue -= τ * v[rowID] * dotProduct
-          currentMatrixA[matrixAddress] = matrixValue
+        columnNorm.formSquareRoot()
+        
+        // Generate elem. refl. H(i) to annihilate A(i+1:m,i), tau(I) -> T(I,1)
+        let oldSubdiagonal = v[transformID]
+        let newSubdiagonal = columnNorm * Float((oldSubdiagonal >= 0) ? -1 : 1)
+        v[transformID] = 1
+        for rowID in (transformID + 1)..<n {
+          v[rowID] /= oldSubdiagonal - newSubdiagonal
         }
-      }
-    }
-    
-    // Perform a GEMM with non-square matrices.
-    var reflectorDotProducts = [Float](
-      repeating: 0, count: blockSize * blockSize)
-    for lhsID in 0..<blockSize {
-      for rhsID in 0..<blockSize {
-        var dotProduct: Float = .zero
+        let τ = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+        
+        // Store the column in main memory.
         for rowID in 0..<n {
-          let lhsAddress = rowID * n + lhsID
-          let rhsAddress = rowID * n + rhsID
-          let lhsValue = currentMatrixV[lhsAddress]
-          let rhsValue = currentMatrixV[rhsAddress]
-          dotProduct += lhsValue * rhsValue
+          let address = rowID * n + transformID
+          currentMatrixV[address] = v[rowID]
         }
-        let address = lhsID * blockSize + rhsID
-        reflectorDotProducts[address] = dotProduct
-      }
-    }
-    
-    // Generate the T matrix.
-    for transformID in 1..<blockSize {
-      // Load the column into the cache.
-      var t = [Float](repeating: 0, count: blockSize)
-      for rowID in 0..<transformID {
-        let address = rowID * blockSize + transformID
-        t[rowID] = reflectorDotProducts[address]
+        currentMatrixT[transformID * n + transformID] = τ
+        
+        // Apply H(i) to A(I:M,I+1:N) from the left
+        for columnID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for rowID in 0..<n {
+            let matrixAddress = rowID * n + columnID
+            let matrixValue = panelMatrixA[matrixAddress]
+            dotProduct += v[rowID] * matrixValue
+          }
+          for rowID in 0..<n {
+            let matrixAddress = rowID * n + columnID
+            var matrixValue = panelMatrixA[matrixAddress]
+            matrixValue -= τ * v[rowID] * dotProduct
+            panelMatrixA[matrixAddress] = matrixValue
+          }
+        }
       }
       
-      // This GEMV operation could be transformed into a panel GEMM,
-      // similar to the method used for classical Gram-Schmidt.
-      var tt = [Float](repeating: 0, count: blockSize)
-      let tau = currentMatrixT[transformID * blockSize + transformID]
-      for rowID in 0..<blockSize {
-        // Multiply with the preceding submatrix.
-        var dotProduct: Float = .zero
-        for columnID in 0..<blockSize {
-          let matrixAddress = rowID * blockSize + columnID
-          let matrixValue = currentMatrixT[matrixAddress]
-          let vectorValue = t[columnID]
-          dotProduct += matrixValue * vectorValue
+      // Perform a GEMM with non-square matrices.
+      var reflectorDotProducts = [Float](repeating: 0, count: nb * nb)
+      for lhsID in blockStart..<blockEnd {
+        for rhsID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for rowID in 0..<n {
+            let lhsAddress = rowID * n + lhsID
+            let rhsAddress = rowID * n + rhsID
+            let lhsValue = currentMatrixV[lhsAddress]
+            let rhsValue = currentMatrixV[rhsAddress]
+            dotProduct += lhsValue * rhsValue
+          }
+          let address = (lhsID - blockStart) * nb + (rhsID - blockStart)
+          reflectorDotProducts[address] = dotProduct
+        }
+      }
+      
+      // Generate the T matrix.
+      for transformID in blockStart..<blockEnd {
+        // Load the column into the cache.
+        var t = [Float](repeating: 0, count: nb)
+        for rowID in blockStart..<transformID {
+          let address = (rowID - blockStart) * nb + (transformID - blockStart)
+          t[rowID - blockStart] = reflectorDotProducts[address]
         }
         
-        // Scale by the value on the diagonal.
-        tt[rowID] = -tau * dotProduct
+        // This GEMV operation could be transformed into a panel GEMM,
+        // similarly to the method for accelerating classical Gram-Schmidt.
+        var tt = [Float](repeating: 0, count: nb)
+        let tau = currentMatrixT[transformID * n + transformID]
+        for rowID in blockStart..<blockEnd {
+          // Multiply with the preceding submatrix.
+          var dotProduct: Float = .zero
+          for columnID in blockStart..<blockEnd {
+            let address = (rowID - blockStart) * nb + (columnID - blockStart)
+            let matrixValue = currentMatrixT[address]
+            let vectorValue = t[columnID - blockStart]
+            dotProduct += matrixValue * vectorValue
+          }
+          
+          // Scale by the value on the diagonal.
+          tt[rowID - blockStart] = -tau * dotProduct
+        }
+        
+        // Store the column to main memory.
+        for rowID in blockStart..<transformID {
+          let address = rowID * n + transformID
+          currentMatrixT[address] = tt[rowID - blockStart]
+        }
       }
       
-      // Store the column to main memory.
-      for rowID in 0..<transformID {
-        let address = rowID * blockSize + transformID
-        currentMatrixT[address] = tt[rowID]
+      // Execute the compact WY transform. This consists of several matrix
+      // multiplications, which are split up for clarity.
+      print()
+      print("Compact WY Transform")
+      
+      // Operation 1: V T
+      var VT = [Float](repeating: 0, count: n * nb)
+      for rowID in 0..<n {
+        for columnID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for innerLoopID in blockStart..<blockEnd {
+            let valueV = currentMatrixV[rowID * n + innerLoopID]
+            let valueT = currentMatrixT[innerLoopID * n + columnID]
+            dotProduct += valueV * valueT
+          }
+          let addressVT = rowID * nb + (columnID - blockStart)
+          VT[addressVT] = dotProduct
+        }
       }
+      print("VT", VT)
+      
+      // Operation 2: A V T
+      var X = [Float](repeating: 0, count: n * nb)
+      for rowID in 0..<n {
+        for columnID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for innerLoopID in 0..<n {
+            let addressA = rowID * n + innerLoopID
+            let addressVT = innerLoopID * nb + (columnID - blockStart)
+            dotProduct += currentMatrixA[addressA] * VT[addressVT]
+          }
+          let addressX = rowID * nb + (columnID - blockStart)
+          X[addressX] = dotProduct
+        }
+      }
+      print("X", X)
+      
+      // Operation 3: V^H X
+      var VX = [Float](repeating: 0, count: nb * nb)
+      for lhsID in blockStart..<blockEnd {
+        for rhsID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for innerLoopID in 0..<n {
+            let addressV = innerLoopID * n + lhsID
+            let addressX = innerLoopID * nb + (rhsID - blockStart)
+            dotProduct += currentMatrixV[addressV] * X[addressX]
+          }
+          let addressVX = (lhsID - blockStart) * nb + (rhsID - blockStart)
+          VX[addressVX] = dotProduct
+        }
+      }
+      print("VX", VX)
+      
+      // Operation 4: T^H V^H X
+      var TVX = [Float](repeating: 0, count: nb * nb)
+      for lhsID in blockStart..<blockEnd {
+        for rhsID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for innerLoopID in blockStart..<blockEnd {
+            let addressT = innerLoopID * n + lhsID
+            let addressVX = (
+              innerLoopID - blockStart) * nb + (rhsID - blockStart)
+            dotProduct += currentMatrixT[addressT] * VX[addressVX]
+          }
+          let addressTVX = (lhsID - blockStart) * nb + (rhsID - blockStart)
+          TVX[addressTVX] = dotProduct
+        }
+      }
+      print("TVX", TVX)
+      
+      // Operation 5: X - (1 / 2) V (T^H V^H X)
+      var W = [Float](repeating: 0, count: n * nb)
+      for rowID in 0..<n {
+        for columnID in blockStart..<blockEnd {
+          var dotProduct: Float = .zero
+          for innerLoopID in blockStart..<blockEnd {
+            let addressV = rowID * n + innerLoopID
+            let addressTVX = (
+              innerLoopID - blockStart) * nb + (columnID - blockStart)
+            dotProduct += currentMatrixV[addressV] * TVX[addressTVX]
+          }
+          let address = rowID * nb + (columnID - blockStart)
+          W[address] = X[address] - 0.5 * dotProduct
+        }
+      }
+      print("W", W)
+      
+      // Operation 6: A - W V^H
+      for rowID in 0..<n {
+        for columnID in 0..<n {
+          var dotProduct: Float = .zero
+          for innerLoopID in blockStart..<blockEnd {
+            let addressW = rowID * nb + (innerLoopID - blockStart)
+            let addressV = columnID * n + innerLoopID
+            dotProduct += W[addressW] * currentMatrixV[addressV]
+          }
+          let address = rowID * n + columnID
+          let matrixValue = currentMatrixA[address]
+          currentMatrixA[address] = matrixValue - dotProduct
+        }
+      }
+      print("A", currentMatrixA)
+      
+      // Copy the panel into the original matrix.
+      for rowID in 0..<n {
+        for columnID in blockStart..<blockEnd {
+          let address = rowID * n + columnID
+          currentMatrixA[address] = panelMatrixA[address]
+        }
+      }
+      
+      // TODO: Omit when the WY transform is finished.
+//      currentMatrixA = panelMatrixA
     }
     
     print()
@@ -498,9 +627,9 @@ final class LinearAlgebraTests: XCTestCase {
     
     print()
     print("Custom T")
-    for rowID in 0..<blockSize {
-      for columnID in 0..<blockSize {
-        let address = rowID * blockSize + columnID
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
         let value = currentMatrixT[address]
         print(value, terminator: ", ")
       }
@@ -522,7 +651,7 @@ final class LinearAlgebraTests: XCTestCase {
     
     // TODO:
     // - Embed the raw numbers generated by LAPACK in assert statements.
-    // - Factorize all of the panels of the matrix.
+    // - Factorize all of the panels of the matrix in Swift.
     // - Remove the dependency on the LAPACK function that requires Swift 5.9.
   }
 }
