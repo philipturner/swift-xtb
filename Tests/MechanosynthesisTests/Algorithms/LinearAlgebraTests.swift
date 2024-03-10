@@ -328,4 +328,195 @@ final class LinearAlgebraTests: XCTestCase {
       }
     }
   }
+  
+  // Test the two-stage process for tridiagonalizing a matrix, and the
+  // aggregation of the Householder reflectors.
+  func testTwoStageTridiagonalization() throws {
+    var originalMatrixA: [Float] = [
+      7, 6, 5, 4, 3, 2, 1,
+      6, 7, 5, 4, 3, 2, 1,
+      2, -1, -1, 1, 2, 6, 8,
+      0.1, 0.2, 0.5, 0.5, 0.1, 0.2, 0.5,
+      -0.1, 0.2, -0.5, 0.5, -0.1, 0.2, -0.5,
+      -1, -2, -3, -5, -7, -9, -10,
+      69, 23, 9, -48, 7, 1, 9,
+    ]
+    let n: Int = 7
+    let nb: Int = 2
+    
+    // Make the matrix symmetric.
+    originalMatrixA = Self.matrixMultiply(
+      matrixA: originalMatrixA, 
+      matrixB: originalMatrixA,
+      transposeB: true, n: n)
+    
+    // Allocate main memory allocations.
+    var currentMatrixA = originalMatrixA
+    var currentReflectors = [Float](repeating: 0, count: n * n)
+    
+    // Reduce the matrix to band form, and collect up the reflectors.
+    var blockStart: Int = 0
+    while blockStart < n - nb {
+      // Adjust the loop end, to account for the factorization band offset.
+      let blockEnd = min(blockStart + nb, n - nb)
+      defer { blockStart += nb }
+      
+      // Load to panel into the cache, isolating mutations to the matrix A.
+      var panel = [Float](repeating: 0, count: nb * n)
+      for rowID in blockStart..<blockEnd {
+        for columnID in 0..<n {
+          let matrixAddress = rowID * n + columnID
+          let panelAddress = (rowID - blockStart) * n + columnID
+          panel[panelAddress] = currentMatrixA[matrixAddress]
+        }
+      }
+      
+      // Allocate cache memory for the reflectors.
+      var panelReflectors = [Float](repeating: 0, count: nb * n)
+      
+      // Generate the reflectors.
+      for reflectorID in blockStart..<blockEnd {
+        // Factor starting at an offset from the diagonal.
+        let bandOffset = reflectorID + nb
+        
+        // Load the row into the cache.
+        var vector = [Float](repeating: 0, count: n)
+        for elementID in 0..<n {
+          let address = (reflectorID - blockStart) * n + elementID
+          vector[elementID] = panel[address]
+        }
+        
+        // Apply preceding reflectors (from this panel) to the column.
+        for previousReflectorID in blockStart..<reflectorID {
+          // Load the reflector into the cache.
+          var reflector = [Float](repeating: 0, count: n)
+          for elementID in 0..<n {
+            let address = (previousReflectorID - blockStart) * n + elementID
+            reflector[elementID] = panelReflectors[address]
+          }
+          
+          // Apply the reflector.
+          var dotProduct: Float = .zero
+          for elementID in 0..<n {
+            dotProduct += reflector[elementID] * vector[elementID]
+          }
+          for elementID in 0..<n {
+            vector[elementID] -= reflector[elementID] * dotProduct
+          }
+        }
+        
+        // Zero out the elements above the band offset.
+        for elementID in 0..<bandOffset {
+          vector[elementID] = 0
+        }
+        
+        // Take the norm of the vector.
+        var norm: Float = .zero
+        for elementID in 0..<n {
+          norm += vector[elementID] * vector[elementID]
+        }
+        norm.formSquareRoot()
+        
+        // Modify the vector, turning it into a reflector.
+        let oldSubdiagonal = vector[bandOffset]
+        let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
+        let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+        for elementID in 0..<n {
+          var element = vector[elementID]
+          if elementID == bandOffset {
+            element = 1
+          } else {
+            element /= oldSubdiagonal - newSubdiagonal
+          }
+          element *= tau.squareRoot()
+          vector[elementID] = element
+        }
+        
+        // Store the reflector to the cache.
+        for elementID in 0..<n {
+          let address = (reflectorID - blockStart) * n + elementID
+          panelReflectors[address] = vector[elementID]
+        }
+      }
+      
+      // Apply the reflectors to the matrix, from both sides.
+      for directionID in 0..<2 {
+        for vectorID in 0..<n {
+          var vector = [Float](repeating: 0, count: n)
+          if directionID == 0 {
+            // Load the row into the cache.
+            for elementID in 0..<n {
+              let address = vectorID * n + elementID
+              vector[elementID] = currentMatrixA[address]
+            }
+          } else {
+            // Load the column into the cache.
+            for elementID in 0..<n {
+              let address = elementID * n + vectorID
+              vector[elementID] = currentMatrixA[address]
+            }
+          }
+          
+          for reflectorID in blockStart..<blockEnd {
+            // Load the reflector into the cache.
+            var reflector = [Float](repeating: 0, count: n)
+            for elementID in 0..<n {
+              let address = (reflectorID - blockStart) * n + elementID
+              reflector[elementID] = panelReflectors[address]
+            }
+            
+            // Apply the reflector.
+            var dotProduct: Float = .zero
+            for elementID in 0..<n {
+              dotProduct += reflector[elementID] * vector[elementID]
+            }
+            for elementID in 0..<n {
+              vector[elementID] -= reflector[elementID] * dotProduct
+            }
+          }
+          
+          if directionID == 0 {
+            // Store the row to main memory.
+            for elementID in 0..<n {
+              let address = vectorID * n + elementID
+              currentMatrixA[address] = vector[elementID]
+            }
+          } else {
+            // Store the column to main memory.
+            for elementID in 0..<n {
+              let address = elementID * n + vectorID
+              currentMatrixA[address] = vector[elementID]
+            }
+          }
+        }
+      }
+      
+      // Store the reflectors to main memory.
+      for reflectorID in blockStart..<blockEnd {
+        for elementID in 0..<n {
+          let cacheAddress = (reflectorID - blockStart) * n + elementID
+          let memoryAddress = reflectorID * n + elementID
+          currentReflectors[memoryAddress] = panelReflectors[cacheAddress]
+        }
+      }
+    }
+    
+    print()
+    print("Matrix A")
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
+        var value = currentMatrixA[address]
+        if value.magnitude < 1e-3 {
+          value = 0
+        }
+        print(value, terminator: ", ")
+      }
+      print()
+    }
+    
+    // Test: Diagonalize the banded matrix with standard techniques. Acquire
+    // the eigenvectors, then back-transform them using the reflectors. Ensure
+    // they return the same eigenvalue as expected.
+  }
 }
