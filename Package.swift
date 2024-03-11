@@ -4,65 +4,83 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
-var linkerSettings: [LinkerSetting] = []
+var targets: [Target] = []
 
+// MARK: - Apple Platforms
+
+var platforms: [SupportedPlatform] = []
+#if canImport(Darwin)
+platforms.append(.macOS(.v13))
+targets.append(
+  .target(
+    name: "MetalCompiler",
+    dependencies: []))
+targets.append(
+  .testTarget(
+    name: "MetalCompilerTests",
+    dependencies: ["MetalCompiler"]))
+#endif
+
+// MARK: - libxc
+
+var libxcLinkerSettings: [LinkerSetting] = []
 if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
-  linkerSettings = [
+  libxcLinkerSettings = [
     .unsafeFlags(["-L\(path)"]),
     .linkedLibrary("xc"),
   ]
 }
+targets.append(
+  .target(
+    name: "libxc",
+    dependencies: [],
+    linkerSettings: libxcLinkerSettings))
+targets.append(
+  .testTarget(
+    name: "libxcTests",
+    dependencies: ["libxc"]))
+
+// MARK: - Package Dependencies
+
+var packageDependencies: [Package.Dependency] = []
+packageDependencies.append(
+  .package(
+    url: "https://github.com/philipturner/swift-opencl",
+    branch: "main"))
+packageDependencies.append(
+  .package(
+    url: "https://github.com/philipturner/swift-numerics", 
+    branch: "Quaternions"))
+
+var targetDependencies: [Target.Dependency] = []
+targetDependencies.append(
+  .product(
+    name: "Numerics",
+    package: "swift-numerics"))
+targetDependencies.append(
+  .product(
+    name: "OpenCL",
+    package: "swift-opencl"))
+
+// MARK: - Package Manifest
+
+targets.append(
+  .target(
+    name: "Mechanosynthesis",
+    dependencies: targetDependencies))
+targets.append(
+  .testTarget(
+    name: "MechanosynthesisTests",
+    dependencies: ["Mechanosynthesis"]))
 
 let package = Package(
   name: "Mechanosynthesis",
-  platforms: [
-    .macOS(.v13)
-  ],
+  platforms: platforms,
   products: [
-    .library(
-      // Drop-in replacement for the JIT compiler that supports async copies.
-      // TODO: Gate this module under an #if APPLE macro.
-      name: "MetalCompiler",
-      targets: ["MetalCompiler"]),
     .library(
       name: "Mechanosynthesis",
       targets: ["Mechanosynthesis"]),
-    .library(
-      name: "libxc",
-      targets: ["libxc"]),
   ],
-  dependencies: [
-    // The OpenCL dependency is primarily for AMD and Nvidia GPUs.
-    .package(url: "https://github.com/philipturner/swift-opencl", branch: "main"),
-    .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
-  ],
-  targets: [
-    // Modules
-    .target(
-      name: "MetalCompiler",
-      dependencies: []),
-    .target(
-      name: "Mechanosynthesis",
-      dependencies: [
-        "libxc",
-        .product(name: "Numerics", package: "swift-numerics"),
-        .product(name: "OpenCL", package: "swift-opencl"),
-      ]),
-    .target(
-      name: "libxc",
-      dependencies: [],
-      linkerSettings: linkerSettings),
-    
-    // Tests
-    .testTarget(
-      name: "MetalCompilerTests",
-      dependencies: [
-        "MetalCompiler"
-      ]),
-    .testTarget(
-      name: "MechanosynthesisTests",
-      dependencies: [
-        "Mechanosynthesis",
-      ]),
-  ]
+  dependencies: packageDependencies,
+  targets: targets
 )
