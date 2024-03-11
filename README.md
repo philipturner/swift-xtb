@@ -19,3 +19,8 @@ Goals:
 - [DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
   - More accurate than the B3LYP functional used for mechanosynthesis research.
   - Provide all DM21 variants, in addition to the functionals from libxc.
+
+Documentation:
+- [Dependencies](./Documentation/Pages/Dependencies.md)
+- [Relativity Corrections](./Documentation/Pages/RelativityCorrections)
+- [Screened Exchange](./Documentation/Pages/ScreenedExchange.md)

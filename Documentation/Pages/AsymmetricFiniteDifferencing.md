@@ -1,6 +1,6 @@
 # Asymmetric Finite Differencing
 
-> Early on, it seemed that finite difference operators would need to reach across multiple resolution levels. That may not be necessary based on the most recent plans. These equations are kept around as documentation, for reference.
+> Early on, it seemed that finite difference operators would need to reach across multiple resolution levels. That may not be necessary based on the most recent plans. These equations are kept around as an archive, for reference.
 
 Variable-resolution orbitals require asymmetric finite differencing. Custom finite difference coefficients were derived for the boundaries between multigrid levels.
 
