@@ -581,8 +581,14 @@ final class LinearAlgebraTests: XCTestCase {
         matrixB: originalMatrixA,
         transposeB: true, n: n)
       
-      let (eigenvalues, eigenvectors) = diagonalize(
-        matrix: originalMatrixA, n: n, nb: nb)
+      var diagonalizationDesc = DiagonalizationDescriptor()
+      diagonalizationDesc.matrix = originalMatrixA
+      diagonalizationDesc.n = n
+      diagonalizationDesc.nb = nb
+      
+      let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+      let eigenvalues = diagonalization.eigenvalues
+      let eigenvectors = diagonalization.eigenvectors
       
       let expectedEigenvalues: [Float] = [
         0.0011429853, 0.5075689, 0.75631386, 6.188949, 145.55783, 443.30386,

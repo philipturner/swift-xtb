@@ -52,18 +52,3 @@ func divideAndConquer(matrix: [Float], n: Int) -> (
   // Return the eigenpairs.
   return (eigenvalues: D, eigenvectors: Z)
 }
-
-// MARK: - Temporary Function
-
-// Returns the transpose of a square matrix.
-func transpose(matrix: [Float], n: Int) -> [Float] {
-  var output = [Float](repeating: 0, count: n * n)
-  for rowID in 0..<n {
-    for columnID in 0..<n {
-      let oldAddress = columnID * n + rowID
-      let newAddress = rowID * n + columnID
-      output[newAddress] = matrix[oldAddress]
-    }
-  }
-  return output
-}
