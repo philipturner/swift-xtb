@@ -227,7 +227,7 @@ final class LinearAlgebraTests: XCTestCase {
     return (eigenvalues: D, eigenvectors: Z)
   }
   
-  // MARK: - Tests
+  // MARK: - Tests (Permanent)
   
   // Use the utility function from LAPACK to diagonalize a tridiagonal matrix.
   func testDivideAndConquer() throws {
@@ -341,6 +341,197 @@ final class LinearAlgebraTests: XCTestCase {
     }
   }
   
+  // This test covers an algorithm for generating bulge chasing sequences.
+  func testBulgeChasing() throws {
+    testMatrix(n: 3, nb: 2)
+    testMatrix(n: 4, nb: 2)
+    testMatrix(n: 4, nb: 3)
+    testMatrix(n: 6, nb: 2)
+    testMatrix(n: 10, nb: 2)
+    testMatrix(n: 10, nb: 3)
+    testMatrix(n: 10, nb: 4)
+    testMatrix(n: 10, nb: 8)
+    testMatrix(n: 10, nb: 9)
+    testMatrix(n: 11, nb: 2)
+    testMatrix(n: 11, nb: 3)
+    testMatrix(n: 11, nb: 4)
+    testMatrix(n: 11, nb: 8)
+    testMatrix(n: 11, nb: 9)
+    testMatrix(n: 11, nb: 10)
+    testMatrix(n: 19, nb: 5)
+    testMatrix(n: 27, nb: 8)
+    testMatrix(n: 32, nb: 8)
+    testMatrix(n: 33, nb: 8)
+    
+    func testMatrix(n: Int, nb: Int) {
+      var matrixA = [Int](repeating: 0, count: n * n)
+      for vectorID in 0..<n {
+        let address = vectorID * n + vectorID
+        matrixA[address] = 1
+        
+        for subDiagonalID in 1...nb {
+          if vectorID + subDiagonalID < n {
+            let addressLower = (vectorID + subDiagonalID) * n + vectorID
+            let addressUpper = vectorID * n + (vectorID + subDiagonalID)
+            matrixA[addressUpper] = 1
+            matrixA[addressLower] = 1
+          }
+        }
+      }
+      
+      // [sweepID, startColumnID, startRowID, endRowID]
+      var bulgeChasingSequence: [SIMD4<Int>] = []
+      
+      func startSweep(sweepID: Int) {
+        let startVectorID = sweepID + 1
+        guard startVectorID < n - 1 else {
+          fatalError("Attempted a sweep that will not generate any bulges.")
+        }
+        let endVectorID = min(sweepID + nb + 1, n)
+        bulgeChasingSequence.append(SIMD4(
+          sweepID, sweepID, startVectorID, endVectorID))
+        
+        var nextBulgeCornerID: SIMD2<Int>?
+        nextBulgeCornerID = applyBulgeChase(
+          startColumnID: sweepID,
+          startRowID: startVectorID,
+          endRowID: endVectorID)
+        while nextBulgeCornerID != nil {
+          let cornerRowID = nextBulgeCornerID![0]
+          let cornerColumnID = nextBulgeCornerID![1]
+          let endVectorID = cornerRowID + 1
+          let startVectorID = cornerColumnID + nb
+          
+          if endVectorID - startVectorID > 1 {
+            bulgeChasingSequence.append(SIMD4(
+              sweepID, cornerColumnID, startVectorID, endVectorID))
+            
+            nextBulgeCornerID = applyBulgeChase(
+              startColumnID: cornerColumnID,
+              startRowID: startVectorID,
+              endRowID: endVectorID)
+          } else {
+            nextBulgeCornerID = nil
+          }
+        }
+      }
+      
+      // Returns the location of the next bulge to chase.
+      // - startColumnID: The reflector projected onto the main diagonal.
+      // - startRowID: The element ID to pivot on.
+      // - endRowID: One past the last element to affect.
+      func applyBulgeChase(
+        startColumnID: Int,
+        startRowID: Int,
+        endRowID: Int
+      ) -> SIMD2<Int>? {
+        // Apply Householder reflections to the first column.
+        for rowID in startRowID..<endRowID {
+          if rowID != startRowID {
+            let addressLower = rowID * n + startColumnID
+            let addressUpper = startColumnID * n + rowID
+            matrixA[addressLower] = 0
+            matrixA[addressUpper] = 0
+          }
+        }
+        
+        // Loop until you don't find any more ones.
+        var nextBulgeCornerID: SIMD2<Int>? // (row, column)
+        for columnID in (startColumnID + 1)..<n {
+          var foundOne = false
+          for rowID in startRowID..<endRowID {
+            let address = rowID * n + columnID
+            if matrixA[address] == 1 {
+              foundOne = true
+            }
+          }
+          guard foundOne else {
+            break
+          }
+          for rowID in startRowID..<endRowID {
+            let addressLower = rowID * n + columnID
+            let addressUpper = columnID * n + rowID
+            matrixA[addressLower] = 1
+            matrixA[addressUpper] = 1
+          }
+          
+          // The column and row ID refer to the coordinates on the other side
+          // of the symmetric matrix.
+          nextBulgeCornerID = SIMD2(columnID, startRowID)
+        }
+        return nextBulgeCornerID
+      }
+      
+      guard nb > 1 else {
+        // The above chaser failed for this edge case. Bake the zero-operation
+        // condition into the algorithm for predicting sequences.
+        fatalError("Cannot perform bulge chasing when nb = 1.")
+      }
+      for sweepID in 0..<max(0, n - 2) {
+        startSweep(sweepID: sweepID)
+      }
+      
+      var chasingOperationCursor = 0
+      func assertNextOperation(
+        sweepID: Int, startColumnID: Int,
+        startRowID: Int, endRowID: Int
+      ) {
+        guard chasingOperationCursor < bulgeChasingSequence.count else {
+          XCTFail("Overflowed the chasing sequence buffer.")
+          return
+        }
+        let currentOperation = bulgeChasingSequence[chasingOperationCursor]
+        
+        XCTAssertEqual(
+          sweepID, currentOperation[0],
+          "sequence[\(chasingOperationCursor)]/sweepID")
+        XCTAssertEqual(
+          startColumnID, currentOperation[1],
+          "sequence[\(chasingOperationCursor)]/startColumnID")
+        XCTAssertEqual(
+          startRowID, currentOperation[2],
+          "sequence[\(chasingOperationCursor)]/startRowID")
+        XCTAssertEqual(
+          endRowID, currentOperation[3],
+          "sequence[\(chasingOperationCursor)]/endRowID")
+        
+        chasingOperationCursor += 1
+      }
+      
+      for sweepID in 0..<max(0, n - 2) {
+        let startVectorID = sweepID + 1
+        var endVectorID = sweepID + nb + 1
+        endVectorID = min(endVectorID, n)
+        guard endVectorID - startVectorID > 1 else {
+          fatalError("Generated empty Householder transform.")
+        }
+        assertNextOperation(
+          sweepID: sweepID, startColumnID: sweepID,
+          startRowID: startVectorID, endRowID: endVectorID)
+        
+        var operationID = 1
+        while true {
+          let startColumnID = (sweepID - nb + 1) + operationID * nb
+          let startVectorID = (sweepID + 1) + operationID * nb
+          var endVectorID = (sweepID + nb + 1) + operationID * nb
+          endVectorID = min(endVectorID, n)
+          
+          if endVectorID - startVectorID > 1 {
+            assertNextOperation(
+              sweepID: sweepID, startColumnID: startColumnID,
+              startRowID: startVectorID, endRowID: endVectorID)
+          } else {
+            break
+          }
+          operationID += 1
+        }
+      }
+      XCTAssertEqual(chasingOperationCursor, bulgeChasingSequence.count)
+    }
+  }
+  
+  // MARK: - Experimental Algorithm Development
+  
   // Test the two-stage process for tridiagonalizing a matrix, and the
   // aggregation of the Householder reflectors.
   func testTwoStageTridiagonalization() throws {
@@ -350,6 +541,14 @@ final class LinearAlgebraTests: XCTestCase {
     // - Run benchmarks, starting with the unoptimized single-core CPU code.
     //   This marks the beginning of the optimization process, which should
     //   end with GPU acceleration.
+    //
+    // 2) Integrate the algorithm into the original test.
+    // 3) Store the Householder transforms in a compact matrix, but don't batch
+    //    them together for efficiency yet.
+    // 4) Start benchmarking **correctness** of the eigensolver against
+    //    `ssyevd_`. Look especially hard at the test cases where Accelerate's
+    //    two-stage eigenvalue solver failed. Enforce correct behavior for
+    //    extremely small matrices (1x1, 2x2, 3x3, 4x4).
     var originalMatrixA: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -872,160 +1071,5 @@ final class LinearAlgebraTests: XCTestCase {
     }
   }
   
-  // This tests covers an algorithm for generating bulge chasing sequences. In
-  // addition, the organization of Householder transforms into groups that can
-  // be computed more efficiently (both forward and backward pass).
-  func testBulgeChasing() throws {
-    let n: Int = 19
-    let nb: Int = 5
-    
-    var matrixA = [Int](repeating: 0, count: n * n)
-    for vectorID in 0..<n {
-      let address = vectorID * n + vectorID
-      matrixA[address] = 1
-      
-      for subDiagonalID in 1...nb {
-        if vectorID + subDiagonalID < n {
-          let addressLower = (vectorID + subDiagonalID) * n + vectorID
-          let addressUpper = vectorID * n + (vectorID + subDiagonalID)
-          matrixA[addressUpper] = 1
-          matrixA[addressLower] = 1
-        }
-      }
-    }
-    
-    print()
-    print("Matrix A")
-    for rowID in 0..<n {
-      for columnID in 0..<n {
-        let address = rowID * n + columnID
-        print(matrixA[address] == 0 ? " " : "X", terminator: " ")
-      }
-      print()
-    }
-    
-    // [startColumnID, startRowID, endRowID]
-    var bulgeChasingSequence: [SIMD3<Int>] = []
-    
-    func startSweep(sweepID: Int) {
-      let startVectorID = sweepID + 1
-      guard startVectorID < n - 1 else {
-        fatalError("Attempted a sweep that will not generate any bulges.")
-      }
-      let endVectorID = min(sweepID + nb + 1, n)
-      print("cornerColumnID=\(sweepID) startVectorID=\(startVectorID) endVectorID=\(endVectorID)")
-      bulgeChasingSequence.append(SIMD3(sweepID, startVectorID, endVectorID))
-      
-      var nextBulgeCornerID: SIMD2<Int>?
-      nextBulgeCornerID = applyBulgeChase(
-        startColumnID: sweepID,
-        startRowID: startVectorID,
-        endRowID: endVectorID)
-      while nextBulgeCornerID != nil {
-        print("Next bulge corner ID:", nextBulgeCornerID!)
-        let cornerRowID = nextBulgeCornerID![0]
-        let cornerColumnID = nextBulgeCornerID![1]
-        let endVectorID = cornerRowID + 1
-        let startVectorID = cornerColumnID + nb
-        
-        print()
-        print("Matrix A")
-        for rowID in 0..<n {
-          for columnID in 0..<n {
-            let address = rowID * n + columnID
-            print(matrixA[address] == 0 ? " " : "X", terminator: " ")
-          }
-          print()
-        }
-        
-        if endVectorID - startVectorID > 1 {
-          print("cornerRowID=\(cornerRowID) cornerColumnID=\(cornerColumnID) startVectorID=\(startVectorID) endVectorID=\(endVectorID)")
-          bulgeChasingSequence.append(SIMD3(
-            cornerColumnID, startVectorID, endVectorID))
-          
-          nextBulgeCornerID = applyBulgeChase(
-            startColumnID: cornerColumnID,
-            startRowID: startVectorID,
-            endRowID: endVectorID)
-        } else {
-          nextBulgeCornerID = nil
-        }
-      }
-    }
-    
-    // Returns the location of the next bulge to chase.
-    // - startColumnID: The reflector projected onto the main diagonal.
-    // - startRowID: The element ID to pivot on.
-    // - endRowID: One past the last element to affect.
-    func applyBulgeChase(
-      startColumnID: Int,
-      startRowID: Int,
-      endRowID: Int
-    ) -> SIMD2<Int>? {
-      // Apply Householder reflections to the first column.
-      for rowID in startRowID..<endRowID {
-        if rowID != startRowID {
-          let addressLower = rowID * n + startColumnID
-          let addressUpper = startColumnID * n + rowID
-          matrixA[addressLower] = 0
-          matrixA[addressUpper] = 0
-        }
-      }
-      
-      // Loop until you don't find any more ones.
-      var nextBulgeCornerID: SIMD2<Int>? // (row, column)
-      for columnID in (startColumnID + 1)..<n {
-        var foundOne = false
-        for rowID in startRowID..<endRowID {
-          let address = rowID * n + columnID
-          if matrixA[address] == 1 {
-            foundOne = true
-          }
-        }
-        guard foundOne else {
-          break
-        }
-        for rowID in startRowID..<endRowID {
-          let addressLower = rowID * n + columnID
-          let addressUpper = columnID * n + rowID
-          matrixA[addressLower] = 1
-          matrixA[addressUpper] = 1
-        }
-        
-        // The column and row ID refer to the coordinates on the other side of
-        // the symmetric matrix.
-        nextBulgeCornerID = SIMD2(columnID, startRowID)
-      }
-      return nextBulgeCornerID
-    }
-    
-    guard nb > 1 else {
-      // The above chaser failed for this edge case. Bake the zero-operation
-      // condition into the algorithm for predicting sequences.
-      fatalError("Cannot perform bulge chasing when nb = 1.")
-    }
-    for sweepID in 0..<max(0, n - 2) {
-      startSweep(sweepID: sweepID)
-      
-      
-    }
-    
-    print()
-    print("Bulge Chasing Sequence")
-    print("[")
-    for operation in bulgeChasingSequence {
-      print("  \(operation),")
-    }
-    print("]")
-    
-    // 1) Validate an algorithm to predict the sequence, create a permanent
-    //    unit test for it.
-    // 2) Integrate the algorithm into the original test.
-    // 3) Experiment with compressing and reordering the list of Householder
-    //    transforms. Check whether the proposed diamond grouping
-    //    back-transforms the vectors correctly.
-    // 4) Start benchmarking **correctness** of the eigensolver against
-    //    `ssyevd_`. Look especially hard at the test cases where Accelerate's
-    //    two-stage eigenvalue solver failed.
-  }
+  
 }
