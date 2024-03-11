@@ -332,6 +332,13 @@ final class LinearAlgebraTests: XCTestCase {
   // Test the two-stage process for tridiagonalizing a matrix, and the
   // aggregation of the Householder reflectors.
   func testTwoStageTridiagonalization() throws {
+    // TODO:
+    // - Get a fully functioning transformation to/from the tridiagonal form.
+    // - Connect this to the LAPACK D&C diagonalizer.
+    // - Test the full-stack diagonalizer against adversarial edge cases.
+    // - Run benchmarks, starting with the unoptimized single-core CPU code.
+    //   This marks the beginning of the optimization process, which should
+    //   end with GPU acceleration.
     var originalMatrixA: [Float] = [
       7, 6, 5, 4, 3, 2, 1,
       6, 7, 5, 4, 3, 2, 1,
@@ -342,11 +349,11 @@ final class LinearAlgebraTests: XCTestCase {
       69, 23, 9, -48, 7, 1, 9,
     ]
     let n: Int = 7
-    let nb: Int = 2
+    let nb: Int = 3
     
     // Make the matrix symmetric.
     originalMatrixA = Self.matrixMultiply(
-      matrixA: originalMatrixA, 
+      matrixA: originalMatrixA,
       matrixB: originalMatrixA,
       transposeB: true, n: n)
     
@@ -515,6 +522,117 @@ final class LinearAlgebraTests: XCTestCase {
       print()
     }
     
+    // MARK: - Bulge Chasing
+    
+    chaseBulge(reflectorID: 0, diagonalOffset: 2)
+    chaseBulge(reflectorID: 1, diagonalOffset: 2)
+    chaseBulge(reflectorID: 2, diagonalOffset: 2)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
+    chaseBulge(reflectorID: 0, diagonalOffset: 1)
+    chaseBulge(reflectorID: 1, diagonalOffset: 1)
+    chaseBulge(reflectorID: 2, diagonalOffset: 1)
+    chaseBulge(reflectorID: 3, diagonalOffset: 1)
+    chaseBulge(reflectorID: 4, diagonalOffset: 1)
+    
+    func chaseBulge(reflectorID: Int, diagonalOffset: Int) {
+      let bandOffset = reflectorID + diagonalOffset
+      
+      // Load the row into the cache.
+      var vector = [Float](repeating: 0, count: n)
+      for elementID in bandOffset..<n {
+        let address = reflectorID * n + elementID
+        vector[elementID] = currentMatrixA[address]
+      }
+      print()
+      print("bulge row:", vector)
+      
+      // Take the norm of the vector.
+      var norm: Float = .zero
+      for elementID in 0..<n {
+        norm += vector[elementID] * vector[elementID]
+      }
+      norm.formSquareRoot()
+      
+      // Modify the vector, turning it into a reflector.
+      let oldSubdiagonal = vector[bandOffset]
+      let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
+      let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+      for elementID in 0..<n {
+        var element = vector[elementID]
+        if elementID == bandOffset {
+          element = 1
+        } else {
+          element /= oldSubdiagonal - newSubdiagonal
+        }
+        element *= tau.squareRoot()
+        vector[elementID] = element
+      }
+      print("bulge reflector:", vector)
+      
+      // Apply the reflector to the matrix, from both sides.
+      let reflector = vector
+      for directionID in 0..<2 {
+        for vectorID in 0..<n {
+          var vector = [Float](repeating: 0, count: n)
+          if directionID == 0 {
+            // Load the row into the cache.
+            for elementID in 0..<n {
+              let address = vectorID * n + elementID
+              vector[elementID] = currentMatrixA[address]
+            }
+          } else {
+            // Load the column into the cache.
+            for elementID in 0..<n {
+              let address = elementID * n + vectorID
+              vector[elementID] = currentMatrixA[address]
+            }
+          }
+          
+          // Apply the reflector.
+          var dotProduct: Float = .zero
+          for elementID in 0..<n {
+            dotProduct += reflector[elementID] * vector[elementID]
+          }
+          for elementID in 0..<n {
+            vector[elementID] -= reflector[elementID] * dotProduct
+          }
+          
+          if directionID == 0 {
+            // Store the row to main memory.
+            for elementID in 0..<n {
+              let address = vectorID * n + elementID
+              currentMatrixA[address] = vector[elementID]
+            }
+          } else {
+            // Store the column to main memory.
+            for elementID in 0..<n {
+              let address = elementID * n + vectorID
+              currentMatrixA[address] = vector[elementID]
+            }
+          }
+        }
+      }
+      
+      for rowID in 0..<n {
+        for columnID in 0..<n {
+          let address = rowID * n + columnID
+          var value = currentMatrixA[address]
+          if value.magnitude < 1e-3 {
+            value = 0
+          }
+          print(value, terminator: ", ")
+        }
+        print()
+      }
+    }
+    
+    // MARK: - Validation Testing
+    
+    if Bool.random() || true {
+      return
+    }
+    
     // Test: Diagonalize the banded matrix with standard techniques. Acquire
     // the eigenvectors, then back-transform them using the reflectors. Ensure
     // they return the same eigenvalue as expected.
@@ -534,7 +652,7 @@ final class LinearAlgebraTests: XCTestCase {
       if showDiagonistics { print("iteration \(iterationID)") }
       
       // WARNING: Remember that this diagonalizer uses row-major layout.
-      var HΨ = Self.matrixMultiply(matrixA: H, matrixB: Ψ, n: n)
+      let HΨ = Self.matrixMultiply(matrixA: H, matrixB: Ψ, n: n)
       var ΨHΨ = [Float](repeating: 0, count: n)
       var E = [Float](repeating: 0, count: n)
       for vectorID in 0..<n {
