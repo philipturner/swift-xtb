@@ -518,5 +518,78 @@ final class LinearAlgebraTests: XCTestCase {
     // Test: Diagonalize the banded matrix with standard techniques. Acquire
     // the eigenvectors, then back-transform them using the reflectors. Ensure
     // they return the same eigenvalue as expected.
+    var eigenvectors = [Float](repeating: 0, count: n * n)
+    for diagonalElementID in 0..<n {
+      let address = diagonalElementID * n + diagonalElementID
+      eigenvectors[address] = 1
+    }
+    
+    print()
+    print("diagonalizing band matrix")
+    let H = currentMatrixA
+    var Ψ = eigenvectors
+    for iterationID in 0..<30 {
+      print("iteration \(iterationID)")
+      
+      // WARNING: Remember that this diagonalizer uses row-major layout.
+      var HΨ = Self.matrixMultiply(matrixA: H, matrixB: Ψ, n: n)
+      var E = [Float](repeating: 0, count: n)
+      for vectorID in 0..<n {
+        var rayleighQuotient: Float = .zero
+        for elementID in 0..<n {
+          let address = elementID * n + vectorID
+          rayleighQuotient += HΨ[address] * Ψ[address]
+        }
+        E[vectorID] = rayleighQuotient
+      }
+      print("rayleigh quotients:", E)
+      
+      // Display the residuals.
+      var residualNorms = [Float](repeating: 0, count: n)
+      for vectorID in 0..<n {
+        var residualNorm: Float = .zero
+        let eigenvalue = E[vectorID]
+        for elementID in 0..<n {
+          let address = elementID * n + vectorID
+          let residualElement = HΨ[address] - eigenvalue * Ψ[address]
+          residualNorm += residualElement * residualElement
+        }
+        residualNorm.formSquareRoot()
+        residualNorms[vectorID] = residualNorm
+      }
+      print("residuals:", residualNorms)
+      
+      // Overwrite the vectors with the versions scaled by the eigenvalues.
+      Ψ = HΨ
+      
+      // Sort the vectors by magnitude of rayleigh quotient.
+      var sortedQuotients: [SIMD2<Float>] = []
+      
+      for vectorID in 0..<n {
+        let key = E[vectorID]
+        let value = Float(vectorID)
+        sortedQuotients.append(SIMD2(key, value))
+      }
+      sortedQuotients.sort(by: { $0.x.magnitude > $1.x.magnitude })
+      
+      var newE = Array(repeating: Float.zero, count: E.count)
+      var newΨ = Array(repeating: Float.zero, count: Ψ.count)
+      for newVectorID in 0..<n {
+        let oldVectorID = Int(sortedQuotients[newVectorID][1])
+        newE[newVectorID] = E[oldVectorID]
+        for elementID in 0..<n {
+          let oldAddress = elementID * n + oldVectorID
+          let newAddress = elementID * n + newVectorID
+          newΨ[newAddress] = Ψ[oldAddress]
+        }
+      }
+      E = newE
+      Ψ = newΨ
+      
+      // Orthonormalize the eigenvectors.
+      Ψ = Self.modifiedGramSchmidt(matrix: Ψ, n: n)
+      
+    }
+    eigenvectors = Ψ
   }
 }
