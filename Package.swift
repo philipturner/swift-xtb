@@ -14,7 +14,7 @@ if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
 }
 
 let package = Package(
-  name: "mechanosynthesis",
+  name: "Mechanosynthesis",
   platforms: [
     .macOS(.v13)
   ],
