@@ -528,21 +528,29 @@ final class LinearAlgebraTests: XCTestCase {
     print("diagonalizing band matrix")
     let H = currentMatrixA
     var Ψ = eigenvectors
-    for iterationID in 0..<30 {
-      print("iteration \(iterationID)")
+    let iterationCount: Int = 30
+    for iterationID in 0..<iterationCount {
+      let showDiagonistics = (iterationID % 5 == 0) || (iterationID == iterationCount - 1)
+      if showDiagonistics { print("iteration \(iterationID)") }
       
       // WARNING: Remember that this diagonalizer uses row-major layout.
       var HΨ = Self.matrixMultiply(matrixA: H, matrixB: Ψ, n: n)
+      var ΨHΨ = [Float](repeating: 0, count: n)
       var E = [Float](repeating: 0, count: n)
       for vectorID in 0..<n {
         var rayleighQuotient: Float = .zero
+        var energy: Float = .zero
         for elementID in 0..<n {
           let address = elementID * n + vectorID
           rayleighQuotient += HΨ[address] * Ψ[address]
+          energy += HΨ[address] * HΨ[address]
         }
-        E[vectorID] = rayleighQuotient
+        energy.formSquareRoot()
+        ΨHΨ[vectorID] = rayleighQuotient
+        E[vectorID] = energy
       }
-      print("rayleigh quotients:", E)
+      if showDiagonistics { print("rayleigh quotients:", ΨHΨ) }
+      if showDiagonistics { print("energies:", E) }
       
       // Display the residuals.
       var residualNorms = [Float](repeating: 0, count: n)
@@ -557,7 +565,7 @@ final class LinearAlgebraTests: XCTestCase {
         residualNorm.formSquareRoot()
         residualNorms[vectorID] = residualNorm
       }
-      print("residuals:", residualNorms)
+      if showDiagonistics { print("residuals:", residualNorms) }
       
       // Overwrite the vectors with the versions scaled by the eigenvalues.
       Ψ = HΨ
@@ -566,7 +574,7 @@ final class LinearAlgebraTests: XCTestCase {
       var sortedQuotients: [SIMD2<Float>] = []
       
       for vectorID in 0..<n {
-        let key = E[vectorID]
+        let key = ΨHΨ[vectorID]
         let value = Float(vectorID)
         sortedQuotients.append(SIMD2(key, value))
       }
@@ -588,8 +596,91 @@ final class LinearAlgebraTests: XCTestCase {
       
       // Orthonormalize the eigenvectors.
       Ψ = Self.modifiedGramSchmidt(matrix: Ψ, n: n)
-      
     }
     eigenvectors = Ψ
+    
+    // Display the eigenvectors before the transformation.
+    print()
+    print("eigenvectors before transformation")
+    for vectorID in 0..<n {
+      var vector = [Float](repeating: 0, count: n)
+      var eigenvalue: Float = .zero
+      let matrixRow = Int.random(in: 0..<n)
+      for elementID in 0..<n {
+        let vectorAddress = elementID * n + vectorID
+        let vectorValue = eigenvectors[vectorAddress]
+        vector[elementID] = vectorValue
+        
+        // Read data from the current storage for matrix A.
+        let matrixAddress = matrixRow * n + elementID
+        let matrixValue = currentMatrixA[matrixAddress]
+        eigenvalue += matrixValue * vectorValue
+        
+      }
+      eigenvalue /= vector[matrixRow]
+      print("Ψ[\(eigenvalue)]:", vector)
+    }
+    
+    // Transpose the eigenvectors into column-major format.
+    eigenvectors = Self.transpose(matrix: eigenvectors, n: n)
+    
+    // Back-transform the eigenvectors.
+    print()
+    print("back-transforming eigenvectors")
+    for vectorID in 0..<n {
+      // Load the vector into the cache.
+      var vector = [Float](repeating: 0, count: n)
+      for elementID in 0..<n {
+        let address = vectorID * n + elementID
+        vector[elementID] = eigenvectors[address]
+      }
+      
+      for reflectorID in (0..<n).reversed() {
+        // Load the reflector into the cache.
+        var reflector = [Float](repeating: 0, count: n)
+        for elementID in 0..<n {
+          let address = reflectorID * n + elementID
+          reflector[elementID] = currentReflectors[address]
+        }
+        
+        // Apply the reflector.
+        var dotProduct: Float = .zero
+        for elementID in 0..<n {
+          dotProduct += reflector[elementID] * vector[elementID]
+        }
+        for elementID in 0..<n {
+          vector[elementID] -= reflector[elementID] * dotProduct
+        }
+      }
+      print("v[\(vectorID)]", vector)
+      
+      // Store the vector to main memory.
+      for elementID in 0..<n {
+        let address = vectorID * n + elementID
+        eigenvectors[address] = vector[elementID]
+      }
+    }
+    
+    // Display the eigenvectors after the transformation.
+    print()
+    print("eigenvectors after transformation")
+    for vectorID in 0..<n {
+      var vector = [Float](repeating: 0, count: n)
+      var eigenvalue: Float = .zero
+      let matrixRow = Int.random(in: 0..<n)
+      for elementID in 0..<n {
+        let vectorAddress = vectorID * n + elementID
+        let vectorValue = eigenvectors[vectorAddress]
+        vector[elementID] = vectorValue
+        
+        // Read data from the current storage for matrix A.
+        let matrixAddress = matrixRow * n + elementID
+        let matrixValue = originalMatrixA[matrixAddress]
+        eigenvalue += matrixValue * vectorValue
+        
+      }
+      eigenvalue /= vector[matrixRow]
+      print("Ψ[\(eigenvalue)]:", vector)
+    }
   }
 }
