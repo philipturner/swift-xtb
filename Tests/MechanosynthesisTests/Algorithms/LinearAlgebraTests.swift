@@ -181,6 +181,52 @@ final class LinearAlgebraTests: XCTestCase {
     return output
   }
   
+  // Diagonalizes a tridiagonal matrix with LAPACK divide-and-conquer.
+  // Returns the eigenvectors in column-major format, as output by LAPACK.
+  static func divideAndConquer(matrix: [Float], n: Int) -> (
+    eigenvalues: [Float], eigenvectors: [Float]
+  ) {
+    // Store the tridiagonal matrix in a compact form.
+    var D = [Float](repeating: 0, count: n)
+    var E = [Float](repeating: 0, count: n - 1)
+    for diagonalID in 0..<n {
+      let matrixAddress = diagonalID * n + diagonalID
+      let vectorAddress = diagonalID
+      D[vectorAddress] = matrix[matrixAddress]
+    }
+    for subDiagonalID in 0..<n - 1 {
+      let rowID = subDiagonalID
+      let columnID = subDiagonalID + 1
+      let matrixAddress = rowID * n + columnID
+      let vectorAddress = rowID
+      E[vectorAddress] = matrix[matrixAddress]
+    }
+    
+    // Query the workspace size.
+    var JOBZ = CChar(Character("V").asciiValue!)
+    var N = Int32(n)
+    var LDZ = Int32(n)
+    var WORK = [Float](repeating: 0, count: 1)
+    var LWORK = Int32(-1)
+    var IWORK = [Int32](repeating: 0, count: 1)
+    var LIWORK = Int32(-1)
+    var INFO = Int32(0)
+    sstevd_(
+      &JOBZ, &N, nil, nil, nil, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
+    
+    // Call into LAPACK.
+    var Z = [Float](repeating: 0, count: n * n)
+    LWORK = Int32(WORK[0])
+    LIWORK = Int32(IWORK[0])
+    WORK = [Float](repeating: 0, count: Int(LWORK))
+    IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+    sstevd_(
+      &JOBZ, &N, &D, &E, &Z, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
+    
+    // Return the eigenpairs.
+    return (eigenvalues: D, eigenvectors: Z)
+  }
+  
   // MARK: - Tests
   
   // Use the utility function from LAPACK to diagonalize a tridiagonal matrix.
@@ -274,47 +320,13 @@ final class LinearAlgebraTests: XCTestCase {
     
     func testMatrix(_ originalMatrixA: [Float], n: Int) {
       let originalMatrixT = Self.tridiagonalize(matrix: originalMatrixA, n: n)
-      
-      // Store the tridiagonal matrix in a compact form.
-      var D = [Float](repeating: 0, count: n)
-      var E = [Float](repeating: 0, count: n - 1)
-      for diagonalID in 0..<n {
-        let matrixAddress = diagonalID * n + diagonalID
-        let vectorAddress = diagonalID
-        D[vectorAddress] = originalMatrixT[matrixAddress]
-      }
-      for subDiagonalID in 0..<n - 1 {
-        let rowID = subDiagonalID
-        let columnID = subDiagonalID + 1
-        let matrixAddress = rowID * n + columnID
-        let vectorAddress = rowID
-        E[vectorAddress] = originalMatrixT[matrixAddress]
-      }
-      
-      // Query the workspace size.
-      var JOBZ = CChar(Character("V").asciiValue!)
-      var N = Int32(n)
-      var LDZ = Int32(n)
-      var WORK = [Float](repeating: 0, count: 1)
-      var LWORK = Int32(-1)
-      var IWORK = [Int32](repeating: 0, count: 1)
-      var LIWORK = Int32(-1)
-      var INFO = Int32(0)
-      sstevd_(
-        &JOBZ, &N, nil, nil, nil, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
-      
-      // Call into LAPACK.
-      var Z = [Float](repeating: 0, count: n * n)
-      LWORK = Int32(WORK[0])
-      LIWORK = Int32(IWORK[0])
-      WORK = [Float](repeating: 0, count: Int(LWORK))
-      IWORK = [Int32](repeating: 0, count: Int(LIWORK))
-      sstevd_(
-        &JOBZ, &N, &D, &E, &Z, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
+      let (D, Z) = Self.divideAndConquer(matrix: originalMatrixT, n: n)
       
       // Check that the eigenvectors produce the eigenvalues.
       let HΨ = Self.matrixMultiply(
-        matrixA: originalMatrixT, matrixB: Z, transposeB: true, n: n)
+        matrixA: originalMatrixT, 
+        matrixB: Z,
+        transposeB: true, n: n)
       for electronID in 0..<n {
         var actualE: Float = .zero
         for cellID in 0..<n {
@@ -333,8 +345,7 @@ final class LinearAlgebraTests: XCTestCase {
   // aggregation of the Householder reflectors.
   func testTwoStageTridiagonalization() throws {
     // TODO:
-    // - Get a fully functioning transformation to/from the tridiagonal form.
-    // - Connect this to the LAPACK D&C diagonalizer.
+    // - Find an algorithm for programming the order of bulge chases.
     // - Test the full-stack diagonalizer against adversarial edge cases.
     // - Run benchmarks, starting with the unoptimized single-core CPU code.
     //   This marks the beginning of the optimization process, which should
@@ -524,16 +535,133 @@ final class LinearAlgebraTests: XCTestCase {
     
     // MARK: - Bulge Chasing
     
+    var bulgeReflectors: [[Float]] = []
+    
+    #if false
+    // nb = 3
     chaseBulge(reflectorID: 0, diagonalOffset: 2)
+    chaseBulge(reflectorID: 2, diagonalOffset: 3)
     chaseBulge(reflectorID: 1, diagonalOffset: 2)
     chaseBulge(reflectorID: 2, diagonalOffset: 2)
     chaseBulge(reflectorID: 3, diagonalOffset: 2)
     
     chaseBulge(reflectorID: 0, diagonalOffset: 1)
+    chaseBulge(reflectorID: 1, diagonalOffset: 2)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
     chaseBulge(reflectorID: 1, diagonalOffset: 1)
+    chaseBulge(reflectorID: 2, diagonalOffset: 2)
+    
     chaseBulge(reflectorID: 2, diagonalOffset: 1)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
     chaseBulge(reflectorID: 3, diagonalOffset: 1)
     chaseBulge(reflectorID: 4, diagonalOffset: 1)
+    #endif
+    
+    #if false
+    // nb = 4
+    chaseBulge(reflectorID: 0, diagonalOffset: 3)
+    chaseBulge(reflectorID: 1, diagonalOffset: 3)
+    chaseBulge(reflectorID: 2, diagonalOffset: 3)
+    
+    chaseBulge(reflectorID: 0, diagonalOffset: 2)
+    chaseBulge(reflectorID: 2, diagonalOffset: 3)
+    chaseBulge(reflectorID: 1, diagonalOffset: 2)
+    chaseBulge(reflectorID: 2, diagonalOffset: 2)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
+    chaseBulge(reflectorID: 0, diagonalOffset: 1)
+    chaseBulge(reflectorID: 1, diagonalOffset: 2)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
+    chaseBulge(reflectorID: 1, diagonalOffset: 1)
+    chaseBulge(reflectorID: 2, diagonalOffset: 2)
+    
+    chaseBulge(reflectorID: 2, diagonalOffset: 1)
+    chaseBulge(reflectorID: 3, diagonalOffset: 2)
+    
+    chaseBulge(reflectorID: 3, diagonalOffset: 1)
+    chaseBulge(reflectorID: 4, diagonalOffset: 1)
+    #endif
+    
+    var bulgeMask = [Int](repeating: 0, count: n * n)
+    for rowID in 0..<n {
+      bulgeMask[rowID * n + rowID] = 1
+      
+      for subDiagonalID in 1...nb {
+        guard rowID + subDiagonalID < n else {
+          continue
+        }
+        bulgeMask[(rowID + subDiagonalID) * n + rowID] = 1
+      }
+    }
+    
+    print()
+    print("bulge mask")
+    for rowID in 0..<n {
+      var maskRow = [Int](repeating: 0, count: n)
+      for columnID in 0..<n {
+        let address = rowID * n + columnID
+        maskRow[columnID] = bulgeMask[address]
+      }
+      print(maskRow)
+    }
+    
+    updateBulgeMask(reflectorID: 0, diagonalOffset: 2)
+    chaseBulge(reflectorID: 0, diagonalOffset: 2)
+    
+    updateBulgeMask(reflectorID: 2, diagonalOffset: 3)
+    chaseBulge(reflectorID: 2, diagonalOffset: 3)
+    
+    // TODO: An algorithm that searches for the diagonal ID of the next bulge.
+    // Then, an algorithm to chase the bulge down, until that diagonal no
+    // longer contains any bulges.
+    
+    func updateBulgeMask(reflectorID: Int, diagonalOffset: Int) {
+      for subDiagonalID in min(diagonalOffset + 1, n)...n {
+        let rowID = reflectorID + subDiagonalID
+        var address = rowID * n + reflectorID
+        if address < n * n {
+          bulgeMask[address] = 0
+        }
+      }
+      
+      // We're assuming the Householder reflectors are effectively Givens
+      // rotations.
+      for rowID in 0..<n {
+        var containsOne = false
+        for subDiagonalID in diagonalOffset...(diagonalOffset + 1) {
+          let columnID = reflectorID + subDiagonalID
+          var address = rowID * n + columnID
+          if address < n * n {
+            if bulgeMask[address] > 0 {
+              containsOne = true
+            }
+          }
+        }
+        if containsOne {
+          for subDiagonalID in diagonalOffset...(diagonalOffset + 1) {
+            let columnID = reflectorID + subDiagonalID
+            var address = rowID * n + columnID
+            if address < n * n {
+              bulgeMask[address] = 2
+            }
+          }
+        }
+      }
+      
+      print()
+      print("bulge mask")
+      for rowID in 0..<n {
+        var maskRow = [Int](repeating: 0, count: n)
+        for columnID in 0..<n {
+          let address = rowID * n + columnID
+          maskRow[columnID] = bulgeMask[address]
+        }
+        print(maskRow)
+      }
+    }
     
     func chaseBulge(reflectorID: Int, diagonalOffset: Int) {
       let bandOffset = reflectorID + diagonalOffset
@@ -625,97 +753,25 @@ final class LinearAlgebraTests: XCTestCase {
         }
         print()
       }
+      
+      // Store the reflector to main memory.
+      bulgeReflectors.append(reflector)
     }
     
     // MARK: - Validation Testing
     
-    if Bool.random() || true {
-      return
-    }
+    return
     
     // Test: Diagonalize the banded matrix with standard techniques. Acquire
     // the eigenvectors, then back-transform them using the reflectors. Ensure
     // they return the same eigenvalue as expected.
-    var eigenvectors = [Float](repeating: 0, count: n * n)
-    for diagonalElementID in 0..<n {
-      let address = diagonalElementID * n + diagonalElementID
-      eigenvectors[address] = 1
-    }
+    var (eigenvalues, eigenvectors) = Self
+      .divideAndConquer(matrix: currentMatrixA, n: n)
+    eigenvectors = Self.transpose(matrix: eigenvectors, n: n)
     
     print()
-    print("diagonalizing band matrix")
-    let H = currentMatrixA
-    var Ψ = eigenvectors
-    let iterationCount: Int = 30
-    for iterationID in 0..<iterationCount {
-      let showDiagonistics = (iterationID % 5 == 0) || (iterationID == iterationCount - 1)
-      if showDiagonistics { print("iteration \(iterationID)") }
-      
-      // WARNING: Remember that this diagonalizer uses row-major layout.
-      let HΨ = Self.matrixMultiply(matrixA: H, matrixB: Ψ, n: n)
-      var ΨHΨ = [Float](repeating: 0, count: n)
-      var E = [Float](repeating: 0, count: n)
-      for vectorID in 0..<n {
-        var rayleighQuotient: Float = .zero
-        var energy: Float = .zero
-        for elementID in 0..<n {
-          let address = elementID * n + vectorID
-          rayleighQuotient += HΨ[address] * Ψ[address]
-          energy += HΨ[address] * HΨ[address]
-        }
-        energy.formSquareRoot()
-        ΨHΨ[vectorID] = rayleighQuotient
-        E[vectorID] = energy
-      }
-      if showDiagonistics { print("rayleigh quotients:", ΨHΨ) }
-      if showDiagonistics { print("energies:", E) }
-      
-      // Display the residuals.
-      var residualNorms = [Float](repeating: 0, count: n)
-      for vectorID in 0..<n {
-        var residualNorm: Float = .zero
-        let eigenvalue = E[vectorID]
-        for elementID in 0..<n {
-          let address = elementID * n + vectorID
-          let residualElement = HΨ[address] - eigenvalue * Ψ[address]
-          residualNorm += residualElement * residualElement
-        }
-        residualNorm.formSquareRoot()
-        residualNorms[vectorID] = residualNorm
-      }
-      if showDiagonistics { print("residuals:", residualNorms) }
-      
-      // Overwrite the vectors with the versions scaled by the eigenvalues.
-      Ψ = HΨ
-      
-      // Sort the vectors by magnitude of rayleigh quotient.
-      var sortedQuotients: [SIMD2<Float>] = []
-      
-      for vectorID in 0..<n {
-        let key = ΨHΨ[vectorID]
-        let value = Float(vectorID)
-        sortedQuotients.append(SIMD2(key, value))
-      }
-      sortedQuotients.sort(by: { $0.x.magnitude > $1.x.magnitude })
-      
-      var newE = Array(repeating: Float.zero, count: E.count)
-      var newΨ = Array(repeating: Float.zero, count: Ψ.count)
-      for newVectorID in 0..<n {
-        let oldVectorID = Int(sortedQuotients[newVectorID][1])
-        newE[newVectorID] = E[oldVectorID]
-        for elementID in 0..<n {
-          let oldAddress = elementID * n + oldVectorID
-          let newAddress = elementID * n + newVectorID
-          newΨ[newAddress] = Ψ[oldAddress]
-        }
-      }
-      E = newE
-      Ψ = newΨ
-      
-      // Orthonormalize the eigenvectors.
-      Ψ = Self.modifiedGramSchmidt(matrix: Ψ, n: n)
-    }
-    eigenvectors = Ψ
+    print("eigenvalues from D&C")
+    print(eigenvalues)
     
     // Display the eigenvectors before the transformation.
     print()
@@ -724,6 +780,7 @@ final class LinearAlgebraTests: XCTestCase {
       var vector = [Float](repeating: 0, count: n)
       var eigenvalue: Float = .zero
       let matrixRow = Int.random(in: 0..<n)
+      
       for elementID in 0..<n {
         let vectorAddress = elementID * n + vectorID
         let vectorValue = eigenvectors[vectorAddress]
@@ -739,7 +796,6 @@ final class LinearAlgebraTests: XCTestCase {
       print("Ψ[\(eigenvalue)]:", vector)
     }
     
-    // Transpose the eigenvectors into column-major format.
     eigenvectors = Self.transpose(matrix: eigenvectors, n: n)
     
     // Back-transform the eigenvectors.
@@ -751,6 +807,20 @@ final class LinearAlgebraTests: XCTestCase {
       for elementID in 0..<n {
         let address = vectorID * n + elementID
         vector[elementID] = eigenvectors[address]
+      }
+      
+      for reflectorID in bulgeReflectors.indices.reversed() {
+        // Load the reflector into the cache.
+        let reflector = bulgeReflectors[reflectorID]
+        
+        // Apply the reflector.
+        var dotProduct: Float = .zero
+        for elementID in 0..<n {
+          dotProduct += reflector[elementID] * vector[elementID]
+        }
+        for elementID in 0..<n {
+          vector[elementID] -= reflector[elementID] * dotProduct
+        }
       }
       
       for reflectorID in (0..<n).reversed() {
