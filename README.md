@@ -22,5 +22,5 @@ Goals:
 
 Documentation:
 - [Dependencies](./Documentation/Pages/Dependencies.md)
-- [Relativity Corrections](./Documentation/Pages/RelativityCorrections)
+- [Relativity Corrections](./Documentation/Pages/RelativityCorrections.md)
 - [Screened Exchange](./Documentation/Pages/ScreenedExchange.md)
