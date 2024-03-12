@@ -13,6 +13,8 @@ final class LinearAlgebraTests: XCTestCase {
     n: Int
   ) -> [Float] {
     var matrixC = [Float](repeating: 0, count: n * n)
+    
+    #if false
     for rowID in 0..<n {
       for columnID in 0..<n {
         var dotProduct: Float = .zero
@@ -34,6 +36,54 @@ final class LinearAlgebraTests: XCTestCase {
         matrixC[rowID * n + columnID] = dotProduct
       }
     }
+    #else
+    var TRANSA: CChar
+    var TRANSB: CChar
+    if transposeB {
+      TRANSA = CChar(Character("T").asciiValue!)
+    } else {
+      TRANSA = CChar(Character("N").asciiValue!)
+    }
+    if transposeA {
+      TRANSB = CChar(Character("T").asciiValue!)
+    } else {
+      TRANSB = CChar(Character("N").asciiValue!)
+    }
+    
+    var M: Int32 = Int32(n)
+    var N: Int32 = Int32(n)
+    var K: Int32 = Int32(n)
+    var ALPHA: Float = 1
+    var LDA: Int32 = Int32(n)
+    var BETA: Float = 0
+    var LDB: Int32 = Int32(n)
+    var LDC: Int32 = Int32(n)
+    matrixA.withContiguousStorageIfAvailable {
+      let B = UnsafeMutablePointer(mutating: $0.baseAddress!)
+      matrixB.withContiguousStorageIfAvailable {
+        let A = UnsafeMutablePointer(mutating: $0.baseAddress!)
+        matrixC.withContiguousMutableStorageIfAvailable {
+          let C = $0.baseAddress!
+          sgemm_(
+            &TRANSA, // TRANSA
+            &TRANSB, // TRANSB
+            &M, // M
+            &N, // N
+            &K, // K
+            &ALPHA, // ALPHA
+            A, // A
+            &LDA, // LDA
+            B, // B
+            &LDB, // LDB
+            &BETA, // BETA
+            C, // C
+            &LDC // LDC
+          )
+        }
+      }
+    }
+    #endif
+    
     return matrixC
   }
   
@@ -226,6 +276,80 @@ final class LinearAlgebraTests: XCTestCase {
     
     // Return the eigenpairs.
     return (eigenvalues: D, eigenvectors: Z)
+  }
+  
+  // Reference implementation for diagonalization in LAPACK.
+  static func diagonalize(matrix: [Float], n: Int) -> (
+    eigenvalues: [Float], eigenvectors: [Float]
+  ) {
+    var JOBZ = CChar(Character("V").asciiValue!)
+    var UPLO = CChar(Character("L").asciiValue!)
+    var N: Int32 = Int32(n)
+    var A = [Float](repeating: 0, count: n * n)
+    memcpy(&A, matrix, n * n * 4)
+    var LDA: Int32 = Int32(n)
+    var W = [Float](repeating: 0, count: n)
+    var WORK: [Float] = [0]
+    var LWORK: Int32 = -1
+    var IWORK: [Int32] = [0]
+    var LIWORK: Int32 = -1
+    var INFO: Int32 = 0
+    A.withContiguousMutableStorageIfAvailable {
+      let A = $0.baseAddress!
+      W.withContiguousMutableStorageIfAvailable {
+        let W = $0.baseAddress!
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+        
+        LWORK = Int32(WORK[0])
+        LIWORK = Int32(IWORK[0])
+        WORK = [Float](repeating: 0, count: Int(LWORK))
+        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+      }
+    }
+    return (eigenvalues: W, eigenvectors: A)
   }
   
   // MARK: - Tests (Permanent)
@@ -821,6 +945,92 @@ final class LinearAlgebraTests: XCTestCase {
       -4, 1, 0, 1, -4, 6,
     ], n: 6, degenerateEigenvalues: [1, 2, 3, 4])
   }
+  
+  // Reproduce the LAPACK benchmarking experiment where Accelerate's
+  // two-stage solver failed.
+  func testAccelerateBug() throws {
+    func benchmarkProblemSize(n: Int, trialCount: Int) {
+      // Generate the eigenvalues.
+      var Λ = [Float](repeating: 0, count: n * n)
+      for vectorID in 0..<n {
+        let position = Float(n / 2 - vectorID)
+        var sign: Float
+        if position > 0 {
+          sign = 1
+        } else if position == 0 {
+          sign = 0
+        } else {
+          sign = -1
+        }
+        
+        let powerPart = Float.pow(1.02, position.magnitude)
+        let address = vectorID * n + vectorID
+        Λ[address] = sign * powerPart
+      }
+      
+      // Generate the eigenvectors.
+      var Σ = [Float](repeating: 0, count: n * n)
+      for vectorID in 0..<n {
+        var vector = [Float](repeating: 0, count: n)
+        for elementID in 0..<n {
+          vector[elementID] = .random(in: -1...1)
+        }
+        for elementID in 0..<n {
+          let address = elementID * n + vectorID
+          Σ[address] = vector[elementID]
+        }
+      }
+      Σ = Self.modifiedGramSchmidt(matrix: Σ, n: n)
+      
+      // Construct the symmetric matrix.
+      let ΛΣT = Self.matrixMultiply(
+        matrixA: Λ, matrixB: Σ, transposeB: true, n: n)
+      let A = Self.matrixMultiply(
+        matrixA: Σ, matrixB: ΛΣT, n: n)
+      let AΣ = Self.matrixMultiply(
+        matrixA: A, matrixB: Σ, n: n)
+      
+      // Check self-consistency of the matrix, prior to diagonalization.
+      var eigenvaluePassRate: Float = .zero
+      for vectorID in 0..<n {
+        let expected = Λ[vectorID * n + vectorID]
+        var actual: Float = .zero
+        for elementID in 0..<n {
+          // Accumulate the Rayleigh quotient to find the eigenvalue.
+          let address = elementID * n + vectorID
+          actual += Σ[address] * AΣ[address]
+        }
+        
+        let accuracy = max(1e-5, expected.magnitude * 1e-3)
+        let error = (actual - expected).magnitude
+        if error.magnitude < accuracy {
+          eigenvaluePassRate += 1 / Float(n)
+        }
+      }
+      XCTAssertGreaterThan(eigenvaluePassRate, 0.90)
+    }
+    
+    #if true
+    benchmarkProblemSize(n: 7, trialCount: 1)
+    #else
+    for n in 1...20 {
+      benchmarkProblemSize(n: n, trialCount: 3)
+    }
+    for nTenth in 3...10 {
+      benchmarkProblemSize(n: 10 * nTenth, trialCount: 3)
+    }
+    benchmarkProblemSize(n: 125, trialCount: 3)
+    benchmarkProblemSize(n: 200, trialCount: 3)
+    benchmarkProblemSize(n: 250, trialCount: 3)
+    benchmarkProblemSize(n: 300, trialCount: 3)
+    benchmarkProblemSize(n: 400, trialCount: 3)
+    benchmarkProblemSize(n: 500, trialCount: 3)
+    benchmarkProblemSize(n: 600, trialCount: 3)
+    benchmarkProblemSize(n: 750, trialCount: 3)
+    benchmarkProblemSize(n: 800, trialCount: 3)
+    benchmarkProblemSize(n: 1000, trialCount: 3)
+    #endif
+  }
 }
 
 // Diagonalizes the matrix and checks that the results agree with LAPACK.
@@ -831,76 +1041,8 @@ private func executeLAPACKComparison(
   n: Int,
   degenerateEigenvalues: Set<Int> = []
 ) {
-  var JOBZ = CChar(Character("V").asciiValue!)
-  var UPLO = CChar(Character("L").asciiValue!)
-  var N: Int32 = Int32(n)
-  var A = [Float](repeating: 0, count: n * n)
-  memcpy(&A, matrix, n * n * 4)
-  var LDA: Int32 = Int32(n)
-  var W = [Float](repeating: 0, count: n)
-  var WORK: [Float] = [0]
-  var LWORK: Int32 = -1
-  var IWORK: [Int32] = [0]
-  var LIWORK: Int32 = -1
-  var INFO: Int32 = 0
-  A.withContiguousMutableStorageIfAvailable {
-    let A = $0.baseAddress!
-    W.withContiguousMutableStorageIfAvailable {
-      let W = $0.baseAddress!
-      WORK.withContiguousMutableStorageIfAvailable {
-        let WORK = $0.baseAddress!
-        IWORK.withContiguousMutableStorageIfAvailable {
-          let IWORK = $0.baseAddress!
-          ssyevd_(
-            &JOBZ, // JOBZ
-            &UPLO, // UPLO
-            &N, // N
-            A, // A
-            &LDA, // LDA
-            W, // W
-            WORK, // WORK
-            &LWORK, // LWORK
-            IWORK, // IWORK
-            &LIWORK, // LIWORK
-            &INFO // INFO
-          )
-          guard INFO == 0 else {
-            fatalError("LAPACK error code: \(INFO)")
-          }
-        }
-      }
-      
-      LWORK = Int32(WORK[0])
-      LIWORK = Int32(IWORK[0])
-      WORK = [Float](repeating: 0, count: Int(LWORK))
-      IWORK = [Int32](repeating: 0, count: Int(LIWORK))
-      WORK.withContiguousMutableStorageIfAvailable {
-        let WORK = $0.baseAddress!
-        IWORK.withContiguousMutableStorageIfAvailable {
-          let IWORK = $0.baseAddress!
-          ssyevd_(
-            &JOBZ, // JOBZ
-            &UPLO, // UPLO
-            &N, // N
-            A, // A
-            &LDA, // LDA
-            W, // W
-            WORK, // WORK
-            &LWORK, // LWORK
-            IWORK, // IWORK
-            &LIWORK, // LIWORK
-            &INFO // INFO
-          )
-          guard INFO == 0 else {
-            fatalError("LAPACK error code: \(INFO)")
-          }
-        }
-      }
-    }
-  }
-  
-  let expectedEigenvalues = W
-  let expectedEigenvectors = A
+  let (expectedEigenvalues, expectedEigenvectors) = LinearAlgebraTests
+    .diagonalize(matrix: matrix, n: n)
   
   var diagonalizationDesc = DiagonalizationDescriptor()
   diagonalizationDesc.matrix = matrix
