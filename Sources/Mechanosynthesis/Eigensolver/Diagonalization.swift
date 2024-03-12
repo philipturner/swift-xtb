@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 3/11/24.
 //
 
+import QuartzCore
+
 /// A configuration for an eigendecomposition.
 public struct DiagonalizationDescriptor {
   /// A symmetric matrix of FP32 numbers.
@@ -96,12 +98,57 @@ public struct Diagonalization {
   }
   
   mutating func solveEigenproblem() {
+    let checkpoint0 = CACurrentMediaTime()
+    
     let bandFormReflectors = reduceToBandForm()
+    
+    let checkpoint1 = CACurrentMediaTime()
+    
     let bulgeChasingReflectors = chaseBulges()
+    
+    let checkpoint2 = CACurrentMediaTime()
+    
     solveTridiagonalEigenproblem()
-    backTransform(
-      bandFormReflectors: bandFormReflectors,
-      bulgeChasingReflectors: bulgeChasingReflectors)
+    
+    let checkpoint3 = CACurrentMediaTime()
+    
+    backTransform(bulgeChasingReflectors: bulgeChasingReflectors)
+    
+    let checkpoint4 = CACurrentMediaTime()
+    
+    backTransform(bandFormReflectors: bandFormReflectors)
+    
+    let checkpoint5 = CACurrentMediaTime()
+    
+    if problemSize >= 100 {
+      let time01 = 1e6 * (checkpoint1 - checkpoint0)
+      let time12 = 1e6 * (checkpoint2 - checkpoint1)
+      let time23 = 1e6 * (checkpoint3 - checkpoint2)
+      let time34 = 1e6 * (checkpoint4 - checkpoint3)
+      let time45 = 1e6 * (checkpoint5 - checkpoint4)
+      let times = SIMD8(time01, time12, time23, time34, time45, 0, 0, 0)
+      
+      let total = times.sum()
+      let percents = times / total * 100
+      func format(_ number: Double) -> String {
+        String(format: "%.1f", number)
+      }
+      func printPart(index: Int, label: String) {
+        print("[\(format(percents[index]))%", terminator: ", ")
+        print(format(times[index]), terminator: " μs] - ")
+        print(label)
+      }
+      
+      // TODO: Split up back-transformation into application of 1st stage and
+      // 2nd stage reflectors.
+      print()
+      print("[n = \(problemSize)] Performance Breakdown:")
+      printPart(index: 0, label: "Reduction to band form")
+      printPart(index: 1, label: "Bulge chasing")
+      printPart(index: 2, label: "Divide and conquer")
+      printPart(index: 3, label: "Back transformation (2nd stage)")
+      printPart(index: 4, label: "Back transformation (1st stage)")
+    }
     
     // Deallocate the matrix after it's finished.
     matrix = []

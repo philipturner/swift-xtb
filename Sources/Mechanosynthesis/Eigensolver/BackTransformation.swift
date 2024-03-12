@@ -7,8 +7,7 @@
 
 extension Diagonalization {
   mutating func backTransform(
-    bandFormReflectors: [Float],
-    bulgeChasingReflectors: [[Float]]
+    bulgeChasingReflectors: [BulgeReflector]
   ) {
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
@@ -22,16 +21,43 @@ extension Diagonalization {
       for reflectorID in bulgeChasingReflectors.indices.reversed() {
         // Load the reflector into the cache.
         let reflector = bulgeChasingReflectors[reflectorID]
+        let indexOffset = reflector.indices.lowerBound
         
         // Apply the reflector.
         var dotProduct: Float = .zero
-        for elementID in 0..<problemSize {
-          dotProduct += reflector[elementID] * vector[elementID]
+        for dataElementID in reflector.data.indices {
+          let reflectorDatum = reflector.data[dataElementID]
+          let vectorDatum = vector[indexOffset + dataElementID]
+          dotProduct += reflectorDatum * vectorDatum
         }
-        for elementID in 0..<problemSize {
-          vector[elementID] -= reflector[elementID] * dotProduct
+        for dataElementID in reflector.data.indices {
+          let reflectorDatum = reflector.data[dataElementID]
+          var vectorDatum = vector[indexOffset + dataElementID]
+          vectorDatum -= reflectorDatum * dotProduct
+          vector[indexOffset + dataElementID] = vectorDatum
         }
       }
+      
+      // Store the vector to main memory.
+      for elementID in 0..<problemSize {
+        let address = vectorID * problemSize + elementID
+        eigenvectors[address] = vector[elementID]
+      }
+    }
+  }
+  
+  mutating func backTransform(
+    bandFormReflectors: [Float]
+  ) {
+    // Back-transform the eigenvectors.
+    for vectorID in 0..<problemSize {
+      // Load the vector into the cache.
+      var vector = [Float](repeating: 0, count: problemSize)
+      for elementID in 0..<problemSize {
+        let address = vectorID * problemSize + elementID
+        vector[elementID] = eigenvectors[address]
+      }
+      
       
       for reflectorID in (0..<problemSize).reversed() {
         // Load the reflector into the cache.
