@@ -72,28 +72,27 @@ extension Diagonalization {
     startElementID: Int,
     endElementID: Int
   ) -> [Float] {
-    let range = startElementID..<endElementID
-    let indexOffset = startElementID
     let rangeCount = endElementID - startElementID
     
     // Load the row into the cache.
     var reflector = [Float](repeating: 0, count: rangeCount)
-    for elementID in range {
-      let address = vectorID * problemSize + elementID
-      let matrixDatum = matrix[address]
-      reflector[elementID - indexOffset] = matrixDatum
+    for cacheElementID in 0..<rangeCount {
+      let memoryElementID = startElementID + cacheElementID
+      let matrixAddress = vectorID * problemSize + memoryElementID
+      let matrixDatum = matrix[matrixAddress]
+      reflector[cacheElementID] = matrixDatum
     }
     
     // Take the norm of the vector.
     var norm: Float = .zero
-    for elementID in range {
-      let reflectorDatum = reflector[elementID - indexOffset]
+    for cacheElementID in 0..<rangeCount {
+      let reflectorDatum = reflector[cacheElementID]
       norm += reflectorDatum * reflectorDatum
     }
     norm.formSquareRoot()
     
     // Predict the normalization factor.
-    let oldSubdiagonal = reflector[startElementID - indexOffset]
+    let oldSubdiagonal = reflector[0]
     let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
     let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
     
@@ -108,9 +107,9 @@ extension Diagonalization {
     }
     
     // Modify the vector, turning it into a reflector.
-    for elementID in range {
-      var reflectorDatum = reflector[elementID - indexOffset]
-      if elementID == startElementID {
+    for cacheElementID in 0..<rangeCount {
+      var reflectorDatum = reflector[cacheElementID]
+      if cacheElementID == 0 {
         reflectorDatum = 1
       } else {
         reflectorDatum /= oldSubdiagonal - newSubdiagonal
@@ -120,60 +119,64 @@ extension Diagonalization {
       if nanPresent {
         reflectorDatum = 0
       }
-      reflector[elementID - indexOffset] = reflectorDatum
+      reflector[cacheElementID] = reflectorDatum
     }
+    
+    // Allocate cache memory for the recipient of the Householder reflector.
+    var vectorCache = [Float](repeating: 0, count: rangeCount)
     
     // Apply the reflector to the matrix, from both sides.
     for directionID in 0..<2 {
-      // TODO: Simplify some inner loops by eliminatinating the subtraction of
-      // 'indexOffset' whenever possible.
-      // TODO: Predict which vectors will be affected by this reflector.
-      for vectorID in 0..<problemSize {
-        var vector = [Float](repeating: 0, count: rangeCount)
-        
+      let startApplicationID: Int = max(startElementID - blockSize, 0)
+      let endApplicationID: Int = min(endElementID + blockSize, problemSize)
+      for vectorID in startApplicationID..<endApplicationID {
         if directionID == 0 {
           // Load the row into the cache.
-          for elementID in range {
-            let address = vectorID * problemSize + elementID
-            let matrixDatum = matrix[address]
-            vector[elementID - indexOffset] = matrixDatum
+          for cacheElementID in 0..<rangeCount {
+            let memoryElementID = startElementID + cacheElementID
+            let matrixAddress = vectorID * problemSize + memoryElementID
+            let matrixDatum = matrix[matrixAddress]
+            vectorCache[cacheElementID] = matrixDatum
           }
         } else {
           // Load the column into the cache.
-          for elementID in range {
-            let address = elementID * problemSize + vectorID
-            let matrixDatum = matrix[address]
-            vector[elementID - indexOffset] = matrixDatum
+          for cacheElementID in 0..<rangeCount {
+            let memoryElementID = startElementID + cacheElementID
+            let matrixAddress = memoryElementID * problemSize + vectorID
+            let matrixDatum = matrix[matrixAddress]
+            vectorCache[cacheElementID] = matrixDatum
           }
         }
         
         // Apply the reflector.
         var dotProduct: Float = .zero
-        for elementID in range {
-          let reflectorDatum = reflector[elementID - indexOffset]
-          let vectorDatum = vector[elementID - indexOffset]
+        for cacheElementID in 0..<rangeCount {
+          let reflectorDatum = reflector[cacheElementID]
+          let vectorDatum = vectorCache[cacheElementID]
           dotProduct += reflectorDatum * vectorDatum
         }
-        for elementID in range {
-          let reflectorDatum = reflector[elementID - indexOffset]
-          var vectorDatum = vector[elementID - indexOffset]
+        for cacheElementID in 0..<rangeCount {
+          let reflectorDatum = reflector[cacheElementID]
+          var vectorDatum = vectorCache[cacheElementID]
           vectorDatum -= reflectorDatum * dotProduct
-          vector[elementID - indexOffset] = vectorDatum
+          vectorCache[cacheElementID] = vectorDatum
         }
         
         if directionID == 0 {
           // Store the row to main memory.
-          for elementID in range {
-            let address = vectorID * problemSize + elementID
-            let vectorDatum = vector[elementID - indexOffset]
-            matrix[address] = vectorDatum
+          for cacheElementID in 0..<rangeCount {
+            let memoryElementID = startElementID + cacheElementID
+            let matrixAddress = vectorID * problemSize + memoryElementID
+            let vectorDatum = vectorCache[cacheElementID]
+            matrix[matrixAddress] = vectorDatum
           }
         } else {
           // Store the column to main memory.
-          for elementID in range {
-            let address = elementID * problemSize + vectorID
-            let vectorDatum = vector[elementID - indexOffset]
-            matrix[address] = vectorDatum
+          for cacheElementID in 0..<rangeCount {
+            let memoryElementID = startElementID + cacheElementID
+            let matrixAddress = memoryElementID * problemSize + vectorID
+            let vectorDatum = vectorCache[cacheElementID]
+            matrix[matrixAddress] = vectorDatum
           }
         }
       }

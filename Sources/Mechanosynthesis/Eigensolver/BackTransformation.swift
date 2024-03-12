@@ -58,22 +58,23 @@ extension Diagonalization {
         vector[elementID] = eigenvectors[address]
       }
       
+      // Allocate cache memory for the Householder reflector.
+      var reflectorCache = [Float](repeating: 0, count: problemSize)
       
       for reflectorID in (0..<problemSize).reversed() {
         // Load the reflector into the cache.
-        var reflector = [Float](repeating: 0, count: problemSize)
         for elementID in 0..<problemSize {
           let address = reflectorID * problemSize + elementID
-          reflector[elementID] = bandFormReflectors[address]
+          reflectorCache[elementID] = bandFormReflectors[address]
         }
         
         // Apply the reflector.
         var dotProduct: Float = .zero
         for elementID in 0..<problemSize {
-          dotProduct += reflector[elementID] * vector[elementID]
+          dotProduct += reflectorCache[elementID] * vector[elementID]
         }
         for elementID in 0..<problemSize {
-          vector[elementID] -= reflector[elementID] * dotProduct
+          vector[elementID] -= reflectorCache[elementID] * dotProduct
         }
       }
       
