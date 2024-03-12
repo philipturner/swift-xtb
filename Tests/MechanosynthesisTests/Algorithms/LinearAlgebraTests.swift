@@ -255,37 +255,40 @@ final class LinearAlgebraTests: XCTestCase {
     // Well-conditioned eigenspectra without degenerate clusters.
     testEigenvalues([
       4, 3, 2, 1, 0.1, -1.3, -2.3
-    ])
+    ], degenerateEigenvalues: [])
     testEigenvalues([
       4, 3, 2, 1, 0, -1, -2
-    ])
+    ], degenerateEigenvalues: [])
     
     // Problematic for the iterative diagonalization experiment.
     testEigenvalues([
       4, 3.01, 3.00, 2.99, 0, -2, -2
-    ])
+    ], degenerateEigenvalues: [1, 0])
     testEigenvalues([
       4, 3.5, 3, 2, 0, -1, -2
-    ])
+    ], degenerateEigenvalues: [])
     testEigenvalues([
       2, 2, 0, -2.99, -3.00, -3.01, -4
-    ])
+    ], degenerateEigenvalues: [6, 5])
     testEigenvalues([
       2, 1, 0, -2.99, -3.00, -3.01, -4
-    ])
+    ], degenerateEigenvalues: [])
     
     // Not problematic for the iterative diagonalization experiment.
     testEigenvalues([
       4, 3.01, 3.00, 2.99, 0, -1, -2
-    ])
+    ], degenerateEigenvalues: [])
     testEigenvalues([
       4, 3.5, 3, 2, 0, -2, -2
-    ])
+    ], degenerateEigenvalues: [1, 0])
     testEigenvalues([
       2, 2, 0, -2, -3, -3.5, -4
-    ])
+    ], degenerateEigenvalues: [6, 5])
     
-    func testEigenvalues(_ eigenvalues: [Float]) {
+    func testEigenvalues(
+      _ eigenvalues: [Float],
+      degenerateEigenvalues: Set<Int>
+    ) {
       var Λ = [Float](repeating: 0, count: 7 * 7)
       for i in 0..<7 {
         let address = i * 7 + i
@@ -317,6 +320,10 @@ final class LinearAlgebraTests: XCTestCase {
       }
       
       testMatrix(A, n: 7)
+      
+      // Check that Diagonalization properly handles this matrix.
+      executeLAPACKComparison(
+        matrix: A, n: 7, degenerateEigenvalues: degenerateEigenvalues)
     }
     
     func testMatrix(_ originalMatrixA: [Float], n: Int) {
@@ -555,6 +562,10 @@ final class LinearAlgebraTests: XCTestCase {
     //    them together for efficiency yet.
     // 5) Begin the optimization/benchmarking, which should progress from
     //    single-core CPU and to full GPU offloading.
+    //
+    // Set up a dual performance and correctness test, similar to MFA. Keep the
+    // overhead of checking small, and prevent it from polluting the cache.
+    // This is the best way to reproduce the Accelerate ssyevd_2stage_ failure.
     
     testBlockSize(nb: 1)
     testBlockSize(nb: 2)
@@ -583,8 +594,8 @@ final class LinearAlgebraTests: XCTestCase {
       
       var diagonalizationDesc = DiagonalizationDescriptor()
       diagonalizationDesc.matrix = originalMatrixA
-      diagonalizationDesc.n = n
-      diagonalizationDesc.nb = nb
+      diagonalizationDesc.problemSize = n
+      diagonalizationDesc.blockSize = nb
       
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       let eigenvalues = diagonalization.eigenvalues
@@ -643,5 +654,290 @@ final class LinearAlgebraTests: XCTestCase {
         XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
       }
     }
+  }
+  
+  // Test every edge case that relates to small matrices.
+  func testSmallMatrixDiagonalization() throws {
+    // n = 1
+    executeLAPACKComparison(matrix: [1], n: 1)
+    executeLAPACKComparison(matrix: [2], n: 1)
+    executeLAPACKComparison(matrix: [3], n: 1)
+    executeLAPACKComparison(matrix: [0], n: 1)
+    executeLAPACKComparison(matrix: [0.0001], n: 1)
+    executeLAPACKComparison(matrix: [-1], n: 1)
+    
+    // n = 2
+    executeLAPACKComparison(matrix: [
+      1, -4,
+      -4, 9,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      1, 4,
+      4, 9,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      -1, -4,
+      -4, -9,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      0, 2,
+      2, 3,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      0, 0,
+      0, 1,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      0, 1,
+      1, 0,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      0, 0,
+      0, 0,
+    ], n: 2, degenerateEigenvalues: [0, 1])
+    executeLAPACKComparison(matrix: [
+      0, 0,
+      0, 0.0001,
+    ], n: 2)
+    executeLAPACKComparison(matrix: [
+      0, -10,
+      -10, 0.0001,
+    ], n: 2)
+    
+    // n = 3
+    executeLAPACKComparison(matrix: [
+      0, 0, 1,
+      0, 2, 0,
+      1, 0, 0,
+    ], n: 3)
+    executeLAPACKComparison(matrix: [
+      8, 7, 6,
+      7, -2, -3,
+      6, -3, -3,
+    ], n: 3)
+    executeLAPACKComparison(matrix: [
+      8, 0, 6,
+      0, -2, 0,
+      6, 0, -3,
+    ], n: 3)
+    executeLAPACKComparison(matrix: [
+      8, -0, 6,
+      -0, -2, -0,
+      6, -0, -3,
+    ], n: 3)
+    
+    // n = 4
+    executeLAPACKComparison(matrix: [
+      4, 0.1, 0, 0,
+      0.1, 3, 0.1, 0,
+      0, 0.1, 2, 0.1,
+      0, 0, 0.1, 1,
+    ], n: 4)
+    executeLAPACKComparison(matrix: [
+      4, 0, 0, 0,
+      0, 3, 0, 0,
+      0, 0, 2, 0,
+      0, 0, 0, 1,
+    ], n: 4)
+    executeLAPACKComparison(matrix: [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ], n: 4, degenerateEigenvalues: [0, 1, 2, 3])
+  }
+  
+  // Test 2nd-order and 4th-order finite difference operators.
+  func testLaplacian() throws {
+    // Laplacian matrix (4x4)
+    executeLAPACKComparison(matrix: [
+      2, -1, 0, 0,
+      -1, 2, -1, 0,
+      0, -1, 2, -1,
+      0, 0, -1, 2,
+    ], n: 4)
+    executeLAPACKComparison(matrix: [
+      -2, 1, 0, 1,
+      1, -2, 1, 0,
+      0, 1, -2, 1,
+      1, 0, 1, -2,
+    ], n: 4, degenerateEigenvalues: [1, 2])
+    executeLAPACKComparison(matrix: [
+      2, -1, 0, -1,
+      -1, 2, -1, 0,
+      0, -1, 2, -1,
+      -1, 0, -1, 2,
+    ], n: 4, degenerateEigenvalues: [1, 2])
+    
+    // Laplacian matrix (5x5)
+    executeLAPACKComparison(matrix: [
+      -2, 1, 0, 0, 0,
+      1, -2, 1, 0, 0,
+      0, 1, -2, 1, 0,
+      0, 0, 1, -2, 1,
+      0, 0, 0, 1, -2,
+    ], n: 5)
+    executeLAPACKComparison(matrix: [
+      -2, 1, 0, 0, 1,
+      1, -2, 1, 0, 0,
+      0, 1, -2, 1, 0,
+      0, 0, 1, -2, 1,
+      1, 0, 0, 1, -2,
+    ], n: 5, degenerateEigenvalues: [0, 1, 2, 3])
+    
+    // Laplacian matrix (6x6)
+    executeLAPACKComparison(matrix: [
+      -2, 1, 0, 0, 0, 0,
+      1, -2, 1, 0, 0, 0,
+      0, 1, -2, 1, 0, 0,
+      0, 0, 1, -2, 1, 0,
+      0, 0, 0, 1, -2, 1,
+      0, 0, 0, 0, 1, -2,
+    ], n: 6)
+    executeLAPACKComparison(matrix: [
+      -2, 1, 0, 0, 0, 1,
+      1, -2, 1, 0, 0, 0,
+      0, 1, -2, 1, 0, 0,
+      0, 0, 1, -2, 1, 0,
+      0, 0, 0, 1, -2, 1,
+      1, 0, 0, 0, 1, -2,
+    ], n: 6, degenerateEigenvalues: [1, 2, 3, 4])
+    
+    // Fourth-order finite differencing
+    executeLAPACKComparison(matrix: [
+      6, -4, 1, 0, 0, 0,
+      -4, 6, -4, 1, 0, 0,
+      1, -4, 6, -4, 1, 0,
+      0, 1, -4, 6, -4, 1,
+      0, 0, 1, -4, 6, -4,
+      0, 0, 0, 1, -4, 6,
+    ], n: 6)
+    executeLAPACKComparison(matrix: [
+      6, -4, 1, 0, 1, -4,
+      -4, 6, -4, 1, 0, 1,
+      1, -4, 6, -4, 1, 0,
+      0, 1, -4, 6, -4, 1,
+      1, 0, 1, -4, 6, -4,
+      -4, 1, 0, 1, -4, 6,
+    ], n: 6, degenerateEigenvalues: [1, 2, 3, 4])
+  }
+}
+
+// Diagonalizes the matrix and checks that the results agree with LAPACK.
+// - degenerateEigenvalues: the indices of degenerate eigenpairs, in
+//                          ascending order of the signed eigenvalues.
+private func executeLAPACKComparison(
+  matrix: [Float],
+  n: Int,
+  degenerateEigenvalues: Set<Int> = []
+) {
+  var JOBZ = CChar(Character("V").asciiValue!)
+  var UPLO = CChar(Character("L").asciiValue!)
+  var N: Int32 = Int32(n)
+  var A = [Float](repeating: 0, count: n * n)
+  memcpy(&A, matrix, n * n * 4)
+  var LDA: Int32 = Int32(n)
+  var W = [Float](repeating: 0, count: n)
+  var WORK: [Float] = [0]
+  var LWORK: Int32 = -1
+  var IWORK: [Int32] = [0]
+  var LIWORK: Int32 = -1
+  var INFO: Int32 = 0
+  A.withContiguousMutableStorageIfAvailable {
+    let A = $0.baseAddress!
+    W.withContiguousMutableStorageIfAvailable {
+      let W = $0.baseAddress!
+      WORK.withContiguousMutableStorageIfAvailable {
+        let WORK = $0.baseAddress!
+        IWORK.withContiguousMutableStorageIfAvailable {
+          let IWORK = $0.baseAddress!
+          ssyevd_(
+            &JOBZ, // JOBZ
+            &UPLO, // UPLO
+            &N, // N
+            A, // A
+            &LDA, // LDA
+            W, // W
+            WORK, // WORK
+            &LWORK, // LWORK
+            IWORK, // IWORK
+            &LIWORK, // LIWORK
+            &INFO // INFO
+          )
+          guard INFO == 0 else {
+            fatalError("LAPACK error code: \(INFO)")
+          }
+        }
+      }
+      
+      LWORK = Int32(WORK[0])
+      LIWORK = Int32(IWORK[0])
+      WORK = [Float](repeating: 0, count: Int(LWORK))
+      IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+      WORK.withContiguousMutableStorageIfAvailable {
+        let WORK = $0.baseAddress!
+        IWORK.withContiguousMutableStorageIfAvailable {
+          let IWORK = $0.baseAddress!
+          ssyevd_(
+            &JOBZ, // JOBZ
+            &UPLO, // UPLO
+            &N, // N
+            A, // A
+            &LDA, // LDA
+            W, // W
+            WORK, // WORK
+            &LWORK, // LWORK
+            IWORK, // IWORK
+            &LIWORK, // LIWORK
+            &INFO // INFO
+          )
+          guard INFO == 0 else {
+            fatalError("LAPACK error code: \(INFO)")
+          }
+        }
+      }
+    }
+  }
+  
+  let expectedEigenvalues = W
+  let expectedEigenvectors = A
+  
+  var diagonalizationDesc = DiagonalizationDescriptor()
+  diagonalizationDesc.matrix = matrix
+  diagonalizationDesc.problemSize = n
+  if n <= 4 {
+    diagonalizationDesc.blockSize = 2
+  } else {
+    diagonalizationDesc.blockSize = 4
+  }
+  
+  let diagonalizaton = Diagonalization(descriptor: diagonalizationDesc)
+  let actualEigenvalues = diagonalizaton.eigenvalues
+  let actualEigenvectors = diagonalizaton.eigenvectors
+  
+  for i in 0..<n {
+    let expected = expectedEigenvalues[i]
+    let actual = actualEigenvalues[i]
+    let accuracy = max(1e-3 * expected.magnitude, 1e-5)
+    XCTAssertEqual(actual, expected, accuracy: accuracy)
+  }
+  for i in 0..<n {
+    if degenerateEigenvalues.contains(i) {
+      continue
+    }
+    
+    var expected = [Float](repeating: 0, count: n)
+    var actual = [Float](repeating: 0, count: n)
+    for elementID in 0..<n {
+      let address = i * n + elementID
+      expected[elementID] = expectedEigenvectors[address]
+      actual[elementID] = actualEigenvectors[address]
+    }
+    
+    var dotProduct: Float = .zero
+    for elementID in 0..<n {
+      dotProduct += expected[elementID] * actual[elementID]
+    }
+    XCTAssertEqual(dotProduct.magnitude, 1, accuracy: 1e-5)
   }
 }

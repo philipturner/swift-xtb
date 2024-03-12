@@ -13,13 +13,13 @@ public struct DiagonalizationDescriptor {
   public var matrix: [Float]?
   
   /// The number of unknowns to solve for.
-  public var n: Int?
+  public var problemSize: Int?
   
   /// The block size for intermediate band reduction.
   ///
   /// If not specified, the optimal block size for the hardware backend is
   /// chosen.
-  public var nb: Int?
+  public var blockSize: Int?
   
   public init() {
     
@@ -56,21 +56,23 @@ public struct Diagonalization {
   /// blocking access to GPU hardware.
   public init(descriptor: DiagonalizationDescriptor) {
     guard let matrix = descriptor.matrix,
-          let n = descriptor.n else {
+          let problemSize = descriptor.problemSize else {
       fatalError("Invalid descriptor.")
     }
     self.matrix = matrix
-    self.problemSize = n
+    self.problemSize = problemSize
     self.blockSize = -1
     
-    guard matrix.count == n * n else {
-      fatalError(
-        "Invalid matrix size: expected '\(n * n)' but got '\(matrix.count)'.")
+    guard matrix.count == problemSize * problemSize else {
+      fatalError("""
+        Invalid matrix size: expected '\(problemSize * problemSize)' \
+        but got '\(matrix.count)'.
+        """)
     }
-    guard n > 0 else {
+    guard problemSize > 0 else {
       fatalError("Cannot solve a problem with less than one unknown.")
     }
-    guard n > 1 else {
+    guard problemSize > 1 else {
       // This cannot be solved with standard tridiagonalization techniques.
       eigenvalues = [matrix[0]]
       eigenvectors = [1]
@@ -82,13 +84,13 @@ public struct Diagonalization {
   }
   
   mutating func createBlockSize(descriptor: DiagonalizationDescriptor) {
-    if let nb = descriptor.nb {
-      guard nb > 0 else {
+    if let blockSize = descriptor.blockSize {
+      guard blockSize > 0 else {
         fatalError("Block size must be at least one.")
       }
-      blockSize = nb
+      self.blockSize = blockSize
     } else {
-      blockSize = 4
+      self.blockSize = 4
     }
     blockSize = min(blockSize, problemSize - 1)
   }

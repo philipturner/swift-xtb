@@ -75,10 +75,22 @@ extension Diagonalization {
     }
     norm.formSquareRoot()
     
-    // Modify the vector, turning it into a reflector.
+    // Predict the normalization factor.
     let oldSubdiagonal = vector[startElementID]
     let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
     let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+    
+    // Check for NANs.
+    var nanPresent = false
+    let epsilon: Float = 2 * .leastNormalMagnitude
+    if (newSubdiagonal - oldSubdiagonal).magnitude < epsilon {
+      nanPresent = true
+    }
+    if newSubdiagonal.magnitude < epsilon {
+      nanPresent = true
+    }
+    
+    // Modify the vector, turning it into a reflector.
     for elementID in startElementID..<endElementID {
       var element = vector[elementID]
       if elementID == startElementID {
@@ -87,6 +99,10 @@ extension Diagonalization {
         element /= oldSubdiagonal - newSubdiagonal
       }
       element *= tau.squareRoot()
+      
+      if nanPresent {
+        element = 0
+      }
       vector[elementID] = element
     }
     

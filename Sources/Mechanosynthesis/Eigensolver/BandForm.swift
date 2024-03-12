@@ -43,6 +43,7 @@ extension Diagonalization {
           let address = (reflectorID - blockStart) * problemSize + elementID
           vector[elementID] = panel[address]
         }
+        let originalVector = vector
         
         // Apply preceding reflectors (from this panel) to the column.
         for previousReflectorID in blockStart..<reflectorID {
@@ -76,10 +77,22 @@ extension Diagonalization {
         }
         norm.formSquareRoot()
         
-        // Modify the vector, turning it into a reflector.
+        // Predict the normalization factor.
         let oldSubdiagonal = vector[bandOffset]
         let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
         let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+        
+        // Check for NANs.
+        var nanPresent = false
+        let epsilon: Float = 2 * .leastNormalMagnitude
+        if (newSubdiagonal - oldSubdiagonal).magnitude < epsilon {
+          nanPresent = true
+        }
+        if newSubdiagonal.magnitude < epsilon {
+          nanPresent = true
+        }
+        
+        // Modify the vector, turning it into a reflector.
         for elementID in 0..<problemSize {
           var element = vector[elementID]
           if elementID == bandOffset {
@@ -88,6 +101,10 @@ extension Diagonalization {
             element /= oldSubdiagonal - newSubdiagonal
           }
           element *= tau.squareRoot()
+          
+          if nanPresent {
+            element = 0
+          }
           vector[elementID] = element
         }
         
