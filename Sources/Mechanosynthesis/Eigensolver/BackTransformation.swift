@@ -47,7 +47,8 @@ extension Diagonalization {
   }
   
   mutating func backTransform(
-    bandFormReflectors: [Float]
+    bandFormReflectors: [Float],
+    bandFormTau: [Float]
   ) {
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
@@ -67,6 +68,7 @@ extension Diagonalization {
           let address = reflectorID * problemSize + elementID
           reflectorCache[elementID] = bandFormReflectors[address]
         }
+        let tau = bandFormTau[reflectorID]
         
         // Apply the reflector.
         var dotProduct: Float = .zero
@@ -74,7 +76,7 @@ extension Diagonalization {
           dotProduct += reflectorCache[elementID] * vector[elementID]
         }
         for elementID in 0..<problemSize {
-          vector[elementID] -= reflectorCache[elementID] * dotProduct
+          vector[elementID] -= tau * reflectorCache[elementID] * dotProduct
         }
       }
       

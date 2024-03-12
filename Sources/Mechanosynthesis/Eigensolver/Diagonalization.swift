@@ -100,7 +100,7 @@ public struct Diagonalization {
   mutating func solveEigenproblem() {
     let checkpoint0 = CACurrentMediaTime()
     
-    let bandFormReflectors = reduceToBandForm()
+    let (bandFormReflectors, bandFormTau) = reduceToBandForm()
     
     let checkpoint1 = CACurrentMediaTime()
     
@@ -116,7 +116,9 @@ public struct Diagonalization {
     
     let checkpoint4 = CACurrentMediaTime()
     
-    backTransform(bandFormReflectors: bandFormReflectors)
+    backTransform(
+      bandFormReflectors: bandFormReflectors,
+      bandFormTau: bandFormTau)
     
     let checkpoint5 = CACurrentMediaTime()
     
