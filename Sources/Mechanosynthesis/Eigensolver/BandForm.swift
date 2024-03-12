@@ -8,13 +8,13 @@
 import Accelerate
 
 extension Diagonalization {
+  // TODO: Return an array of arrays, making it easier to pass the T matrix
+  // from the reduction stage to the back-transformation stage.
+  
   // Returns a matrix of reflectors.
   mutating func reduceToBandForm() -> (
     reflectors: [Float], tau: [Float]
   ) {
-    // TODO: Accelerate this step with the compact WY transform. Start by
-    // generating the T matrix after all reflectors in the panel have been
-    // completed.
     var currentReflectors = [Float](
       repeating: 0, count: problemSize * problemSize)
     var currentTau = [Float](repeating: 0, count: problemSize)
@@ -132,6 +132,7 @@ extension Diagonalization {
       // Perform a GEMM with non-square matrices.
       var reflectorDotProducts = [Float](
         repeating: 0, count: blockSize * blockSize)
+#if false
       for m in 0..<blockSize {
         for n in 0..<blockSize {
           var dotProduct: Float = .zero
@@ -143,6 +144,23 @@ extension Diagonalization {
           reflectorDotProducts[m * blockSize + n] = dotProduct
         }
       }
+#else
+      do {
+        var TRANSA = CChar(Character("T").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(blockSize)
+        var N = Int32(blockSize)
+        var K = Int32(problemSize)
+        var ALPHA = Float(1)
+        var LDA = Int32(problemSize)
+        var BETA = Float(0)
+        var LDB = Int32(problemSize)
+        var LDC = Int32(blockSize)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+          panelReflectors, &LDB, &BETA, &reflectorDotProducts, &LDC)
+      }
+#endif
       
       // Generate the T matrix. This could be saved and used to accelerate
       // the back-transformations.
@@ -181,83 +199,75 @@ extension Diagonalization {
         }
       }
       
-      // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the right
-      
-      do {
-        // V^H A
-        var VA = [Float](repeating: 0, count: problemSize * blockSize)
-        for m in 0..<problemSize {
-          for n in 0..<blockSize {
-            var dotProduct: Float = .zero
-            for k in 0..<problemSize {
-              let lhsValue = panelReflectors[n * problemSize + k]
-              let rhsValue = matrix[m * problemSize + k]
-              dotProduct += lhsValue * rhsValue
-            }
-            VA[m * blockSize + n] = dotProduct
-          }
-        }
-        
-        // T^H (V^H A)
-        var TVA = [Float](repeating: 0, count: problemSize * blockSize)
-        for m in 0..<problemSize {
-          for n in 0..<blockSize {
-            var dotProduct: Float = .zero
-            for k in 0..<blockSize {
-              let lhsValue = T[k * blockSize + n]
-              let rhsValue = VA[m * blockSize + k]
-              dotProduct += lhsValue * rhsValue
-            }
-            TVA[m * blockSize + n] = dotProduct
-          }
-        }
-        
-        // V (T^H V^H A)
-        for m in 0..<problemSize {
-          for n in 0..<problemSize {
-            var dotProduct: Float = .zero
-            for k in 0..<blockSize {
-              let lhsValue = panelReflectors[k * problemSize + m]
-              let rhsValue = TVA[n * blockSize + k]
-              dotProduct += lhsValue * rhsValue
-            }
-            matrix[n * problemSize + m] -= dotProduct
-          }
-        }
-      }
-      
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
       
       do {
         // V^H A
         var VA = [Float](repeating: 0, count: problemSize * blockSize)
-        for m in 0..<problemSize {
-          for n in 0..<blockSize {
+#if false
+        for m in 0..<blockSize {
+          for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<problemSize {
-              let lhsValue = panelReflectors[n * problemSize + k]
-              let rhsValue = matrix[k * problemSize + m]
+              let lhsValue = panelReflectors[m * problemSize + k]
+              let rhsValue = matrix[k * problemSize + n]
               dotProduct += lhsValue * rhsValue
             }
-            VA[m * blockSize + n] = dotProduct
+            VA[n * blockSize + m] = dotProduct
           }
         }
+#else
+        do {
+          var TRANSA = CChar(Character("T").asciiValue!)
+          var TRANSB = CChar(Character("T").asciiValue!)
+          var M = Int32(blockSize)
+          var N = Int32(problemSize)
+          var K = Int32(problemSize)
+          var ALPHA = Float(1)
+          var LDA = Int32(problemSize)
+          var BETA = Float(0)
+          var LDB = Int32(problemSize)
+          var LDC = Int32(blockSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            matrix, &LDB, &BETA, &VA, &LDC)
+        }
+#endif
         
         // T^H (V^H A)
         var TVA = [Float](repeating: 0, count: problemSize * blockSize)
-        for m in 0..<problemSize {
-          for n in 0..<blockSize {
+#if false
+        for m in 0..<blockSize {
+          for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = T[k * blockSize + n]
-              let rhsValue = VA[m * blockSize + k]
+              let lhsValue = T[k * blockSize + m]
+              let rhsValue = VA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
-            TVA[m * blockSize + n] = dotProduct
+            TVA[n * blockSize + m] = dotProduct
           }
         }
+#else
+        do {
+          var TRANSA = CChar(Character("N").asciiValue!)
+          var TRANSB = CChar(Character("N").asciiValue!)
+          var M = Int32(blockSize)
+          var N = Int32(problemSize)
+          var K = Int32(blockSize)
+          var ALPHA = Float(1)
+          var LDA = Int32(blockSize)
+          var BETA = Float(0)
+          var LDB = Int32(blockSize)
+          var LDC = Int32(blockSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+            VA, &LDB, &BETA, &TVA, &LDC)
+        }
+#endif
         
         // V (T^H V^H A)
+        #if false
         for m in 0..<problemSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
@@ -269,6 +279,122 @@ extension Diagonalization {
             matrix[m * problemSize + n] -= dotProduct
           }
         }
+        #else
+        do {
+          var TRANSA = CChar(Character("T").asciiValue!)
+          var TRANSB = CChar(Character("T").asciiValue!)
+          var M = Int32(problemSize)
+          var N = Int32(problemSize)
+          var K = Int32(blockSize)
+          var ALPHA = Float(-1)
+          var LDA = Int32(blockSize)
+          var BETA = Float(1)
+          var LDB = Int32(problemSize)
+          var LDC = Int32(problemSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, TVA, &LDA,
+            panelReflectors, &LDB, &BETA, &matrix, &LDC)
+        }
+        #endif
+      }
+      
+      // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the right
+      
+      do {
+        // V^H A
+        var VA = [Float](repeating: 0, count: problemSize * blockSize)
+#if false
+        for m in 0..<blockSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<problemSize {
+              let lhsValue = panelReflectors[m * problemSize + k]
+              let rhsValue = matrix[n * problemSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            VA[n * blockSize + m] = dotProduct
+          }
+        }
+#else
+        do {
+          var TRANSA = CChar(Character("T").asciiValue!)
+          var TRANSB = CChar(Character("N").asciiValue!)
+          var M = Int32(blockSize)
+          var N = Int32(problemSize)
+          var K = Int32(problemSize)
+          var ALPHA = Float(1)
+          var LDA = Int32(problemSize)
+          var BETA = Float(0)
+          var LDB = Int32(problemSize)
+          var LDC = Int32(blockSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            matrix, &LDB, &BETA, &VA, &LDC)
+        }
+#endif
+        
+        // T^H (V^H A)
+        var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+#if false
+        for m in 0..<blockSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = T[k * blockSize + m]
+              let rhsValue = VA[n * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            TVA[n * blockSize + m] = dotProduct
+          }
+        }
+#else
+        do {
+          var TRANSA = CChar(Character("N").asciiValue!)
+          var TRANSB = CChar(Character("N").asciiValue!)
+          var M = Int32(blockSize)
+          var N = Int32(problemSize)
+          var K = Int32(blockSize)
+          var ALPHA = Float(1)
+          var LDA = Int32(blockSize)
+          var BETA = Float(0)
+          var LDB = Int32(blockSize)
+          var LDC = Int32(blockSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+            VA, &LDB, &BETA, &TVA, &LDC)
+        }
+#endif
+        
+        // V (T^H V^H A)
+#if false
+        for m in 0..<problemSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = panelReflectors[k * problemSize + m]
+              let rhsValue = TVA[n * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            matrix[n * problemSize + m] -= dotProduct
+          }
+        }
+#else
+        do {
+          var TRANSA = CChar(Character("N").asciiValue!)
+          var TRANSB = CChar(Character("N").asciiValue!)
+          var M = Int32(problemSize)
+          var N = Int32(problemSize)
+          var K = Int32(blockSize)
+          var ALPHA = Float(-1)
+          var LDA = Int32(problemSize)
+          var BETA = Float(1)
+          var LDB = Int32(blockSize)
+          var LDC = Int32(problemSize)
+          sgemm_(
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            TVA, &LDB, &BETA, &matrix, &LDC)
+        }
+#endif
       }
       
       // Store the reflectors to main memory.

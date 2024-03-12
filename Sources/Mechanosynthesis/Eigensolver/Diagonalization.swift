@@ -141,8 +141,6 @@ public struct Diagonalization {
         print(label)
       }
       
-      // TODO: Split up back-transformation into application of 1st stage and
-      // 2nd stage reflectors.
       print()
       print("[n = \(problemSize)] Performance Breakdown:")
       printPart(index: 0, label: "Reduction to band form")
