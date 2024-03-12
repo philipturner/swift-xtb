@@ -1,4 +1,4 @@
-// swift-tools-version: 5.8
+// swift-tools-version: 5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -10,7 +10,7 @@ var targets: [Target] = []
 
 var platforms: [SupportedPlatform] = []
 #if canImport(Darwin)
-platforms.append(.macOS(.v13))
+platforms.append(.macOS(.v14))
 targets.append(
   .target(
     name: "MetalCompiler",
@@ -19,6 +19,15 @@ targets.append(
   .testTarget(
     name: "MetalCompilerTests",
     dependencies: ["MetalCompiler"]))
+#endif
+
+var cSettings: [CSetting] = []
+var swiftSettings: [SwiftSetting] = []
+#if canImport(Darwin)
+cSettings.append(
+  .define("ACCELERATE_NEW_LAPACK"))
+swiftSettings.append(
+  .define("ACCELERATE_NEW_LAPACK"))
 #endif
 
 // MARK: - libxc
@@ -67,11 +76,15 @@ targetDependencies.append(
 targets.append(
   .target(
     name: "Mechanosynthesis",
-    dependencies: targetDependencies))
+    dependencies: targetDependencies,
+    cSettings: cSettings,
+    swiftSettings: swiftSettings))
 targets.append(
   .testTarget(
     name: "MechanosynthesisTests",
-    dependencies: ["Mechanosynthesis"]))
+    dependencies: ["Mechanosynthesis"],
+    cSettings: cSettings,
+    swiftSettings: swiftSettings))
 
 let package = Package(
   name: "Mechanosynthesis",

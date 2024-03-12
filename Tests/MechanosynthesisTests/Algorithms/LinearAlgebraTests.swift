@@ -352,6 +352,81 @@ final class LinearAlgebraTests: XCTestCase {
     return (eigenvalues: W, eigenvectors: A)
   }
   
+  #if ACCELERATE_NEW_LAPACK
+  // Returns the eigenvalues from Accelerate's bugged 2-stage implementation.
+  static func eigenvaluesTwoStage(matrix: [Float], n: Int) -> [Float] {
+    var JOBZ = CChar(Character("N").asciiValue!)
+    var UPLO = CChar(Character("L").asciiValue!)
+    var N: Int32 = Int32(n)
+    var A = [Float](repeating: 0, count: n * n)
+    memcpy(&A, matrix, n * n * 4)
+    var LDA: Int32 = Int32(n)
+    var W = [Float](repeating: 0, count: n)
+    var WORK: [Float] = [0]
+    var LWORK: Int32 = -1
+    var IWORK: [Int32] = [0]
+    var LIWORK: Int32 = -1
+    var INFO: Int32 = 0
+    A.withContiguousMutableStorageIfAvailable {
+      let A = $0.baseAddress!
+      W.withContiguousMutableStorageIfAvailable {
+        let W = $0.baseAddress!
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_2stage_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+        
+        LWORK = Int32(WORK[0])
+        LIWORK = Int32(IWORK[0])
+        WORK = [Float](repeating: 0, count: Int(LWORK))
+        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
+        WORK.withContiguousMutableStorageIfAvailable {
+          let WORK = $0.baseAddress!
+          IWORK.withContiguousMutableStorageIfAvailable {
+            let IWORK = $0.baseAddress!
+            ssyevd_2stage_(
+              &JOBZ, // JOBZ
+              &UPLO, // UPLO
+              &N, // N
+              A, // A
+              &LDA, // LDA
+              W, // W
+              WORK, // WORK
+              &LWORK, // LWORK
+              IWORK, // IWORK
+              &LIWORK, // LIWORK
+              &INFO // INFO
+            )
+            guard INFO == 0 else {
+              fatalError("LAPACK error code: \(INFO)")
+            }
+          }
+        }
+      }
+    }
+    
+    return W
+  }
+  #endif
+  
   // MARK: - Tests (Permanent)
   
   // Use the utility function from LAPACK to diagonalize a tridiagonal matrix.
@@ -1008,28 +1083,60 @@ final class LinearAlgebraTests: XCTestCase {
         }
       }
       XCTAssertGreaterThan(eigenvaluePassRate, 0.90)
+      
+      var diagonalizationDesc = DiagonalizationDescriptor()
+      diagonalizationDesc.matrix = A
+      diagonalizationDesc.problemSize = n
+      diagonalizationDesc.blockSize = 32
+      let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+      
+      let oneStageEigenvalues = Self.diagonalize(matrix: A, n: n).0
+      #if false
+      let twoStageEigenvalues = Self.eigenvaluesTwoStage(matrix: A, n: n)
+      #else
+      let twoStageEigenvalues = diagonalization.eigenvalues
+      #endif
+      
+      for i in 0..<n {
+        let expectedID = (n - 1) - i
+        let expected = Λ[expectedID * n + expectedID]
+        let actual1 = oneStageEigenvalues[i]
+        let actual2 = twoStageEigenvalues[i]
+        let accuracy = max(1e-5, expected.magnitude * 1e-3)
+        XCTAssertEqual(
+          actual1, expected, accuracy: accuracy,
+          "One-stage solver failed at Λ[\(i)].")
+        XCTAssertEqual(
+          actual2, expected, accuracy: accuracy,
+          "Two-stage solver failed at Λ[\(i)].")
+        XCTAssertEqual(
+          actual1, actual2, accuracy: accuracy,
+          "Solvers disagreed at Λ[\(i)].")
+      }
     }
     
-    #if true
+    // A small test that the benchmark works correctly.
     benchmarkProblemSize(n: 7, trialCount: 1)
-    #else
+    
+    // Compute-intensive benchmarks across a wide range of problem sizes.
     for n in 1...20 {
       benchmarkProblemSize(n: n, trialCount: 3)
     }
     for nTenth in 3...10 {
       benchmarkProblemSize(n: 10 * nTenth, trialCount: 3)
     }
-    benchmarkProblemSize(n: 125, trialCount: 3)
-    benchmarkProblemSize(n: 200, trialCount: 3)
-    benchmarkProblemSize(n: 250, trialCount: 3)
-    benchmarkProblemSize(n: 300, trialCount: 3)
-    benchmarkProblemSize(n: 400, trialCount: 3)
-    benchmarkProblemSize(n: 500, trialCount: 3)
-    benchmarkProblemSize(n: 600, trialCount: 3)
-    benchmarkProblemSize(n: 750, trialCount: 3)
-    benchmarkProblemSize(n: 800, trialCount: 3)
-    benchmarkProblemSize(n: 1000, trialCount: 3)
-    #endif
+    
+    // We need to speed up the custom eigensolver before testing these sizes.
+//    benchmarkProblemSize(n: 125, trialCount: 3)
+//    benchmarkProblemSize(n: 200, trialCount: 3)
+//    benchmarkProblemSize(n: 250, trialCount: 3)
+//    benchmarkProblemSize(n: 300, trialCount: 3)
+//    benchmarkProblemSize(n: 400, trialCount: 3)
+//    benchmarkProblemSize(n: 500, trialCount: 3)
+//    benchmarkProblemSize(n: 600, trialCount: 3)
+//    benchmarkProblemSize(n: 750, trialCount: 3)
+//    benchmarkProblemSize(n: 800, trialCount: 3)
+//    benchmarkProblemSize(n: 1000, trialCount: 3)
   }
 }
 
