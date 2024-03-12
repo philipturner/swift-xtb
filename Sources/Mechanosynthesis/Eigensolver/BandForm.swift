@@ -129,76 +129,55 @@ extension Diagonalization {
         panelTau[reflectorID - blockStart] = tau
       }
       
-      // TODO: Reformulate every statement below as a matrix multiplication in
-      // scalar code. After doing that, replace each matrix multiplication with
-      // a call to Accelerate.
-      
       // Perform a GEMM with non-square matrices.
       var reflectorDotProducts = [Float](
         repeating: 0, count: blockSize * blockSize)
-      for lhsID in 0..<blockSize {
-        for rhsID in 0..<blockSize {
+      for m in 0..<blockSize {
+        for n in 0..<blockSize {
           var dotProduct: Float = .zero
-          for elementID in 0..<problemSize {
-            let lhsAddress = lhsID * problemSize + elementID
-            let rhsAddress = rhsID * problemSize + elementID
-            let lhsValue = panelReflectors[lhsAddress]
-            let rhsValue = panelReflectors[rhsAddress]
+          for k in 0..<problemSize {
+            let lhsValue = panelReflectors[m * problemSize + k]
+            let rhsValue = panelReflectors[n * problemSize + k]
             dotProduct += lhsValue * rhsValue
           }
-          let address = lhsID * blockSize + rhsID
-          reflectorDotProducts[address] = dotProduct
+          reflectorDotProducts[m * blockSize + n] = dotProduct
         }
       }
       
-      // Generate the diagonal entries.
-      var currentMatrixT = [Float](repeating: 0, count: problemSize * problemSize)
-      for transformID in 0..<blockEnd - blockStart {
-        let diagonalAddress = (blockStart + transformID) * problemSize + (blockStart + transformID)
-        let dotProductAddress = transformID * blockSize + transformID
-        currentMatrixT[diagonalAddress] = panelTau[transformID]
-      }
-      
-      // Generate the other entries.
-      for transformID in 0..<blockEnd - blockStart {
-        // Load the column into the cache.
-        var t = [Float](repeating: 0, count: blockSize)
-        for rowID in 0..<transformID {
-          let address = rowID * blockSize + transformID
-          t[rowID] = reflectorDotProducts[address]
+      // Generate the T matrix. This could be saved and used to accelerate
+      // the back-transformations.
+      var T = [Float](repeating: 0, count: blockSize * blockSize)
+      do {
+        // Generate the diagonal entries.
+        for n in 0..<blockSize {
+          T[n * blockSize + n] = panelTau[n]
         }
         
-        // This GEMV operation could be transformed into a panel GEMM,
-        // similarly to the method for accelerating classical Gram-Schmidt.
-        var tt = [Float](repeating: 0, count: blockSize)
-        let τ = currentMatrixT[(blockStart + transformID) * problemSize + (blockStart + transformID)]
-        for rowID in 0..<blockEnd - blockStart {
-          // Multiply with the preceding submatrix.
-          var dotProduct: Float = .zero
-          for columnID in 0..<blockEnd - blockStart {
-            let matrixAddress = (blockStart + rowID) * problemSize + (blockStart + columnID)
-            let matrixValue = currentMatrixT[matrixAddress]
-            let vectorValue = t[columnID]
-            dotProduct += matrixValue * vectorValue
+        // Allocate cache memory for generating T.
+        var tCache = [Float](repeating: 0, count: blockSize)
+        var ttCache = [Float](repeating: 0, count: blockSize)
+        
+        // Generate the other entries.
+        for n in 0..<blockSize {
+          for m in 0..<blockSize {
+            tCache[m] = reflectorDotProducts[m * blockSize + n]
           }
           
-          // Scale by the value on the diagonal.
-          tt[rowID] = -τ * dotProduct
-        }
-        
-        // Store the column to main memory.
-        for rowID in 0..<transformID {
-          let address = (blockStart + rowID) * problemSize + (blockStart + transformID)
-          currentMatrixT[address] = tt[rowID]
-        }
-      }
-      
-      // Use this to incrementally debug the removal of the excessive memory
-      // allocation for T.
-      var compressedT = [Float](repeating: 0, count: blockSize * blockSize)
-      for rowID in 0..<blockEnd - blockStart {
-        for columnID in 0..<blockEnd - blockStart {
-          compressedT[rowID * blockSize + columnID] = currentMatrixT[(blockStart + rowID) * problemSize + (blockStart + columnID)]
+          // Multiply with the preceding submatrix.
+          let τ = T[n * blockSize + n]
+          for m in 0..<blockSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let matrixValue = T[m * blockSize + k]
+              let vectorValue = tCache[k]
+              dotProduct += matrixValue * vectorValue
+            }
+            ttCache[m] = -τ * dotProduct
+          }
+          
+          for m in 0..<n {
+            T[m * blockSize + n] = ttCache[m]
+          }
         }
       }
       
@@ -225,7 +204,7 @@ extension Diagonalization {
           for n in 0..<blockSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = compressedT[k * blockSize + n]
+              let lhsValue = T[k * blockSize + n]
               let rhsValue = VA[m * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
@@ -270,7 +249,7 @@ extension Diagonalization {
           for n in 0..<blockSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = compressedT[k * blockSize + n]
+              let lhsValue = T[k * blockSize + n]
               let rhsValue = VA[m * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
