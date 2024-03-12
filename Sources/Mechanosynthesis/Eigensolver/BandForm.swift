@@ -129,6 +129,10 @@ extension Diagonalization {
         panelTau[reflectorID - blockStart] = tau
       }
       
+      // TODO: Reformulate every statement below as a matrix multiplication in
+      // scalar code. After doing that, replace each matrix multiplication with
+      // a call to Accelerate.
+      
       // Perform a GEMM with non-square matrices.
       var reflectorDotProducts = [Float](
         repeating: 0, count: blockSize * blockSize)
@@ -149,124 +153,141 @@ extension Diagonalization {
       
       // Generate the diagonal entries.
       var currentMatrixT = [Float](repeating: 0, count: problemSize * problemSize)
-      for transformID in blockStart..<blockEnd {
-        let diagonalAddress = transformID * problemSize + transformID
-        let dotProductAddress = (
-          transformID - blockStart) * blockSize + (transformID - blockStart)
-        let dotProduct = reflectorDotProducts[dotProductAddress]
-        currentMatrixT[diagonalAddress] = panelTau[transformID - blockStart]
+      for transformID in 0..<blockEnd - blockStart {
+        let diagonalAddress = (blockStart + transformID) * problemSize + (blockStart + transformID)
+        let dotProductAddress = transformID * blockSize + transformID
+        currentMatrixT[diagonalAddress] = panelTau[transformID]
       }
       
       // Generate the other entries.
-      for transformID in blockStart..<blockEnd {
+      for transformID in 0..<blockEnd - blockStart {
         // Load the column into the cache.
         var t = [Float](repeating: 0, count: blockSize)
-        for rowID in blockStart..<transformID {
-          let address = (rowID - blockStart) * blockSize + (transformID - blockStart)
-          t[rowID - blockStart] = reflectorDotProducts[address]
+        for rowID in 0..<transformID {
+          let address = rowID * blockSize + transformID
+          t[rowID] = reflectorDotProducts[address]
         }
         
         // This GEMV operation could be transformed into a panel GEMM,
         // similarly to the method for accelerating classical Gram-Schmidt.
         var tt = [Float](repeating: 0, count: blockSize)
-        let τ = currentMatrixT[transformID * problemSize + transformID]
-        for rowID in blockStart..<blockEnd {
+        let τ = currentMatrixT[(blockStart + transformID) * problemSize + (blockStart + transformID)]
+        for rowID in 0..<blockEnd - blockStart {
           // Multiply with the preceding submatrix.
           var dotProduct: Float = .zero
-          for columnID in blockStart..<blockEnd {
-            let matrixAddress = rowID * problemSize + columnID
+          for columnID in 0..<blockEnd - blockStart {
+            let matrixAddress = (blockStart + rowID) * problemSize + (blockStart + columnID)
             let matrixValue = currentMatrixT[matrixAddress]
-            let vectorValue = t[columnID - blockStart]
+            let vectorValue = t[columnID]
             dotProduct += matrixValue * vectorValue
           }
           
           // Scale by the value on the diagonal.
-          tt[rowID - blockStart] = -τ * dotProduct
+          tt[rowID] = -τ * dotProduct
         }
         
         // Store the column to main memory.
-        for rowID in blockStart..<transformID {
-          let address = rowID * problemSize + transformID
-          currentMatrixT[address] = tt[rowID - blockStart]
+        for rowID in 0..<transformID {
+          let address = (blockStart + rowID) * problemSize + (blockStart + transformID)
+          currentMatrixT[address] = tt[rowID]
         }
       }
       
-      // Update by applying H**T to A(I:M,I+IB:N) from the right
-      for columnID in 0..<problemSize {
+      // Use this to incrementally debug the removal of the excessive memory
+      // allocation for T.
+      var compressedT = [Float](repeating: 0, count: blockSize * blockSize)
+      for rowID in 0..<blockEnd - blockStart {
+        for columnID in 0..<blockEnd - blockStart {
+          compressedT[rowID * blockSize + columnID] = currentMatrixT[(blockStart + rowID) * problemSize + (blockStart + columnID)]
+        }
+      }
+      
+      // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the right
+      
+      do {
         // V^H A
-        var reflectorContributions = [Float](repeating: 0, count: blockSize)
-        for transformID in blockStart..<blockEnd {
-          var dotProduct: Float = .zero
-          for rowID in 0..<problemSize {
-            let matrixAddress = columnID * problemSize + rowID
-            let matrixValue = matrix[matrixAddress]
-            let vectorValue = panelReflectors[(transformID - blockStart) * problemSize + rowID]
-            dotProduct += vectorValue * matrixValue
+        var VA = [Float](repeating: 0, count: problemSize * blockSize)
+        for m in 0..<problemSize {
+          for n in 0..<blockSize {
+            var dotProduct: Float = .zero
+            for k in 0..<problemSize {
+              let lhsValue = panelReflectors[n * problemSize + k]
+              let rhsValue = matrix[m * problemSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            VA[m * blockSize + n] = dotProduct
           }
-          reflectorContributions[transformID - blockStart] = dotProduct
         }
         
         // T^H (V^H A)
-        var TVA = [Float](repeating: 0, count: blockSize)
-        for rowID in blockStart..<blockEnd {
-          var dotProduct: Float = .zero
-          for columnID in blockStart..<blockEnd {
-            let addressT = columnID * problemSize + rowID
-            let valueVA = reflectorContributions[columnID - blockStart]
-            dotProduct += currentMatrixT[addressT] * valueVA
+        var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+        for m in 0..<problemSize {
+          for n in 0..<blockSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = compressedT[k * blockSize + n]
+              let rhsValue = VA[m * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            TVA[m * blockSize + n] = dotProduct
           }
-          TVA[rowID - blockStart] = dotProduct
         }
         
-        // V T^H V^H A
-        for transformID in blockStart..<blockEnd {
-          let dotProduct = TVA[transformID - blockStart]
-          for rowID in 0..<problemSize {
-            let matrixAddress = columnID * problemSize + rowID
-            var matrixValue = matrix[matrixAddress]
-            let vectorValue = panelReflectors[(transformID - blockStart) * problemSize + rowID]
-            matrixValue -= dotProduct * vectorValue
-            matrix[matrixAddress] = matrixValue
+        // V (T^H V^H A)
+        for m in 0..<problemSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = panelReflectors[k * problemSize + m]
+              let rhsValue = TVA[n * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            matrix[n * problemSize + m] -= dotProduct
           }
         }
       }
       
-      // Update by applying H**T to A(I:M,I+IB:N) from the left
-      for columnID in 0..<problemSize {
+      // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
+      
+      do {
         // V^H A
-        var reflectorContributions = [Float](repeating: 0, count: blockSize)
-        for transformID in blockStart..<blockEnd {
-          var dotProduct: Float = .zero
-          for rowID in 0..<problemSize {
-            let matrixAddress = rowID * problemSize + columnID
-            let matrixValue = matrix[matrixAddress]
-            let vectorValue = panelReflectors[(transformID - blockStart) * problemSize + rowID]
-            dotProduct += vectorValue * matrixValue
+        var VA = [Float](repeating: 0, count: problemSize * blockSize)
+        for m in 0..<problemSize {
+          for n in 0..<blockSize {
+            var dotProduct: Float = .zero
+            for k in 0..<problemSize {
+              let lhsValue = panelReflectors[n * problemSize + k]
+              let rhsValue = matrix[k * problemSize + m]
+              dotProduct += lhsValue * rhsValue
+            }
+            VA[m * blockSize + n] = dotProduct
           }
-          reflectorContributions[transformID - blockStart] = dotProduct
         }
         
         // T^H (V^H A)
-        var TVA = [Float](repeating: 0, count: blockSize)
-        for rowID in blockStart..<blockEnd {
-          var dotProduct: Float = .zero
-          for columnID in blockStart..<blockEnd {
-            let addressT = columnID * problemSize + rowID
-            let valueVA = reflectorContributions[columnID - blockStart]
-            dotProduct += currentMatrixT[addressT] * valueVA
+        var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+        for m in 0..<problemSize {
+          for n in 0..<blockSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = compressedT[k * blockSize + n]
+              let rhsValue = VA[m * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            TVA[m * blockSize + n] = dotProduct
           }
-          TVA[rowID - blockStart] = dotProduct
         }
         
-        // V T^H V^H A
-        for transformID in blockStart..<blockEnd {
-          let dotProduct = TVA[transformID - blockStart]
-          for rowID in 0..<problemSize {
-            let matrixAddress = rowID * problemSize + columnID
-            var matrixValue = matrix[matrixAddress]
-            let vectorValue = panelReflectors[(transformID - blockStart) * problemSize + rowID]
-            matrixValue -= dotProduct * vectorValue
-            matrix[matrixAddress] = matrixValue
+        // V (T^H V^H A)
+        for m in 0..<problemSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<blockSize {
+              let lhsValue = panelReflectors[k * problemSize + m]
+              let rhsValue = TVA[n * blockSize + k]
+              dotProduct += lhsValue * rhsValue
+            }
+            matrix[m * problemSize + n] -= dotProduct
           }
         }
       }
