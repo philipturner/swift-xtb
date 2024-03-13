@@ -47,43 +47,51 @@ extension Diagonalization {
   }
   
   mutating func backTransform(
-    bandFormReflectors: [Float],
-    bandFormTau: [Float]
+    bandFormReflectors: [BandReflector]
   ) {
-    // Back-transform the eigenvectors.
-    for vectorID in 0..<problemSize {
-      // Load the vector into the cache.
-      var vector = [Float](repeating: 0, count: problemSize)
-      for elementID in 0..<problemSize {
-        let address = vectorID * problemSize + elementID
-        vector[elementID] = eigenvectors[address]
-      }
+    for bandReflector in bandFormReflectors.reversed() {
+      let panelReflectors = bandReflector.matrixV
+      let T = bandReflector.matrixT
       
-      // Allocate cache memory for the Householder reflector.
-      var reflectorCache = [Float](repeating: 0, count: problemSize)
-      
-      for reflectorID in (0..<problemSize).reversed() {
-        // Load the reflector into the cache.
-        for elementID in 0..<problemSize {
-          let address = reflectorID * problemSize + elementID
-          reflectorCache[elementID] = bandFormReflectors[address]
-        }
-        let tau = bandFormTau[reflectorID]
-        
-        // Apply the reflector.
-        var dotProduct: Float = .zero
-        for elementID in 0..<problemSize {
-          dotProduct += reflectorCache[elementID] * vector[elementID]
-        }
-        for elementID in 0..<problemSize {
-          vector[elementID] -= tau * reflectorCache[elementID] * dotProduct
+      // V^H A
+      var VA = [Float](repeating: 0, count: problemSize * blockSize)
+      for m in 0..<blockSize {
+        for n in 0..<problemSize {
+          var dotProduct: Float = .zero
+          for k in 0..<problemSize {
+            let lhsValue = panelReflectors[m * problemSize + k]
+            let rhsValue = eigenvectors[n * problemSize + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          VA[n * blockSize + m] = dotProduct
         }
       }
       
-      // Store the vector to main memory.
-      for elementID in 0..<problemSize {
-        let address = vectorID * problemSize + elementID
-        eigenvectors[address] = vector[elementID]
+      // T^H (V^H A)
+      var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+      for m in 0..<blockSize {
+        for n in 0..<problemSize {
+          var dotProduct: Float = .zero
+          for k in 0..<blockSize {
+            let lhsValue = T[k * blockSize + m]
+            let rhsValue = VA[n * blockSize + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          TVA[n * blockSize + m] = dotProduct
+        }
+      }
+      
+      // V (T^H V^H A)
+      for m in 0..<problemSize {
+        for n in 0..<problemSize {
+          var dotProduct: Float = .zero
+          for k in 0..<blockSize {
+            let lhsValue = panelReflectors[k * problemSize + m]
+            let rhsValue = TVA[n * blockSize + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          eigenvectors[n * problemSize + m] -= dotProduct
+        }
       }
     }
   }

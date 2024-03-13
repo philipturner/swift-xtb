@@ -7,17 +7,25 @@
 
 import Accelerate
 
+struct BandReflector {
+  // A matrix of reflectors, which describes a specific panel.
+  var matrixV: [Float]
+  
+  // A matrix of coefficients to multiply dot products by.
+  //
+  // Start off with this as a vector, then change it to a diagonal matrix.
+  // Finally, change it to a filled-in matrix, used to accelerate the
+  // back-transformation.
+  var matrixT: [Float]
+}
+
 extension Diagonalization {
   // TODO: Return an array of arrays, making it easier to pass the T matrix
   // from the reduction stage to the back-transformation stage.
   
   // Returns a matrix of reflectors.
-  mutating func reduceToBandForm() -> (
-    reflectors: [Float], tau: [Float]
-  ) {
-    var currentReflectors = [Float](
-      repeating: 0, count: problemSize * problemSize)
-    var currentTau = [Float](repeating: 0, count: problemSize)
+  mutating func reduceToBandForm() -> [BandReflector] {
+    var bandReflectors: [BandReflector] = []
     
     // Reduce the matrix to band form, and collect up the reflectors.
     var blockStart: Int = 0
@@ -129,75 +137,7 @@ extension Diagonalization {
         panelTau[reflectorID - blockStart] = tau
       }
       
-      // Perform a GEMM with non-square matrices.
-      var reflectorDotProducts = [Float](
-        repeating: 0, count: blockSize * blockSize)
-#if false
-      for m in 0..<blockSize {
-        for n in 0..<blockSize {
-          var dotProduct: Float = .zero
-          for k in 0..<problemSize {
-            let lhsValue = panelReflectors[m * problemSize + k]
-            let rhsValue = panelReflectors[n * problemSize + k]
-            dotProduct += lhsValue * rhsValue
-          }
-          reflectorDotProducts[m * blockSize + n] = dotProduct
-        }
-      }
-#else
-      do {
-        var TRANSA = CChar(Character("T").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(blockSize)
-        var N = Int32(blockSize)
-        var K = Int32(problemSize)
-        var ALPHA = Float(1)
-        var LDA = Int32(problemSize)
-        var BETA = Float(0)
-        var LDB = Int32(problemSize)
-        var LDC = Int32(blockSize)
-        sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
-          panelReflectors, &LDB, &BETA, &reflectorDotProducts, &LDC)
-      }
-#endif
-      
-      // Generate the T matrix. This could be saved and used to accelerate
-      // the back-transformations.
-      var T = [Float](repeating: 0, count: blockSize * blockSize)
-      do {
-        // Generate the diagonal entries.
-        for n in 0..<blockSize {
-          T[n * blockSize + n] = panelTau[n]
-        }
-        
-        // Allocate cache memory for generating T.
-        var tCache = [Float](repeating: 0, count: blockSize)
-        var ttCache = [Float](repeating: 0, count: blockSize)
-        
-        // Generate the other entries.
-        for n in 0..<blockSize {
-          for m in 0..<blockSize {
-            tCache[m] = reflectorDotProducts[m * blockSize + n]
-          }
-          
-          // Multiply with the preceding submatrix.
-          let τ = T[n * blockSize + n]
-          for m in 0..<blockSize {
-            var dotProduct: Float = .zero
-            for k in 0..<blockSize {
-              let matrixValue = T[m * blockSize + k]
-              let vectorValue = tCache[k]
-              dotProduct += matrixValue * vectorValue
-            }
-            ttCache[m] = -τ * dotProduct
-          }
-          
-          for m in 0..<n {
-            T[m * blockSize + n] = ttCache[m]
-          }
-        }
-      }
+      let T = createT(panelReflectors: panelReflectors, panelTau: panelTau)
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
       
@@ -397,18 +337,104 @@ extension Diagonalization {
 #endif
       }
       
-      // Store the reflectors to main memory.
-      for reflectorID in blockStart..<blockEnd {
+      // Reverse the order of the reflectors.
+      var reversedPanelReflectors = [Float](
+        repeating: 0, count: blockSize * problemSize)
+      var reversedPanelTau = [Float](repeating: 0, count: blockSize)
+      for oldReflectorID in 0..<blockSize {
+        let newReflectorID = blockSize - 1 - oldReflectorID
         for elementID in 0..<problemSize {
-          let cacheAddress = (
-            reflectorID - blockStart) * problemSize + elementID
-          let memoryAddress = reflectorID * problemSize + elementID
-          currentReflectors[memoryAddress] = panelReflectors[cacheAddress]
+          let oldAddress = oldReflectorID * problemSize + elementID
+          let newAddress = newReflectorID * problemSize + elementID
+          reversedPanelReflectors[newAddress] = panelReflectors[oldAddress]
         }
-        currentTau[reflectorID] = panelTau[reflectorID - blockStart]
+        reversedPanelTau[newReflectorID] = panelTau[oldReflectorID]
+      }
+      let reversedT = createT(
+        panelReflectors: reversedPanelReflectors, panelTau: reversedPanelTau)
+      
+      // Store the reflectors to main memory.
+      bandReflectors.append(
+        BandReflector(matrixV: reversedPanelReflectors, matrixT: reversedT))
+    }
+    
+    return bandReflectors
+  }
+  
+  // Create a T matrix for the given sequence of reflectors.
+  private func createT(
+    panelReflectors: [Float], panelTau: [Float]
+  ) -> [Float] {
+    // Perform a GEMM with non-square matrices.
+    var reflectorDotProducts = [Float](
+      repeating: 0, count: blockSize * blockSize)
+#if false
+    for m in 0..<blockSize {
+      for n in 0..<blockSize {
+        var dotProduct: Float = .zero
+        for k in 0..<problemSize {
+          let lhsValue = panelReflectors[m * problemSize + k]
+          let rhsValue = panelReflectors[n * problemSize + k]
+          dotProduct += lhsValue * rhsValue
+        }
+        reflectorDotProducts[m * blockSize + n] = dotProduct
+      }
+    }
+#else
+    do {
+      var TRANSA = CChar(Character("T").asciiValue!)
+      var TRANSB = CChar(Character("N").asciiValue!)
+      var M = Int32(blockSize)
+      var N = Int32(blockSize)
+      var K = Int32(problemSize)
+      var ALPHA = Float(1)
+      var LDA = Int32(problemSize)
+      var BETA = Float(0)
+      var LDB = Int32(problemSize)
+      var LDC = Int32(blockSize)
+      sgemm_(
+        &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+        panelReflectors, &LDB, &BETA, &reflectorDotProducts, &LDC)
+    }
+#endif
+    
+    // Allocate cache memory for the T matrix.
+    var T = [Float](repeating: 0, count: blockSize * blockSize)
+    do {
+      // Generate the diagonal entries.
+      for n in 0..<blockSize {
+        T[n * blockSize + n] = panelTau[n]
+      }
+      
+      // Allocate cache memory for generating T.
+      var tCache = [Float](repeating: 0, count: blockSize)
+      var ttCache = [Float](repeating: 0, count: blockSize)
+      
+      // Generate the other entries.
+      for n in 0..<blockSize {
+        for m in 0..<blockSize {
+          tCache[m] = reflectorDotProducts[m * blockSize + n]
+        }
+        
+        // Multiply with the preceding submatrix.
+        let τ = T[n * blockSize + n]
+        for m in 0..<blockSize {
+          var dotProduct: Float = .zero
+          for k in 0..<blockSize {
+            let matrixValue = T[m * blockSize + k]
+            let vectorValue = tCache[k]
+            dotProduct += matrixValue * vectorValue
+          }
+          ttCache[m] = -τ * dotProduct
+        }
+        
+        for m in 0..<n {
+          T[m * blockSize + n] = ttCache[m]
+        }
       }
     }
     
-    return (currentReflectors, currentTau)
+    // Store the T matrix to main memory.
+    return T
   }
 }
