@@ -11,6 +11,19 @@ struct BulgeReflector {
 }
 
 extension Diagonalization {
+  // TODO: Store the band reflectors in a compact matrix. Change 'indices' to
+  // describe a range in the matrix. Then, predict the values of 'indices' on
+  // the fly, instead of storing them explicitly.
+  //
+  // The very first incremental change can simply be aggregating the
+  // transforms within a specific sweep. After that, it is a minor change to
+  // redirect the start of the vector to a compact matrix.
+  //
+  // This optimization does not include batching of Householder transforms.
+  // However, the internal storage format could be optimized to improve the
+  // performance of batching. Store transforms with the first element at
+  // column[0], instead of along the diagonal.
+  
   // Returns a sequence of reflectors.
   mutating func chaseBulges() -> [BulgeReflector] {
     // If the matrix is already in tridiagonal form, there is no work to do.

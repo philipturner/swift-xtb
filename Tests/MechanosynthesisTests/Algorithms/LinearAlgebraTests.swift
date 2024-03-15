@@ -1038,7 +1038,7 @@ final class LinearAlgebraTests: XCTestCase {
           sign = -1
         }
         
-        let powerPart = Float.pow(1.02, position.magnitude)
+        let powerPart = Float.pow(1.01, position.magnitude)
         let address = vectorID * n + vectorID
         Λ[address] = sign * powerPart
       }
@@ -1125,14 +1125,14 @@ final class LinearAlgebraTests: XCTestCase {
     for nTenth in 3...10 {
       benchmarkProblemSize(n: 10 * nTenth, trialCount: 3)
     }
+    benchmarkProblemSize(n: 125, trialCount: 3)
+    benchmarkProblemSize(n: 200, trialCount: 3)
+    benchmarkProblemSize(n: 250, trialCount: 3)
+    benchmarkProblemSize(n: 300, trialCount: 3)
+    benchmarkProblemSize(n: 400, trialCount: 3)
+    benchmarkProblemSize(n: 500, trialCount: 3)
     
     // We need to speed up the custom eigensolver before testing these sizes.
-//    benchmarkProblemSize(n: 125, trialCount: 3)
-//    benchmarkProblemSize(n: 200, trialCount: 3)
-//    benchmarkProblemSize(n: 250, trialCount: 3)
-//    benchmarkProblemSize(n: 300, trialCount: 3)
-//    benchmarkProblemSize(n: 400, trialCount: 3)
-//    benchmarkProblemSize(n: 500, trialCount: 3)
 //    benchmarkProblemSize(n: 600, trialCount: 3)
 //    benchmarkProblemSize(n: 750, trialCount: 3)
 //    benchmarkProblemSize(n: 800, trialCount: 3)

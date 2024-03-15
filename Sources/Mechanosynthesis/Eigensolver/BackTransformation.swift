@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 3/11/24.
 //
 
+import Accelerate
+
 extension Diagonalization {
   mutating func backTransform(
     bulgeChasingReflectors: [BulgeReflector]
@@ -55,6 +57,7 @@ extension Diagonalization {
       
       // V^H A
       var VA = [Float](repeating: 0, count: problemSize * blockSize)
+#if false
       for m in 0..<blockSize {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
@@ -66,9 +69,27 @@ extension Diagonalization {
           VA[n * blockSize + m] = dotProduct
         }
       }
+#else
+      do {
+        var TRANSA = CChar(Character("T").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(blockSize)
+        var N = Int32(problemSize)
+        var K = Int32(problemSize)
+        var ALPHA = Float(1)
+        var LDA = Int32(problemSize)
+        var BETA = Float(0)
+        var LDB = Int32(problemSize)
+        var LDC = Int32(blockSize)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+          eigenvectors, &LDB, &BETA, &VA, &LDC)
+      }
+#endif
       
       // T^H (V^H A)
       var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+#if false
       for m in 0..<blockSize {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
@@ -80,8 +101,26 @@ extension Diagonalization {
           TVA[n * blockSize + m] = dotProduct
         }
       }
+#else
+      do {
+        var TRANSA = CChar(Character("N").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(blockSize)
+        var N = Int32(problemSize)
+        var K = Int32(blockSize)
+        var ALPHA = Float(1)
+        var LDA = Int32(blockSize)
+        var BETA = Float(0)
+        var LDB = Int32(blockSize)
+        var LDC = Int32(blockSize)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+          VA, &LDB, &BETA, &TVA, &LDC)
+      }
+#endif
       
       // V (T^H V^H A)
+#if false
       for m in 0..<problemSize {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
@@ -93,6 +132,23 @@ extension Diagonalization {
           eigenvectors[n * problemSize + m] -= dotProduct
         }
       }
+#else
+      do {
+        var TRANSA = CChar(Character("N").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(problemSize)
+        var N = Int32(problemSize)
+        var K = Int32(blockSize)
+        var ALPHA = Float(-1)
+        var LDA = Int32(problemSize)
+        var BETA = Float(1)
+        var LDB = Int32(blockSize)
+        var LDC = Int32(problemSize)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+          TVA, &LDB, &BETA, &eigenvectors, &LDC)
+      }
+#endif
     }
   }
 }

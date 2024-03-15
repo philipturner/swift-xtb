@@ -120,7 +120,7 @@ public struct Diagonalization {
     
     let checkpoint5 = CACurrentMediaTime()
     
-    if problemSize >= 100 {
+    if problemSize >= 10 {
       let time01 = 1e6 * (checkpoint1 - checkpoint0)
       let time12 = 1e6 * (checkpoint2 - checkpoint1)
       let time23 = 1e6 * (checkpoint3 - checkpoint2)

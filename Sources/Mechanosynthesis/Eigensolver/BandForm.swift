@@ -12,17 +12,10 @@ struct BandReflector {
   var matrixV: [Float]
   
   // A matrix of coefficients to multiply dot products by.
-  //
-  // Start off with this as a vector, then change it to a diagonal matrix.
-  // Finally, change it to a filled-in matrix, used to accelerate the
-  // back-transformation.
   var matrixT: [Float]
 }
 
 extension Diagonalization {
-  // TODO: Return an array of arrays, making it easier to pass the T matrix
-  // from the reduction stage to the back-transformation stage.
-  
   // Returns a matrix of reflectors.
   mutating func reduceToBandForm() -> [BandReflector] {
     var bandReflectors: [BandReflector] = []
