@@ -104,7 +104,7 @@ public struct Diagonalization {
     
     let checkpoint1 = CACurrentMediaTime()
     
-    let bulgeChasingReflectors = chaseBulges()
+    let bulgeSweeps = chaseBulges()
     
     let checkpoint2 = CACurrentMediaTime()
     
@@ -112,7 +112,7 @@ public struct Diagonalization {
     
     let checkpoint3 = CACurrentMediaTime()
     
-    backTransform(bulgeChasingReflectors: bulgeChasingReflectors)
+    backTransform(bulgeSweeps: bulgeSweeps)
     
     let checkpoint4 = CACurrentMediaTime()
     
@@ -120,7 +120,7 @@ public struct Diagonalization {
     
     let checkpoint5 = CACurrentMediaTime()
     
-    if problemSize >= 10 {
+    if problemSize >= 100 {
       let time01 = 1e6 * (checkpoint1 - checkpoint0)
       let time12 = 1e6 * (checkpoint2 - checkpoint1)
       let time23 = 1e6 * (checkpoint3 - checkpoint2)

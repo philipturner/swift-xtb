@@ -5,9 +5,8 @@
 //  Created by Philip Turner on 3/11/24.
 //
 
-struct BulgeReflector {
+struct BulgeSweep {
   var data: [Float]
-  var indices: Range<Int>
 }
 
 extension Diagonalization {
@@ -25,13 +24,13 @@ extension Diagonalization {
   // column[0], instead of along the diagonal.
   
   // Returns a sequence of reflectors.
-  mutating func chaseBulges() -> [BulgeReflector] {
+  mutating func chaseBulges() -> [BulgeSweep] {
     // If the matrix is already in tridiagonal form, there is no work to do.
     guard blockSize > 1 else {
       return []
     }
     
-    var bulgeReflectors: [BulgeReflector] = []
+    var bulgeSweeps: [BulgeSweep] = []
     
     for sweepID in 0..<max(0, problemSize - 2) {
       let startVectorID = sweepID + 1
@@ -40,15 +39,23 @@ extension Diagonalization {
       guard endVectorID - startVectorID > 1 else {
         fatalError("Generated empty Householder transform.")
       }
+      var sweepData = [Float](repeating: 0, count: problemSize)
       
+      // Apply the very first reflector.
       let data = applyBulgeChase(
         sweepID: sweepID, vectorID: sweepID,
         startElementID: startVectorID, endElementID: endVectorID)
-      let range = startVectorID..<endVectorID
-      let reflector = BulgeReflector(
-        data: data, indices: range)
-      bulgeReflectors.append(reflector)
       
+      let maxReflectorElementID = problemSize - sweepID - 1
+      let startReflectorElementID = 0
+      let endReflectorElementID = min(blockSize, maxReflectorElementID)
+      let reflectorRange = startReflectorElementID..<endReflectorElementID
+      for reflectorElementID in reflectorRange {
+        let value = data[reflectorElementID - startReflectorElementID]
+        sweepData[reflectorElementID] = value
+      }
+      
+      // Apply the remaining reflectors.
       var operationID = 1
       while true {
         let offset = operationID * blockSize
@@ -61,18 +68,27 @@ extension Diagonalization {
           let data = applyBulgeChase(
             sweepID: sweepID, vectorID: startColumnID,
             startElementID: startVectorID, endElementID: endVectorID)
-          let range = startVectorID..<endVectorID
-          let reflector = BulgeReflector(
-            data: data, indices: range)
-          bulgeReflectors.append(reflector)
+          
+          let maxReflectorElementID = problemSize - sweepID - 1
+          let startReflectorElementID = operationID * blockSize
+          let endReflectorElementID = min(
+            startReflectorElementID + blockSize, maxReflectorElementID)
+          let reflectorRange = startReflectorElementID..<endReflectorElementID
+          for reflectorElementID in reflectorRange {
+            let value = data[reflectorElementID - startReflectorElementID]
+            sweepData[reflectorElementID] = value
+          }
         } else {
           break
         }
         operationID += 1
       }
+      
+      let sweep = BulgeSweep(data: sweepData)
+      bulgeSweeps.append(sweep)
     }
     
-    return bulgeReflectors
+    return bulgeSweeps
   }
   
   // Returns a Householder reflector as an array allocation.

@@ -9,7 +9,7 @@ import Accelerate
 
 extension Diagonalization {
   mutating func backTransform(
-    bulgeChasingReflectors: [BulgeReflector]
+    bulgeSweeps: [BulgeSweep]
   ) {
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
@@ -20,23 +20,29 @@ extension Diagonalization {
         vector[elementID] = eigenvectors[address]
       }
       
-      for reflectorID in bulgeChasingReflectors.indices.reversed() {
-        // Load the reflector into the cache.
-        let reflector = bulgeChasingReflectors[reflectorID]
-        let indexOffset = reflector.indices.lowerBound
+      for sweepID in bulgeSweeps.indices.reversed() {
+        let sweep = bulgeSweeps[sweepID]
+        let reflectorIndexOffset = sweepID + 1
         
-        // Apply the reflector.
-        var dotProduct: Float = .zero
-        for dataElementID in reflector.data.indices {
-          let reflectorDatum = reflector.data[dataElementID]
-          let vectorDatum = vector[indexOffset + dataElementID]
-          dotProduct += reflectorDatum * vectorDatum
-        }
-        for dataElementID in reflector.data.indices {
-          let reflectorDatum = reflector.data[dataElementID]
-          var vectorDatum = vector[indexOffset + dataElementID]
-          vectorDatum -= reflectorDatum * dotProduct
-          vector[indexOffset + dataElementID] = vectorDatum
+        var rowID: Int = sweepID + 1
+        while rowID < problemSize {
+          let nextRowID = min(rowID + blockSize, problemSize)
+          let range = rowID..<nextRowID
+          rowID = nextRowID
+          
+          // Apply the reflector.
+          var dotProduct: Float = .zero
+          for elementID in range {
+            let reflectorDatum = sweep.data[elementID - reflectorIndexOffset]
+            let vectorDatum = vector[elementID]
+            dotProduct += reflectorDatum * vectorDatum
+          }
+          for elementID in range {
+            let reflectorDatum = sweep.data[elementID - reflectorIndexOffset]
+            var vectorDatum = vector[elementID]
+            vectorDatum -= reflectorDatum * dotProduct
+            vector[elementID] = vectorDatum
+          }
         }
       }
       
