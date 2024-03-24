@@ -138,9 +138,148 @@ func gpuParallel(n: Int, rightLooking: Bool) {
   print("latency (8x8)", latency8x8)
 }
 
+func cpu(n: Int, useAMX: Bool, rightLooking: Bool) {
+  print()
+  print("CPU", terminator: " ")
+  if useAMX {
+    print("AMX", terminator: " ")
+  }
+  if rightLooking {
+    print("(RL)")
+  } else {
+    print("(LL)")
+  }
+  
+  // Generating the reflector.
+  var cyclesGenerate: Int
+  do {
+    let cyclesReadDot: Int = max(n / 16, 4 + 3)
+    let cyclesReduce: Int = min(n / 16, 64).trailingZeroBitCount * 3
+    let cyclesRsqrt: Int = 10
+    let cyclesDiv: Int = 2 * 8
+    let cyclesReadScale: Int = max(n / 16, 4 + 3)
+    let cyclesWrite: Int = max(n / 16, 4)
+    //    print("read dot  ", cyclesReadDot)
+    //    print("reduce    ", cyclesReduce)
+    //    print("RSQRT     ", cyclesRsqrt)
+    //    print("serial DIV", cyclesDiv)
+    //    print("read scale", cyclesReadScale)
+    //    print("write     ", cyclesWrite)
+    
+    cyclesGenerate =
+    cyclesReadDot + cyclesReduce + cyclesRsqrt + cyclesDiv +
+    cyclesReadScale + cyclesWrite
+    //    print("generate reflector (total)", cyclesGenerate)
+  }
+  
+  // Applying the reflector.
+  var cyclesApply: Int
+  if useAMX {
+    if rightLooking {
+      let cyclesReadV1: Int = max(n / 32, 4)
+      let cyclesReadA1: Int = 8 * max(n / 32, 4)
+      let cyclesFMADot: Int = 8 * max(n / 32, 4)
+      let cyclesReduce: Int = 8 * min(n / 32, 64).trailingZeroBitCount * 4
+      let cyclesReadV2: Int = max(n / 32, 4)
+      let cyclesReadA2: Int = 8 * max(n / 32, 4)
+      let cyclesFMAScale: Int = 8 * max(n / 32, 4)
+      let cyclesWrite: Int = 8 * max(n / 32, 4)
+      //      print("read V (1)", cyclesReadV1)
+      //      print("read A (1)", cyclesReadA1)
+      //      print("FMA dot   ", cyclesFMADot)
+      //      print("reduce    ", cyclesReduce)
+      //      print("read V (2)", cyclesReadV2)
+      //      print("read A (2)", cyclesReadA2)
+      //      print("FMA scale ", cyclesFMAScale)
+      //      print("write     ", cyclesWrite)
+      
+      cyclesApply =
+      cyclesReadV1 + cyclesReadA1 + cyclesFMADot + cyclesReduce +
+      cyclesReadV2 + cyclesReadA2 + cyclesFMAScale + cyclesWrite
+      //      print("apply reflector (total)", cyclesApply)
+    } else {
+      let cyclesReadV1: Int = max(n / 32, 4)
+      let cyclesReadA1: Int = max(n / 32, 4)
+      let cyclesFMADot: Int = max(n / 32, 4)
+      let cyclesReduce: Int = min(n / 32, 64).trailingZeroBitCount * 4
+      let cyclesReadV2: Int = max(n / 32, 4)
+      let cyclesReadA2: Int = max(n / 32, 4)
+      let cyclesFMAScale: Int = max(n / 32, 4)
+      let cyclesWrite: Int = max(n / 32, 4)
+      //      print("read V (1)", cyclesReadV1)
+      //      print("read A (1)", cyclesReadA1)
+      //      print("FMA dot   ", cyclesFMADot)
+      //      print("reduce    ", cyclesReduce)
+      //      print("read V (2)", cyclesReadV2)
+      //      print("read A (2)", cyclesReadA2)
+      //      print("FMA scale ", cyclesFMAScale)
+      //      print("write     ", cyclesWrite)
+      
+      let cycles1 =
+      cyclesReadV1 + cyclesReadA1 + cyclesFMADot + cyclesReduce +
+      cyclesReadV2 + cyclesReadA2 + cyclesFMAScale + cyclesWrite
+      //      print("1 reflector", cycles1)
+      
+      cyclesApply = 8 * cycles1
+      //      print("apply reflector (total)", cyclesApply)
+    }
+  } else {
+    if rightLooking {
+      let cyclesReadV1: Int = max(n / 16, 4)
+      let cyclesReadA1: Int = 8 * max(n / 16, 4 + 3)
+      let cyclesReduce: Int = 8 * min(n / 16, 64).trailingZeroBitCount * 3
+      let cyclesReadV2: Int = max(n / 16, 4)
+      let cyclesReadA2: Int = 8 * max(n / 16, 4 + 3)
+      let cyclesWrite: Int = 8 * max(n / 16, 4)
+      //      print("read V (1)", cyclesReadV1)
+      //      print("read A (1)", cyclesReadA1)
+      //      print("reduce    ", cyclesReduce)
+      //      print("read V (2)", cyclesReadV2)
+      //      print("read A (2)", cyclesReadA2)
+      //      print("write     ", cyclesWrite)
+      
+      cyclesApply =
+      cyclesReadV1 + cyclesReadA1 + cyclesReduce + cyclesReadV2 +
+      cyclesReadA2 + cyclesWrite
+      //      print("apply reflector (total)", cyclesApply)
+    } else {
+      let cyclesReadV1: Int = max(n / 16, 4)
+      let cyclesReadA1: Int = max(n / 16, 4 + 3)
+      let cyclesReduce: Int = min(n / 16, 64).trailingZeroBitCount * 3
+      let cyclesReadV2: Int = max(n / 16, 4)
+      let cyclesReadA2: Int = max(n / 16, 4 + 3)
+      let cyclesWrite: Int = max(n / 16, 4)
+      //      print("read V (1)", cyclesReadV1)
+      //      print("read A (1)", cyclesReadA1)
+      //      print("reduce    ", cyclesReduce)
+      //      print("read V (2)", cyclesReadV2)
+      //      print("read A (2)", cyclesReadA2)
+      //      print("write     ", cyclesWrite)
+      
+      let cycles1 =
+      cyclesReadV1 + cyclesReadA1 + cyclesReduce + cyclesReadV2 +
+      cyclesReadA2 + cyclesWrite
+      //      print("1 reflector", cycles1)
+      
+      cyclesApply = 8 * cycles1
+      //      print("apply reflector (total)", cyclesApply)
+    }
+  }
+  
+  
+  // Repeat the above subroutines 8 times.
+  let cycles8x8 = 8 * (cyclesGenerate + cyclesApply)
+  let latency1x1 = Float(cyclesGenerate) / 3.228e9
+  let latency8x8 = Float(cycles8x8) / 3.228e9
+  print("latency (1x1)", latency1x1)
+  print("latency (8x8)", latency8x8)
+}
+
 // MARK: - Script
 
 let argumentN = CommandLine.arguments[1]
 let n: Int = Int(argumentN)!
-gpuParallel(n: n, rightLooking: false)
-gpuParallel(n: n, rightLooking: true)
+cpu(n: n, useAMX: false, rightLooking: false)
+cpu(n: n, useAMX: false, rightLooking: true)
+cpu(n: n, useAMX: true, rightLooking: false)
+cpu(n: n, useAMX: true, rightLooking: true)
