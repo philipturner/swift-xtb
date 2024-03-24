@@ -123,32 +123,34 @@ For `n = 1024`, the latencies for GPU and AMX theoretically outperform that of a
 
 Next, the above calculations are reproduced in code, allowing them to be re-run for different values of `n`.
 
-| n = 256                   | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| GPU (serial over SIMDs)   | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
 | ------------------------- | ------------- | ----------------- | ----------------- |
-| CPU                       |
-| CPU (AMX accelerated)     |
-| GPU (serial over SIMDs)   | 111 ns        | 2.0 μs            | 2.0 μs            |
-| GPU (parallel over SIMDs) |
+| n = 32                    | 83 ns         | 1.2 μs            | 1.2 μs            |
+| n = 64                    | 83 ns         | 1.2 μs            | 1.2 μs            |
+| n = 128                   | 93 ns         | 1.4 μs            | 1.4 μs            |
+| n = 256                   | 111 ns        | 2.0 μs            | 2.0 μs            |
+| n = 512                   | 148 ns        | 3.3 μs            | 3.3 μs            |
+| n = 1024                  | 228 ns        | 5.9 μs            | 5.9 μs            |
+| n = 2048                  | 426 ns        | 11.4 μs           | 11.4 μs           |
 
-| n = 512                   | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| GPU (parallel over SIMDs) | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
 | ------------------------- | ------------- | ----------------- | ----------------- |
-| CPU                       |
-| CPU (AMX accelerated)     |
-| GPU (serial over SIMDs)   |
-| GPU (parallel over SIMDs) | 148 ns        | 3.3 μs            | 3.3 μs            |
+| n = 32                    | 127 ns        | 7.9 μs            | 3.1 μs            |
+| n = 64                    | 127 ns        | 7.9 μs            | 3.1 μs            |
+| n = 128                   | 127 ns        | 7.9 μs            | 3.1 μs            |
+| n = 256                   | 127 ns        | 7.9 μs            | 3.1 μs            |
+| n = 512                   | 127 ns        | 7.9 μs            | 3.1 μs            |
+| n = 1024                  | 136 ns        | 8.4 μs            | 3.6 μs            |
+| n = 2048                  | 154 ns        | 9.3 μs            | 4.5 μs            |
 
-| n = 1024                  | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
-| ------------------------- | ------------- | ----------------- | ----------------- |
-| CPU                       |
-| CPU (AMX accelerated)     |
-| GPU (serial over SIMDs)   | 228 ns        | 5.9 μs            | 5.9 μs            |
-| GPU (parallel over SIMDs) |
-
-| n = 2048                  | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
-| ------------------------- | ------------- | ----------------- | ----------------- |
-| CPU                       |
-| CPU (AMX accelerated)     |
-| GPU (serial over SIMDs)   | 426 ns        | 11.4 μs           | 11.4 μs           |
-| GPU (parallel over SIMDs) |
+| Best Latency (8x8) | CPU       | CPU (AMX) | GPU (serial) | GPU (parallel) |
+| ------------------ | --------- | --------- | ------------ | -------------- |
+| n = 32             |           |           | 1.2 μs       | 3.1 μs         |
+| n = 64             |           |           | 1.2 μs       | 3.1 μs         |
+| n = 128            |           |           | 1.4 μs       | 3.1 μs         |
+| n = 256            |           |           | 2.0 μs       | 3.1 μs         |
+| n = 512            |           |           | 3.3 μs       | 3.1 μs         |
+| n = 1024           |           |           | 5.9 μs       | 3.6 μs         |
+| n = 2048           |           |           | 11.4 μs      | 4.5 μs         |
 
 ### 1-2-8-32 Blocking Scheme
