@@ -106,7 +106,7 @@ GFLOPS/k for same size GEMM: 566.2
 
 </details>
 
-### Latency to Factorize 8x8 Tile
+### Latency to Factorize an 8x8 Tile
 
 Here, I predict the latency to factorize an 8x8 tile on different processors. The analysis assumes a 1-8 blocking scheme.
 
@@ -116,11 +116,39 @@ From handwritten calculations, I should expect the following for `n = 1024`. `1x
 | ------------------------- | ------------- | ----------------- | ----------------- |
 | CPU                       | 72 ns         | 7.2 μs            | 6.1 μs            |
 | CPU (AMX accelerated)     | 72 ns         | 5.3 μs            | 4.2 μs            |
-| GPU (serial over SIMDs)   | 296 ns        | 5.9 μs            | 5.9 μs            |
-| GPU (parallel over SIMDS) | 135 ns        | 8.3 μs            | 3.5 μs            |
+| GPU (serial over SIMDs)   | 228 ns        | 5.9 μs            | 5.9 μs            |
+| GPU (parallel over SIMDs) | 135 ns        | 8.3 μs            | 3.5 μs            |
 
 For `n = 1024`, the latencies for GPU and AMX theoretically outperform that of a CPU core. However, both are bound by a large `O(1)` latency. The GPU must synchronize over all SIMDs in a threadgroup, which is assumed to take [86 ns](https://chipsandcheese.com/2022/05/21/igpu-cache-setups-compared-including-m1/). The CPU must incur latency to switch contexts to the AMX. The minimum overhead for GPU (parallel over SIMDs) is 1.38 μs.
 
 Next, the above calculations are reproduced in code, allowing them to be re-run for different values of `n`.
+
+| n = 256                   | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| ------------------------- | ------------- | ----------------- | ----------------- |
+| CPU                       |
+| CPU (AMX accelerated)     |
+| GPU (serial over SIMDs)   | 111 ns        | 2.0 μs            | 2.0 μs            |
+| GPU (parallel over SIMDs) |
+
+| n = 512                   | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| ------------------------- | ------------- | ----------------- | ----------------- |
+| CPU                       |
+| CPU (AMX accelerated)     |
+| GPU (serial over SIMDs)   |
+| GPU (parallel over SIMDs) | 148 ns        | 3.3 μs            | 3.3 μs            |
+
+| n = 1024                  | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| ------------------------- | ------------- | ----------------- | ----------------- |
+| CPU                       |
+| CPU (AMX accelerated)     |
+| GPU (serial over SIMDs)   | 228 ns        | 5.9 μs            | 5.9 μs            |
+| GPU (parallel over SIMDs) |
+
+| n = 2048                  | Latency (1x1) | Latency (8x8, LL) | Latency (8x8, RL) |
+| ------------------------- | ------------- | ----------------- | ----------------- |
+| CPU                       |
+| CPU (AMX accelerated)     |
+| GPU (serial over SIMDs)   | 426 ns        | 11.4 μs           | 11.4 μs           |
+| GPU (parallel over SIMDs) |
 
 ### 1-2-8-32 Blocking Scheme
