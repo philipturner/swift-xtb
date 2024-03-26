@@ -472,3 +472,7 @@ The results are best summarized in the next two tables. The GPU seems to have an
 Determine how much speedup can be achieved on single-core CPU (Firestorm), with a logarithmically scaling blocking hierarchy. The results are especially important for SBR, which employs a large number of tiny QR factorizations.
 
 This may require an IRL performance benchmark.
+
+## Current Plan
+
+It seems like the bottleneck in bulge chasing could be fixed with AMX GEMV. This should be investigated before trying multi-stage successive band reduction. It is also questionable whether accelerating the panel factorizations is worthwhile at the moment. It could be an important optimization for medium-small semiempirical simulations. However, this part and the bulge chasing are $O(n^2)$.

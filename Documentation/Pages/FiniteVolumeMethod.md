@@ -1,6 +1,10 @@
-# Asymmetric Finite Differencing
+# Finite Volume Method
 
-> Early on, it seemed that finite difference operators would need to reach across multiple resolution levels. That may not be necessary based on the most recent plans. These equations are kept around as an archive, for reference.
+First update: Early on, it seemed that finite difference operators would need to reach across multiple resolution levels. That may not be necessary based on the most recent plans. These equations are kept around as an archive, for reference.
+
+Second update: The issue that spawned this article, is a quite fundamental one for my approach. I need to use the Finite Volume Method for DFT, which hasn't been done before.
+
+## Asymmetric Finite Differencing
 
 Variable-resolution orbitals require asymmetric finite differencing. Custom finite difference coefficients were derived for the boundaries between multigrid levels.
 
@@ -47,3 +51,11 @@ $(\frac{h_-}{2} + \frac{h_-^2 + h_1^2 + h_1h_2}{4h_1 + 2h_2})f_i'' + O(h^3)f_i''
 $O(h^3) = \frac{1}{12}(\frac{h_-^3}{2} + \frac{h_-^2 (3h_1^2 + 3h_1h_2 + h_2^2) - h_1^2 (h_1 + h_2)^2 }{4h_1 + 2h_2})$
 
 </div>
+
+## Finite Volume Method
+
+This seems like the optimal algorithm: https://www.sciencedirect.com/science/article/pii/S0021999105001129
+
+> A fourth-order accurate local refinement method for Poisson’s equation
+> 
+> We present a block-structured local refinement method for computing solutions to Poisson’s equation in two and three dimensions. It is based on a conservative, finite-volume formulation of the classical Mehrstellen methods. This is combined with finite volume local refinement discretizations to obtain a method that is fourth-order accurate in solution error, and with easily verifiable solvability conditions for Neumann and periodic boundary conditions.

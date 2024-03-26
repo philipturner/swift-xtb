@@ -22,5 +22,6 @@ Goals:
 
 Documentation:
 - [Dependencies](./Documentation/Pages/Dependencies.md)
+- [Finite Volume Method](./Documentation/Pages/FiniteVolumeMethod.md)
 - [Relativity Corrections](./Documentation/Pages/RelativityCorrections.md)
 - [Screened Exchange](./Documentation/Pages/ScreenedExchange.md)
