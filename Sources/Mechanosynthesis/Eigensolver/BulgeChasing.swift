@@ -23,20 +23,28 @@ extension Diagonalization {
       // Loop over the bulges within this sweep.
       for operationID in 0...maxOperationID {
         let rowStart = operationID * blockSize
-        var data: [Float]
         
+        var reflector: [Float]
         do {
+          // TODO: Change 'vectorID' and 'elementID' to 'rowID'.
+          
           // The start and end vector ID must satisfy this condition:
           // endVectorID - startVectorID > 1
           let startColumnID = (sweepID + 1) + max(-1, rowStart - blockSize)
           let startVectorID = (sweepID + 1) + rowStart
-          var endVectorID = (sweepID + 1) + (rowStart + blockSize)
-          endVectorID = min(endVectorID, problemSize)
+          let endVectorID = min(startVectorID + blockSize, problemSize)
           
-          // TODO: Extract some of the code from this function. Write the
-          // bulge reflector directly into the matrix.
-          data = applyBulgeChase(
-            vectorID: startColumnID,
+          // TODO: Refactor the code in this function. Write the bulge
+          // reflector directly into the matrix.
+          reflector = createBulgeReflector(
+            matrixBaseAddress: startColumnID * problemSize + startVectorID,
+            startElementID: startVectorID,
+            endElementID: endVectorID)
+          
+          // TODO: Refactor the code in this function. Read the bulge
+          // reflector directly from the matrix.
+          applyBulgeChase(
+            reflector: reflector,
             startElementID: startVectorID,
             endElementID: endVectorID)
         }
@@ -50,7 +58,7 @@ extension Diagonalization {
         let columnStart = sweepID * problemSize
         let reflectorBaseAddress = columnStart + (sweepID + 1) + rowStart
         for reflectorElementID in 0..<dotProductCount {
-          let value = data[reflectorElementID]
+          let value = reflector[reflectorElementID]
           bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
         }
       }
@@ -60,26 +68,25 @@ extension Diagonalization {
   }
   
   // Returns a Householder reflector as an array allocation.
-  private mutating func applyBulgeChase(
-    vectorID: Int,
+  private func createBulgeReflector(
+    matrixBaseAddress: Int,
     startElementID: Int,
     endElementID: Int
   ) -> [Float] {
     let rangeCount = endElementID - startElementID
     
     // Load the row into the cache.
-    var reflector = [Float](repeating: 0, count: rangeCount)
-    for cacheElementID in 0..<rangeCount {
-      let memoryElementID = startElementID + cacheElementID
-      let matrixAddress = vectorID * problemSize + memoryElementID
+    var reflector = [Float](repeating: 0, count: blockSize)
+    for elementID in 0..<rangeCount {
+      let matrixAddress = matrixBaseAddress + elementID
       let matrixDatum = matrix[matrixAddress]
-      reflector[cacheElementID] = matrixDatum
+      reflector[elementID] = matrixDatum
     }
     
     // Take the norm of the vector.
     var norm: Float = .zero
-    for cacheElementID in 0..<rangeCount {
-      let reflectorDatum = reflector[cacheElementID]
+    for elementID in 0..<blockSize {
+      let reflectorDatum = reflector[elementID]
       norm += reflectorDatum * reflectorDatum
     }
     norm.formSquareRoot()
@@ -100,9 +107,9 @@ extension Diagonalization {
     }
     
     // Modify the vector, turning it into a reflector.
-    for cacheElementID in 0..<rangeCount {
-      var reflectorDatum = reflector[cacheElementID]
-      if cacheElementID == 0 {
+    for elementID in 0..<blockSize {
+      var reflectorDatum = reflector[elementID]
+      if elementID == 0 {
         reflectorDatum = 1
       } else {
         reflectorDatum /= oldSubdiagonal - newSubdiagonal
@@ -112,8 +119,19 @@ extension Diagonalization {
       if nanPresent {
         reflectorDatum = 0
       }
-      reflector[cacheElementID] = reflectorDatum
+      reflector[elementID] = reflectorDatum
     }
+    
+    return reflector
+  }
+  
+  // Applies the reflector to the trailing submatrix.
+  private mutating func applyBulgeChase(
+    reflector: [Float],
+    startElementID: Int,
+    endElementID: Int
+  ) {
+    let rangeCount = endElementID - startElementID
     
     let startApplicationID: Int = max(startElementID - blockSize, 0)
     let endApplicationID: Int = min(endElementID + blockSize, problemSize)
@@ -237,8 +255,5 @@ extension Diagonalization {
       }
       #endif
     }
-    
-    // Store the reflector to main memory.
-    return reflector
   }
 }
