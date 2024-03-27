@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 3/11/24.
 //
 
+import Accelerate
+
 struct BulgeSweep {
   var data: [Float]
 }
@@ -151,62 +153,110 @@ extension Diagonalization {
       reflector[cacheElementID] = reflectorDatum
     }
     
-    // Allocate cache memory for the recipient of the Householder reflector.
-    var vectorCache = [Float](repeating: 0, count: rangeCount)
+    // Apply the reflector to the matrix, from the left.
+    matrix.withContiguousMutableStorageIfAvailable {
+      let startApplicationID: Int = max(startElementID - blockSize, 0)
+      let endApplicationID: Int = min(endElementID + blockSize, problemSize)
+      let dotProductCount = endApplicationID - startApplicationID
+      var dotProducts = [Float](repeating: 0, count: dotProductCount)
+      let matrixBaseAddress: Int = startApplicationID * problemSize + startElementID
+      let matrix = $0.baseAddress! + matrixBaseAddress
+      
+      #if false
+      for m in 0..<dotProductCount {
+        var dotProduct: Float = .zero
+        for n in 0..<1 {
+          for k in 0..<rangeCount {
+            let lhsValue = matrix[m * problemSize + k]
+            let rhsValue = reflector[n * dotProductCount + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          dotProducts[m * 1 + n] = dotProduct
+        }
+      }
+      #else
+      do {
+        var TRANSA = CChar(Character("T").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(dotProductCount)
+        var N = Int32(1)
+        var K = Int32(rangeCount)
+        var ALPHA = Float(1)
+        var LDA = Int32(problemSize)
+        var BETA = Float(0)
+        var LDB = Int32(dotProductCount)
+        var LDC = Int32(dotProductCount)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, matrix, &LDA,
+          reflector, &LDB, &BETA, &dotProducts, &LDC)
+      }
+      #endif
+      
+      #if false
+      for m in 0..<dotProductCount {
+        for n in 0..<rangeCount {
+          var dotProduct: Float = .zero
+          for k in 0..<1 {
+            let lhsValue = dotProducts[m * 1 + k]
+            let rhsValue = reflector[n * 1 + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          matrix[m * problemSize + n] -= dotProduct
+        }
+      }
+      #elseif false
+      do {
+        var TRANSA = CChar(Character("N").asciiValue!)
+        var TRANSB = CChar(Character("T").asciiValue!)
+        var M = Int32(rangeCount)
+        var N = Int32(dotProductCount)
+        var K = Int32(1)
+        var ALPHA = Float(-1)
+        var LDA = Int32(rangeCount)
+        var BETA = Float(1)
+        var LDB = Int32(dotProductCount)
+        var LDC = Int32(problemSize)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflector, &LDA,
+          dotProducts, &LDB, &BETA, matrix, &LDC)
+      }
+      #else
+      do {
+        var M = Int32(rangeCount)
+        var N = Int32(dotProductCount)
+        var ALPHA = Float(-1)
+        var INCX = Int32(1)
+        var INCY = Int32(1)
+        var LDA = Int32(problemSize)
+        sger_(
+          &M, &N, &ALPHA, reflector, &INCX, dotProducts, &INCY,
+          matrix, &LDA)
+      }
+      #endif
+    }
     
-    // Apply the reflector to the matrix, from both sides.
-    for directionID in 0..<2 {
+    // Apply the reflector to the matrix, from the right.
+    do {
       let startApplicationID: Int = max(startElementID - blockSize, 0)
       let endApplicationID: Int = min(endElementID + blockSize, problemSize)
       for vectorID in startApplicationID..<endApplicationID {
-        if directionID == 0 {
-          // Load the row into the cache.
-          for cacheElementID in 0..<rangeCount {
-            let memoryElementID = startElementID + cacheElementID
-            let matrixAddress = vectorID * problemSize + memoryElementID
-            let matrixDatum = matrix[matrixAddress]
-            vectorCache[cacheElementID] = matrixDatum
-          }
-        } else {
-          // Load the column into the cache.
-          for cacheElementID in 0..<rangeCount {
-            let memoryElementID = startElementID + cacheElementID
-            let matrixAddress = memoryElementID * problemSize + vectorID
-            let matrixDatum = matrix[matrixAddress]
-            vectorCache[cacheElementID] = matrixDatum
-          }
-        }
-        
-        // Apply the reflector.
         var dotProduct: Float = .zero
         for cacheElementID in 0..<rangeCount {
+          let memoryElementID = startElementID + cacheElementID
+          let matrixAddress = memoryElementID * problemSize + vectorID
+          let matrixDatum = matrix[matrixAddress]
+          
           let reflectorDatum = reflector[cacheElementID]
-          let vectorDatum = vectorCache[cacheElementID]
-          dotProduct += reflectorDatum * vectorDatum
+          dotProduct += reflectorDatum * matrixDatum
         }
         for cacheElementID in 0..<rangeCount {
+          let memoryElementID = startElementID + cacheElementID
+          let matrixAddress = memoryElementID * problemSize + vectorID
+          var matrixDatum = matrix[matrixAddress]
+          
           let reflectorDatum = reflector[cacheElementID]
-          var vectorDatum = vectorCache[cacheElementID]
-          vectorDatum -= reflectorDatum * dotProduct
-          vectorCache[cacheElementID] = vectorDatum
-        }
-        
-        if directionID == 0 {
-          // Store the row to main memory.
-          for cacheElementID in 0..<rangeCount {
-            let memoryElementID = startElementID + cacheElementID
-            let matrixAddress = vectorID * problemSize + memoryElementID
-            let vectorDatum = vectorCache[cacheElementID]
-            matrix[matrixAddress] = vectorDatum
-          }
-        } else {
-          // Store the column to main memory.
-          for cacheElementID in 0..<rangeCount {
-            let memoryElementID = startElementID + cacheElementID
-            let matrixAddress = memoryElementID * problemSize + vectorID
-            let vectorDatum = vectorCache[cacheElementID]
-            matrix[matrixAddress] = vectorDatum
-          }
+          matrixDatum -= reflectorDatum * dotProduct
+          matrix[matrixAddress] = matrixDatum
         }
       }
     }
