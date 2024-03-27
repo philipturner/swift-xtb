@@ -204,22 +204,6 @@ extension Diagonalization {
           matrix[m * problemSize + n] -= dotProduct
         }
       }
-      #elseif false
-      do {
-        var TRANSA = CChar(Character("N").asciiValue!)
-        var TRANSB = CChar(Character("T").asciiValue!)
-        var M = Int32(rangeCount)
-        var N = Int32(dotProductCount)
-        var K = Int32(1)
-        var ALPHA = Float(-1)
-        var LDA = Int32(rangeCount)
-        var BETA = Float(1)
-        var LDB = Int32(dotProductCount)
-        var LDC = Int32(problemSize)
-        sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflector, &LDA,
-          dotProducts, &LDB, &BETA, matrix, &LDC)
-      }
       #else
       do {
         var M = Int32(rangeCount)
