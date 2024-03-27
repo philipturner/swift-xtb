@@ -7,76 +7,52 @@
 
 import Accelerate
 
-struct BulgeSweep {
-  var data: [Float]
-}
-
 extension Diagonalization {
   // Returns a sequence of reflectors.
   mutating func chaseBulges() -> [Float] {
+    // Allocate a matrix to store the bulge reflectors.
     var bulgeReflectorMatrix = [Float](
       repeating: 0, count: problemSize * problemSize)
+    
+    // Loop over the bulge chasing sweeps.
     let sweepEnd = max(0, problemSize - 2)
     for sweepID in 0..<sweepEnd {
-      // TODO: Start simplifying the code, by merging the first iteration with
-      // the next few iterations.
+      var maxOperationID = (problemSize - 2) - (sweepID + 1)
+      maxOperationID /= blockSize
       
-      let startVectorID = sweepID + 1
-      var endVectorID = sweepID + blockSize + 1
-      endVectorID = min(endVectorID, problemSize)
-      guard endVectorID - startVectorID > 1 else {
-        fatalError("Generated empty Householder transform.")
-      }
-      
-      // Find the address to begin writing data at.
-      let diagonalAddress = (sweepID * problemSize) + (sweepID + 1)
-      
-      // Apply the very first reflector.
-      let data = applyBulgeChase(
-        sweepID: sweepID, vectorID: sweepID,
-        startElementID: startVectorID, endElementID: endVectorID)
-      
-      let maxReflectorElementID = problemSize - sweepID - 1
-      let startReflectorElementID = 0
-      let endReflectorElementID = min(
-        startReflectorElementID + blockSize, maxReflectorElementID)
-      let dotProductCount = endReflectorElementID - startReflectorElementID
-      
-      let reflectorBaseAddress = diagonalAddress
-      for reflectorElementID in 0..<dotProductCount {
-        let value = data[reflectorElementID]
-        bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
-      }
-      
-      // Apply the remaining reflectors.
-      var operationID = 1
-      while true {
-        let offset = operationID * blockSize
-        let startColumnID = (sweepID - blockSize + 1) + offset
-        let startVectorID = (sweepID + 1) + offset
-        var endVectorID = (sweepID + blockSize + 1) + offset
-        endVectorID = min(endVectorID, problemSize)
+      // Loop over the bulges within this sweep.
+      for operationID in 0...maxOperationID {
+        let rowStart = operationID * blockSize
+        var data: [Float]
         
-        if endVectorID - startVectorID > 1 {
-          let data = applyBulgeChase(
-            sweepID: sweepID, vectorID: startColumnID,
-            startElementID: startVectorID, endElementID: endVectorID)
+        do {
+          // The start and end vector ID must satisfy this condition:
+          // endVectorID - startVectorID > 1
+          let startColumnID = (sweepID + 1) + max(-1, rowStart - blockSize)
+          let startVectorID = (sweepID + 1) + rowStart
+          var endVectorID = (sweepID + 1) + (rowStart + blockSize)
+          endVectorID = min(endVectorID, problemSize)
           
-          let maxReflectorElementID = problemSize - sweepID - 1
-          let startReflectorElementID = operationID * blockSize
-          let endReflectorElementID = min(
-            startReflectorElementID + blockSize, maxReflectorElementID)
-          let dotProductCount = endReflectorElementID - startReflectorElementID
-          
-          let reflectorBaseAddress = diagonalAddress + operationID * blockSize
-          for reflectorElementID in 0..<dotProductCount {
-            let value = data[reflectorElementID]
-            bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
-          }
-        } else {
-          break
+          // TODO: Extract some of the code from this function. Write the
+          // bulge reflector directly into the matrix.
+          data = applyBulgeChase(
+            vectorID: startColumnID,
+            startElementID: startVectorID,
+            endElementID: endVectorID)
         }
-        operationID += 1
+        
+        let maxReflectorElementID = problemSize - sweepID - 1
+        let endReflectorElementID = min(
+          rowStart + blockSize, maxReflectorElementID)
+        let dotProductCount = endReflectorElementID - rowStart
+        
+        // Find the address to begin writing data at.
+        let columnStart = sweepID * problemSize
+        let reflectorBaseAddress = columnStart + (sweepID + 1) + rowStart
+        for reflectorElementID in 0..<dotProductCount {
+          let value = data[reflectorElementID]
+          bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
+        }
       }
     }
     
@@ -84,11 +60,7 @@ extension Diagonalization {
   }
   
   // Returns a Householder reflector as an array allocation.
-  //
-  // Applies the Householder reflector to the entire matrix. This isn't very
-  // efficient, but it's correct, which we want for initial debugging.
   private mutating func applyBulgeChase(
-    sweepID: Int,
     vectorID: Int,
     startElementID: Int,
     endElementID: Int
