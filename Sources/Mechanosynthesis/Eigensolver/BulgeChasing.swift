@@ -33,8 +33,9 @@ extension Diagonalization {
     }
     
     var bulgeSweeps: [BulgeSweep] = []
+    let sweepEnd = max(0, problemSize - 2)
     
-    for sweepID in 0..<max(0, problemSize - 2) {
+    for sweepID in 0..<sweepEnd {
       let startVectorID = sweepID + 1
       var endVectorID = sweepID + blockSize + 1
       endVectorID = min(endVectorID, problemSize)
@@ -50,11 +51,14 @@ extension Diagonalization {
       
       let maxReflectorElementID = problemSize - sweepID - 1
       let startReflectorElementID = 0
-      let endReflectorElementID = min(blockSize, maxReflectorElementID)
-      let reflectorRange = startReflectorElementID..<endReflectorElementID
-      for reflectorElementID in reflectorRange {
-        let value = data[reflectorElementID - startReflectorElementID]
-        sweepData[reflectorElementID] = value
+      let endReflectorElementID = min(
+        startReflectorElementID + blockSize, maxReflectorElementID)
+      let dotProductCount = endReflectorElementID - startReflectorElementID
+      
+      let reflectorBaseAddress = sweepID + 1
+      for reflectorElementID in 0..<dotProductCount {
+        let value = data[reflectorElementID]
+        sweepData[reflectorBaseAddress + reflectorElementID] = value
       }
       
       // Apply the remaining reflectors.
@@ -75,10 +79,12 @@ extension Diagonalization {
           let startReflectorElementID = operationID * blockSize
           let endReflectorElementID = min(
             startReflectorElementID + blockSize, maxReflectorElementID)
-          let reflectorRange = startReflectorElementID..<endReflectorElementID
-          for reflectorElementID in reflectorRange {
-            let value = data[reflectorElementID - startReflectorElementID]
-            sweepData[reflectorElementID] = value
+          let dotProductCount = endReflectorElementID - startReflectorElementID
+          
+          let reflectorBaseAddress = (sweepID + 1) + operationID * blockSize
+          for reflectorElementID in 0..<dotProductCount {
+            let value = data[reflectorElementID]
+            sweepData[reflectorBaseAddress + reflectorElementID] = value
           }
         } else {
           break
@@ -86,6 +92,12 @@ extension Diagonalization {
         operationID += 1
       }
       
+      let sweep = BulgeSweep(data: sweepData)
+      bulgeSweeps.append(sweep)
+    }
+    
+    for sweepID in sweepEnd..<problemSize {
+      var sweepData = [Float](repeating: 0, count: problemSize)
       let sweep = BulgeSweep(data: sweepData)
       bulgeSweeps.append(sweep)
     }

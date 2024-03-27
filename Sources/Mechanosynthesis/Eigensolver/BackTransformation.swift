@@ -11,6 +11,11 @@ extension Diagonalization {
   mutating func backTransform(
     bulgeSweeps: [BulgeSweep]
   ) {
+    // If the matrix was already in tridiagonal form, there is no work to do.
+    guard blockSize > 1 else {
+      return
+    }
+    
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
       // Load the vector into the cache.
@@ -20,28 +25,29 @@ extension Diagonalization {
         vector[elementID] = eigenvectors[address]
       }
       
-      for sweepID in bulgeSweeps.indices.reversed() {
-        let sweep = bulgeSweeps[sweepID]
-        let reflectorIndexOffset = sweepID + 1
+      // TODO: Start optimizing this by breaking into sections modulo 32.
+      // These will be pivot points, at which you reorder the reflector
+      // elements.
+      
+      for sweepID in (0..<problemSize).reversed() {
+        let sweep = bulgeSweeps[sweepID].data
         
         var rowID: Int = sweepID + 1
         while rowID < problemSize {
           let nextRowID = min(rowID + blockSize, problemSize)
-          let range = rowID..<nextRowID
-          rowID = nextRowID
+          let dotProductCount = nextRowID - rowID
+          defer { rowID += blockSize }
           
           // Apply the reflector.
           var dotProduct: Float = .zero
-          for elementID in range {
-            let reflectorDatum = sweep.data[elementID - reflectorIndexOffset]
-            let vectorDatum = vector[elementID]
+          for elementID in 0..<dotProductCount {
+            let reflectorDatum = sweep[rowID + elementID]
+            let vectorDatum = vector[rowID + elementID]
             dotProduct += reflectorDatum * vectorDatum
           }
-          for elementID in range {
-            let reflectorDatum = sweep.data[elementID - reflectorIndexOffset]
-            var vectorDatum = vector[elementID]
-            vectorDatum -= reflectorDatum * dotProduct
-            vector[elementID] = vectorDatum
+          for elementID in 0..<dotProductCount {
+            let reflectorDatum = sweep[rowID + elementID]
+            vector[rowID + elementID] -= reflectorDatum * dotProduct
           }
         }
       }
