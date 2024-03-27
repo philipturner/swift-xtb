@@ -476,3 +476,5 @@ This may require an IRL performance benchmark.
 ## Current Plan
 
 It seems like the bottleneck in bulge chasing could be fixed with AMX GEMV. This should be investigated before trying multi-stage successive band reduction. It is also questionable whether accelerating the panel factorizations is worthwhile at the moment. It could be an important optimization for medium-small semiempirical simulations. However, this part and the bulge chasing are $O(n^2)$.
+
+Update: This might be an easy candidate for GPU acceleration. The latency for application of a 32x32 block is ~1.7 microseconds on CPU (without some optimizations left to perform). GPU has an inter-core synchronization latency of 2 microseconds, which is less than `DispatchQueue.concurrentPerform`. To start, I would need to modify the CPU code, so it traverses the matrix in a different order. This order maps directly to the parallelized version.
