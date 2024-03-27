@@ -12,37 +12,24 @@ struct BulgeSweep {
 }
 
 extension Diagonalization {
-  // TODO: Store the band reflectors in a compact matrix. Change 'indices' to
-  // describe a range in the matrix. Then, predict the values of 'indices' on
-  // the fly, instead of storing them explicitly.
-  //
-  // The very first incremental change can simply be aggregating the
-  // transforms within a specific sweep. After that, it is a minor change to
-  // redirect the start of the vector to a compact matrix.
-  //
-  // This optimization does not include batching of Householder transforms.
-  // However, the internal storage format could be optimized to improve the
-  // performance of batching. Store transforms with the first element at
-  // column[0], instead of along the diagonal.
-  
   // Returns a sequence of reflectors.
-  mutating func chaseBulges() -> [BulgeSweep] {
-    // If the matrix is already in tridiagonal form, there is no work to do.
-    guard blockSize > 1 else {
-      return []
-    }
-    
-    var bulgeSweeps: [BulgeSweep] = []
+  mutating func chaseBulges() -> [Float] {
+    var bulgeReflectorMatrix = [Float](
+      repeating: 0, count: problemSize * problemSize)
     let sweepEnd = max(0, problemSize - 2)
-    
     for sweepID in 0..<sweepEnd {
+      // TODO: Start simplifying the code, by merging the first iteration with
+      // the next few iterations.
+      
       let startVectorID = sweepID + 1
       var endVectorID = sweepID + blockSize + 1
       endVectorID = min(endVectorID, problemSize)
       guard endVectorID - startVectorID > 1 else {
         fatalError("Generated empty Householder transform.")
       }
-      var sweepData = [Float](repeating: 0, count: problemSize)
+      
+      // Find the address to begin writing data at.
+      let diagonalAddress = (sweepID * problemSize) + (sweepID + 1)
       
       // Apply the very first reflector.
       let data = applyBulgeChase(
@@ -55,10 +42,10 @@ extension Diagonalization {
         startReflectorElementID + blockSize, maxReflectorElementID)
       let dotProductCount = endReflectorElementID - startReflectorElementID
       
-      let reflectorBaseAddress = sweepID + 1
+      let reflectorBaseAddress = diagonalAddress
       for reflectorElementID in 0..<dotProductCount {
         let value = data[reflectorElementID]
-        sweepData[reflectorBaseAddress + reflectorElementID] = value
+        bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
       }
       
       // Apply the remaining reflectors.
@@ -81,28 +68,19 @@ extension Diagonalization {
             startReflectorElementID + blockSize, maxReflectorElementID)
           let dotProductCount = endReflectorElementID - startReflectorElementID
           
-          let reflectorBaseAddress = (sweepID + 1) + operationID * blockSize
+          let reflectorBaseAddress = diagonalAddress + operationID * blockSize
           for reflectorElementID in 0..<dotProductCount {
             let value = data[reflectorElementID]
-            sweepData[reflectorBaseAddress + reflectorElementID] = value
+            bulgeReflectorMatrix[reflectorBaseAddress + reflectorElementID] = value
           }
         } else {
           break
         }
         operationID += 1
       }
-      
-      let sweep = BulgeSweep(data: sweepData)
-      bulgeSweeps.append(sweep)
     }
     
-    for sweepID in sweepEnd..<problemSize {
-      var sweepData = [Float](repeating: 0, count: problemSize)
-      let sweep = BulgeSweep(data: sweepData)
-      bulgeSweeps.append(sweep)
-    }
-    
-    return bulgeSweeps
+    return bulgeReflectorMatrix
   }
   
   // Returns a Householder reflector as an array allocation.

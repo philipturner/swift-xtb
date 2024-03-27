@@ -9,13 +9,8 @@ import Accelerate
 
 extension Diagonalization {
   mutating func backTransform(
-    bulgeSweeps: [BulgeSweep]
+    bulgeReflectorMatrix: [Float]
   ) {
-    // If the matrix was already in tridiagonal form, there is no work to do.
-    guard blockSize > 1 else {
-      return
-    }
-    
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
       // Load the vector into the cache.
@@ -30,24 +25,25 @@ extension Diagonalization {
       // elements.
       
       for sweepID in (0..<problemSize).reversed() {
-        let sweep = bulgeSweeps[sweepID].data
-        
-        var rowID: Int = sweepID + 1
-        while rowID < problemSize {
-          let nextRowID = min(rowID + blockSize, problemSize)
-          let dotProductCount = nextRowID - rowID
-          defer { rowID += blockSize }
-          
-          // Apply the reflector.
-          var dotProduct: Float = .zero
-          for elementID in 0..<dotProductCount {
-            let reflectorDatum = sweep[rowID + elementID]
-            let vectorDatum = vector[rowID + elementID]
-            dotProduct += reflectorDatum * vectorDatum
-          }
-          for elementID in 0..<dotProductCount {
-            let reflectorDatum = sweep[rowID + elementID]
-            vector[rowID + elementID] -= reflectorDatum * dotProduct
+        bulgeReflectorMatrix.withContiguousStorageIfAvailable {
+          let sweep = $0.baseAddress! + sweepID * problemSize
+          var rowID: Int = sweepID + 1
+          while rowID < problemSize {
+            let nextRowID = min(rowID + blockSize, problemSize)
+            let dotProductCount = nextRowID - rowID
+            defer { rowID += blockSize }
+            
+            // Apply the reflector.
+            var dotProduct: Float = .zero
+            for elementID in 0..<dotProductCount {
+              let reflectorDatum = sweep[rowID + elementID]
+              let vectorDatum = vector[rowID + elementID]
+              dotProduct += reflectorDatum * vectorDatum
+            }
+            for elementID in 0..<dotProductCount {
+              let reflectorDatum = sweep[rowID + elementID]
+              vector[rowID + elementID] -= reflectorDatum * dotProduct
+            }
           }
         }
       }
