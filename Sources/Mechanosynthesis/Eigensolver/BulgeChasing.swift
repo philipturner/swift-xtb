@@ -153,19 +153,21 @@ extension Diagonalization {
       reflector[cacheElementID] = reflectorDatum
     }
     
+    let startApplicationID: Int = max(startElementID - blockSize, 0)
+    let endApplicationID: Int = min(endElementID + blockSize, problemSize)
+    let dotProductCount = endApplicationID - startApplicationID
+    var dotProducts = [Float](repeating: 0, count: dotProductCount)
+    
     // Apply the reflector to the matrix, from the left.
     matrix.withContiguousMutableStorageIfAvailable {
-      let startApplicationID: Int = max(startElementID - blockSize, 0)
-      let endApplicationID: Int = min(endElementID + blockSize, problemSize)
-      let dotProductCount = endApplicationID - startApplicationID
-      var dotProducts = [Float](repeating: 0, count: dotProductCount)
-      let matrixBaseAddress: Int = startApplicationID * problemSize + startElementID
+      let matrixBaseAddress: Int =
+      startApplicationID * problemSize + startElementID
       let matrix = $0.baseAddress! + matrixBaseAddress
       
       #if false
       for m in 0..<dotProductCount {
-        var dotProduct: Float = .zero
         for n in 0..<1 {
+          var dotProduct: Float = .zero
           for k in 0..<rangeCount {
             let lhsValue = matrix[m * problemSize + k]
             let rhsValue = reflector[n * dotProductCount + k]
@@ -195,13 +197,9 @@ extension Diagonalization {
       #if false
       for m in 0..<dotProductCount {
         for n in 0..<rangeCount {
-          var dotProduct: Float = .zero
-          for k in 0..<1 {
-            let lhsValue = dotProducts[m * 1 + k]
-            let rhsValue = reflector[n * 1 + k]
-            dotProduct += lhsValue * rhsValue
-          }
-          matrix[m * problemSize + n] -= dotProduct
+          let lhsValue = dotProducts[m * 1]
+          let rhsValue = reflector[n * 1]
+          matrix[m * problemSize + n] -= lhsValue * rhsValue
         }
       }
       #else
@@ -220,29 +218,62 @@ extension Diagonalization {
     }
     
     // Apply the reflector to the matrix, from the right.
-    do {
-      let startApplicationID: Int = max(startElementID - blockSize, 0)
-      let endApplicationID: Int = min(endElementID + blockSize, problemSize)
-      for vectorID in startApplicationID..<endApplicationID {
-        var dotProduct: Float = .zero
-        for cacheElementID in 0..<rangeCount {
-          let memoryElementID = startElementID + cacheElementID
-          let matrixAddress = memoryElementID * problemSize + vectorID
-          let matrixDatum = matrix[matrixAddress]
-          
-          let reflectorDatum = reflector[cacheElementID]
-          dotProduct += reflectorDatum * matrixDatum
-        }
-        for cacheElementID in 0..<rangeCount {
-          let memoryElementID = startElementID + cacheElementID
-          let matrixAddress = memoryElementID * problemSize + vectorID
-          var matrixDatum = matrix[matrixAddress]
-          
-          let reflectorDatum = reflector[cacheElementID]
-          matrixDatum -= reflectorDatum * dotProduct
-          matrix[matrixAddress] = matrixDatum
+    matrix.withContiguousMutableStorageIfAvailable {
+      let matrixBaseAddress: Int = 
+      startElementID * problemSize + startApplicationID
+      let matrix = $0.baseAddress! + matrixBaseAddress
+      
+      #if false
+      for m in 0..<dotProductCount {
+        for n in 0..<1 {
+          var dotProduct: Float = .zero
+          for k in 0..<rangeCount {
+            let lhsValue = matrix[k * problemSize + m]
+            let rhsValue = reflector[n * dotProductCount + k]
+            dotProduct += lhsValue * rhsValue
+          }
+          dotProducts[m * 1 + n] = dotProduct
         }
       }
+      #else
+      do {
+        var TRANSA = CChar(Character("N").asciiValue!)
+        var TRANSB = CChar(Character("N").asciiValue!)
+        var M = Int32(dotProductCount)
+        var N = Int32(1)
+        var K = Int32(rangeCount)
+        var ALPHA = Float(1)
+        var LDA = Int32(problemSize)
+        var BETA = Float(0)
+        var LDB = Int32(dotProductCount)
+        var LDC = Int32(dotProductCount)
+        sgemm_(
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, matrix, &LDA,
+          reflector, &LDB, &BETA, &dotProducts, &LDC)
+      }
+      #endif
+      
+      #if false
+      for m in 0..<rangeCount {
+        for n in 0..<dotProductCount {
+          let lhsValue = reflector[m]
+          let rhsValue = dotProducts[n]
+          matrix[m * problemSize + n] -= lhsValue * rhsValue
+        }
+      }
+      #else
+      do {
+        var M = Int32(dotProductCount)
+        var N = Int32(rangeCount)
+        var ALPHA = Float(-1)
+        var INCX = Int32(1)
+        var INCY = Int32(1)
+        var LDA = Int32(problemSize)
+        sger_(
+          &M, &N, &ALPHA, dotProducts, &INCX, reflector, &INCY,
+          matrix, &LDA)
+      }
+      #endif
     }
     
     // Store the reflector to main memory.
