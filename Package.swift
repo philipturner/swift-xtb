@@ -92,6 +92,7 @@ let package = Package(
   products: [
     .library(
       name: "Mechanosynthesis",
+      type: .dynamic,
       targets: ["Mechanosynthesis"]),
   ],
   dependencies: packageDependencies,
