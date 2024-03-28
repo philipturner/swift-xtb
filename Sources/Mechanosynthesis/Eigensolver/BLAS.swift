@@ -254,9 +254,15 @@ import Accelerate
                   U _ssytrf_
                   U _ssytri_
                   U _ssytrs_
-                  U _strcat
-                  U _strcmp
-                  U _strcpy
                   U _strmm_
                   U _strsm_
  */
+
+// TODO: Create a Swift script that can translate editor placeholders into
+// overridden BLAS functions. Store the script somewhere in the Mechanosynthesis
+// docs, perhaps in a new folder about accelerating xTB.
+
+//@_cdecl("sgemm_")
+//func sgemm_(_ TRANSA: UnsafePointer<CChar>, _ TRANSB: UnsafePointer<CChar>, _ M: UnsafePointer<__LAPACK_int>, _ N: UnsafePointer<__LAPACK_int>, _ K: UnsafePointer<__LAPACK_int>, _ ALPHA: UnsafePointer<Float>, _ A: UnsafePointer<Float>?, _ LDA: UnsafePointer<__LAPACK_int>, _ B: UnsafePointer<Float>?, _ LDB: UnsafePointer<__LAPACK_int>, _ BETA: UnsafePointer<Float>, _ C: UnsafeMutablePointer<Float>?, _ LDC: UnsafePointer<__LAPACK_int>) {
+//  Accelerate.sgemm_(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+//}
