@@ -13,22 +13,18 @@ struct WYTransformDescriptor {
   
   // The block of reflectors, stored in column-major order.
   var reflectorBlock: [Float]?
-  
-  // The scalar 'tau' values for each reflector.
-  var tauBlock: [Float]?
 }
 
 // Applies the _compact WY transform_ to a block of reflectors.
 struct WYTransform {
   // The T matrix.
   // - dimensions: dimension[1] x dimension[1]
-  // - layout: unknown
+  // - order: unknown
   var tau: [Float]
   
   init(descriptor: WYTransformDescriptor) {
     guard let dimension = descriptor.dimension,
-          let reflectorBlock = descriptor.reflectorBlock,
-          let tauBlock = descriptor.tauBlock else {
+          let reflectorBlock = descriptor.reflectorBlock else {
       fatalError("Descriptor not complete.")
     }
     let problemSize = dimension[0]
@@ -43,8 +39,8 @@ struct WYTransform {
       for n in 0..<blockSize {
         var dotProduct: Float = .zero
         for k in 0..<problemSize {
-          let lhsValue = panelReflectors[m * problemSize + k]
-          let rhsValue = panelReflectors[n * problemSize + k]
+          let lhsValue = reflectorBlock[m * problemSize + k]
+          let rhsValue = reflectorBlock[n * problemSize + k]
           dotProduct += lhsValue * rhsValue
         }
         reflectorDotProducts[m * blockSize + n] = dotProduct
@@ -69,35 +65,21 @@ struct WYTransform {
     GEMM(descriptor: gemmDesc)
 #endif
     
-    // Generate the diagonal entries.
+    // Initialize the T matrix to the identity matrix.
     for n in 0..<blockSize {
-      tau[n * blockSize + n] = tauBlock[n]
+      tau[n * blockSize + n] = 1
     }
-    
-    // Allocate cache memory for generating T.
-    var tCache = [Float](repeating: 0, count: blockSize)
-    var ttCache = [Float](repeating: 0, count: blockSize)
     
     // Generate the other entries.
     for n in 0..<blockSize {
-      for m in 0..<blockSize {
-        tCache[m] = reflectorDotProducts[m * blockSize + n]
-      }
-      
-      // Multiply with the preceding submatrix.
-      let τ = tau[n * blockSize + n]
-      for m in 0..<blockSize {
+      for m in 0..<n {
         var dotProduct: Float = .zero
         for k in 0..<blockSize {
           let matrixValue = tau[m * blockSize + k]
-          let vectorValue = tCache[k]
+          let vectorValue = reflectorDotProducts[k * blockSize + n]
           dotProduct += matrixValue * vectorValue
         }
-        ttCache[m] = -τ * dotProduct
-      }
-      
-      for m in 0..<n {
-        tau[m * blockSize + n] = ttCache[m]
+        tau[m * blockSize + n] = -dotProduct
       }
     }
   }

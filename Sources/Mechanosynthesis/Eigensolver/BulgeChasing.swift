@@ -85,13 +85,8 @@ extension Diagonalization {
       generationDesc.destination = buffer.baseAddress!
     }
     generationDesc.dimension = rangeCount
-    let generation = ReflectorGeneration(descriptor: generationDesc)
+    ReflectorGeneration(descriptor: generationDesc)
     
-    // Fuse tau directly into the vector.
-    let scaleFactor = generation.tau.squareRoot()
-    for elementID in 0..<rangeCount {
-      reflector[elementID] *= scaleFactor
-    }
     return reflector
   }
   

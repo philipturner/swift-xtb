@@ -14,10 +14,6 @@ struct ReflectorGenerationDescriptor {
 
 // Creates a reflector that transforms the provided vector into [1, 0, 0, ...].
 struct ReflectorGeneration {
-  // TODO: Try to fuse tau directly into vector, instead of leaving it as a
-  // separate variable. Attempt this after building the 'WYTransform' API.
-  var tau: Float = .zero
-  
   // In typical API usage, one does not access the object's properties.
   @discardableResult
   init(descriptor: ReflectorGenerationDescriptor) {
@@ -47,7 +43,7 @@ struct ReflectorGeneration {
     }
     
     // Predict the normalization factor.
-    tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
+    let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
     let scaleFactor = 1 / (oldSubdiagonal - newSubdiagonal)
     
     // Write to the reflector.
@@ -56,5 +52,10 @@ struct ReflectorGeneration {
       destination[elementID] = element * scaleFactor
     }
     destination[0] = 1
+    
+    // Pre-multiply by tau.
+    for elementID in 0..<dimension {
+      destination[elementID] *= tau.squareRoot()
+    }
   }
 }

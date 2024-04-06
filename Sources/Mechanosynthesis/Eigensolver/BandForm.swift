@@ -40,7 +40,6 @@ extension Diagonalization {
       // Allocate cache memory for the reflectors.
       var panelReflectors = [Float](
         repeating: 0, count: blockSize * problemSize)
-      var panelTau = [Float](repeating: 0, count: blockSize)
       
       // Generate the reflectors.
       for reflectorID in blockStart..<blockEnd {
@@ -65,7 +64,6 @@ extension Diagonalization {
               previousReflectorID - blockStart) * problemSize + elementID
             reflector[elementID] = panelReflectors[address]
           }
-          let tau = panelTau[previousReflectorID - blockStart]
           
           // Apply the reflector.
           var dotProduct: Float = .zero
@@ -73,7 +71,7 @@ extension Diagonalization {
             dotProduct += reflector[elementID] * vector[elementID]
           }
           for elementID in 0..<problemSize {
-            vector[elementID] -= tau * reflector[elementID] * dotProduct
+            vector[elementID] -= reflector[elementID] * dotProduct
           }
         }
         
@@ -87,10 +85,7 @@ extension Diagonalization {
           generationDesc.destination = buffer.baseAddress! + offset
         }
         generationDesc.dimension = problemSize - bandOffset
-        let generation = ReflectorGeneration(descriptor: generationDesc)
-        
-        // Write the tau value to memory.
-        panelTau[reflectorID - blockStart] = generation.tau
+        ReflectorGeneration(descriptor: generationDesc)
       }
       
       // Create the T matrix using the 'WYTransform' API.
@@ -98,7 +93,6 @@ extension Diagonalization {
       transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
       transformDesc.reflectorBlock = panelReflectors
-      transformDesc.tauBlock = panelTau
       var transform = WYTransform(descriptor: transformDesc)
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
@@ -305,7 +299,6 @@ extension Diagonalization {
       // Reverse the order of the reflectors.
       var reversedPanelReflectors = [Float](
         repeating: 0, count: blockSize * problemSize)
-      var reversedPanelTau = [Float](repeating: 0, count: blockSize)
       for oldReflectorID in 0..<blockSize {
         let newReflectorID = blockSize - 1 - oldReflectorID
         for elementID in 0..<problemSize {
@@ -313,14 +306,12 @@ extension Diagonalization {
           let newAddress = newReflectorID * problemSize + elementID
           reversedPanelReflectors[newAddress] = panelReflectors[oldAddress]
         }
-        reversedPanelTau[newReflectorID] = panelTau[oldReflectorID]
       }
       
       // Create the T matrix using the 'WYTransform' API.
       transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
       transformDesc.reflectorBlock = reversedPanelReflectors
-      transformDesc.tauBlock = reversedPanelTau
       transform = WYTransform(descriptor: transformDesc)
       
       // Store the reflectors to main memory.
