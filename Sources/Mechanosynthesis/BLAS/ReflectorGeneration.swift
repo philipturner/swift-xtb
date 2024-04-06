@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 4/6/24.
 //
 
-import Foundation
-
 // A configuration for a reflector generation.
 struct ReflectorGenerationDescriptor {
   var source: UnsafePointer<Float>?

@@ -93,7 +93,13 @@ extension Diagonalization {
         panelTau[reflectorID - blockStart] = generation.tau
       }
       
-      let T = createT(panelReflectors: panelReflectors, panelTau: panelTau)
+      // Create the T matrix using the 'WYTransform' API.
+      var transformDesc = WYTransformDescriptor()
+      transformDesc = WYTransformDescriptor()
+      transformDesc.dimension = SIMD2(problemSize, blockSize)
+      transformDesc.reflectorBlock = panelReflectors
+      transformDesc.tauBlock = panelTau
+      var transform = WYTransform(descriptor: transformDesc)
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
       
@@ -137,7 +143,7 @@ extension Diagonalization {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = T[k * blockSize + m]
+              let lhsValue = transform.tau[k * blockSize + m]
               let rhsValue = VA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
@@ -157,7 +163,7 @@ extension Diagonalization {
           var LDB = Int32(blockSize)
           var LDC = Int32(blockSize)
           sgemm_(
-            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, transform.tau, &LDA,
             VA, &LDB, &BETA, &TVA, &LDC)
         }
 #endif
@@ -236,7 +242,7 @@ extension Diagonalization {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = T[k * blockSize + m]
+              let lhsValue = transform.tau[k * blockSize + m]
               let rhsValue = VA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
@@ -256,7 +262,7 @@ extension Diagonalization {
           var LDB = Int32(blockSize)
           var LDC = Int32(blockSize)
           sgemm_(
-            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, transform.tau, &LDA,
             VA, &LDB, &BETA, &TVA, &LDC)
         }
 #endif
@@ -293,6 +299,9 @@ extension Diagonalization {
 #endif
       }
       
+      // TODO: Relocate this to the back-transformation stage. Make the T
+      // matrices transient and store the V matrices in an n x n supermatrix.
+      
       // Reverse the order of the reflectors.
       var reversedPanelReflectors = [Float](
         repeating: 0, count: blockSize * problemSize)
@@ -306,92 +315,21 @@ extension Diagonalization {
         }
         reversedPanelTau[newReflectorID] = panelTau[oldReflectorID]
       }
-      let reversedT = createT(
-        panelReflectors: reversedPanelReflectors, panelTau: reversedPanelTau)
+      
+      // Create the T matrix using the 'WYTransform' API.
+      transformDesc = WYTransformDescriptor()
+      transformDesc.dimension = SIMD2(problemSize, blockSize)
+      transformDesc.reflectorBlock = reversedPanelReflectors
+      transformDesc.tauBlock = reversedPanelTau
+      transform = WYTransform(descriptor: transformDesc)
       
       // Store the reflectors to main memory.
       bandReflectors.append(
-        BandReflector(matrixV: reversedPanelReflectors, matrixT: reversedT))
+        BandReflector(
+          matrixV: reversedPanelReflectors,
+          matrixT: transform.tau))
     }
     
     return bandReflectors
-  }
-  
-  // Create a T matrix for the given sequence of reflectors.
-  private func createT(
-    panelReflectors: [Float], panelTau: [Float]
-  ) -> [Float] {
-    // Perform a GEMM with non-square matrices.
-    var reflectorDotProducts = [Float](
-      repeating: 0, count: blockSize * blockSize)
-#if false
-    for m in 0..<blockSize {
-      for n in 0..<blockSize {
-        var dotProduct: Float = .zero
-        for k in 0..<problemSize {
-          let lhsValue = panelReflectors[m * problemSize + k]
-          let rhsValue = panelReflectors[n * problemSize + k]
-          dotProduct += lhsValue * rhsValue
-        }
-        reflectorDotProducts[m * blockSize + n] = dotProduct
-      }
-    }
-#else
-    var gemmDesc = GEMMDescriptor()
-    gemmDesc.dimension = SIMD3(blockSize, blockSize, problemSize)
-    panelReflectors.withContiguousStorageIfAvailable {
-      gemmDesc.leftOperand = $0.baseAddress!
-      gemmDesc.leftOperandStride = problemSize
-      gemmDesc.leftTransposeState = "T"
-    }
-    panelReflectors.withContiguousStorageIfAvailable {
-      gemmDesc.rightOperand = $0.baseAddress!
-      gemmDesc.rightOperandStride = problemSize
-    }
-    reflectorDotProducts.withContiguousMutableStorageIfAvailable {
-      gemmDesc.accumulator = $0.baseAddress!
-      gemmDesc.accumulatorStride = blockSize
-    }
-    GEMM(descriptor: gemmDesc)
-#endif
-    
-    // Allocate cache memory for the T matrix.
-    var T = [Float](repeating: 0, count: blockSize * blockSize)
-    do {
-      // Generate the diagonal entries.
-      for n in 0..<blockSize {
-        T[n * blockSize + n] = panelTau[n]
-      }
-      
-      // Allocate cache memory for generating T.
-      var tCache = [Float](repeating: 0, count: blockSize)
-      var ttCache = [Float](repeating: 0, count: blockSize)
-      
-      // Generate the other entries.
-      for n in 0..<blockSize {
-        for m in 0..<blockSize {
-          tCache[m] = reflectorDotProducts[m * blockSize + n]
-        }
-        
-        // Multiply with the preceding submatrix.
-        let τ = T[n * blockSize + n]
-        for m in 0..<blockSize {
-          var dotProduct: Float = .zero
-          for k in 0..<blockSize {
-            let matrixValue = T[m * blockSize + k]
-            let vectorValue = tCache[k]
-            dotProduct += matrixValue * vectorValue
-          }
-          ttCache[m] = -τ * dotProduct
-        }
-        
-        for m in 0..<n {
-          T[m * blockSize + n] = ttCache[m]
-        }
-      }
-    }
-    
-    // Store the T matrix to main memory.
-    return T
   }
 }
