@@ -82,14 +82,14 @@ extension Diagonalization {
         vector.withContiguousStorageIfAvailable { buffer in
           generationDesc.source = buffer.baseAddress! + bandOffset
         }
+        panelReflectors.withContiguousMutableStorageIfAvailable { buffer in
+          let offset = (reflectorID - blockStart) * problemSize + bandOffset
+          generationDesc.destination = buffer.baseAddress! + offset
+        }
         generationDesc.dimension = problemSize - bandOffset
         let generation = ReflectorGeneration(descriptor: generationDesc)
         
-        // Store the reflector to the cache.
-        for elementID in bandOffset..<problemSize {
-          let address = (reflectorID - blockStart) * problemSize + elementID
-          panelReflectors[address] = generation.reflector[elementID - bandOffset]
-        }
+        // Write the tau value to memory.
         panelTau[reflectorID - blockStart] = generation.tau
       }
       

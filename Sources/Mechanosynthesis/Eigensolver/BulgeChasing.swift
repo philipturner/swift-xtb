@@ -74,54 +74,24 @@ extension Diagonalization {
     endElementID: Int
   ) -> [Float] {
     let rangeCount = endElementID - startElementID
-    
-    // Load the row into the cache.
     var reflector = [Float](repeating: 0, count: blockSize)
+    
+    // Create a reflector using the 'ReflectorGeneration' API.
+    var generationDesc = ReflectorGenerationDescriptor()
+    matrix.withContiguousStorageIfAvailable { buffer in
+      generationDesc.source = buffer.baseAddress! + matrixBaseAddress
+    }
+    reflector.withContiguousMutableStorageIfAvailable { buffer in
+      generationDesc.destination = buffer.baseAddress!
+    }
+    generationDesc.dimension = rangeCount
+    let generation = ReflectorGeneration(descriptor: generationDesc)
+    
+    // Fuse tau directly into the vector.
+    let scaleFactor = generation.tau.squareRoot()
     for elementID in 0..<rangeCount {
-      let matrixAddress = matrixBaseAddress + elementID
-      let matrixDatum = matrix[matrixAddress]
-      reflector[elementID] = matrixDatum
+      reflector[elementID] *= scaleFactor
     }
-    
-    // Take the norm of the vector.
-    var norm: Float = .zero
-    for elementID in 0..<blockSize {
-      let reflectorDatum = reflector[elementID]
-      norm += reflectorDatum * reflectorDatum
-    }
-    norm.formSquareRoot()
-    
-    // Predict the normalization factor.
-    let oldSubdiagonal = reflector[0]
-    let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
-    let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
-    
-    // Check for NANs.
-    var nanPresent = false
-    let epsilon: Float = 2 * .leastNormalMagnitude
-    if (newSubdiagonal - oldSubdiagonal).magnitude < epsilon {
-      nanPresent = true
-    }
-    if newSubdiagonal.magnitude < epsilon {
-      nanPresent = true
-    }
-    
-    // Modify the vector, turning it into a reflector.
-    for elementID in 0..<blockSize {
-      var reflectorDatum = reflector[elementID]
-      if elementID == 0 {
-        reflectorDatum = 1
-      } else {
-        reflectorDatum /= oldSubdiagonal - newSubdiagonal
-      }
-      reflectorDatum *= tau.squareRoot()
-      
-      if nanPresent {
-        reflectorDatum = 0
-      }
-      reflector[elementID] = reflectorDatum
-    }
-    
     return reflector
   }
   
