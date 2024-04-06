@@ -11,10 +11,69 @@ extension Diagonalization {
   mutating func backTransform(
     bulgeChasingReflectors: [Float]
   ) {
-    // TODO: Start optimizing this by breaking into sections modulo 32.
-    // These will be pivot points, at which you reorder the reflector
-    // elements.
+    var rowOffset: Int = .zero
+    while rowOffset < problemSize {
+      defer { rowOffset += blockSize }
+      
+      var blockStart = (problemSize - 1) / blockSize * blockSize
+      while blockStart >= 0 {
+        let blockEnd = min(blockStart + blockSize, problemSize)
+        defer { blockStart -= blockSize }
+        
+        // Load the sweep into the cache.
+        // TODO: Start each sweep's elements at the corresponding diagonal entry.
+        var sweepCache = [Float](
+          repeating: .zero, count: 2 * blockSize * blockSize)
+        for sweepID in blockStart..<blockEnd {
+          let rowID: Int = sweepID + rowOffset + 1
+          guard rowID < problemSize else {
+            continue
+          }
+          
+          let sweepMemoryOffset = sweepID * problemSize + rowID
+          let sweepCacheOffset = (sweepID - blockStart) * (2 * blockSize)
+          
+          let nextRowID = min(rowID + blockSize, problemSize)
+          let dotProductCount = nextRowID - rowID
+          for elementID in 0..<dotProductCount {
+            let matrixAddress = sweepMemoryOffset + elementID
+            let matrixValue = bulgeChasingReflectors[matrixAddress]
+            sweepCache[sweepCacheOffset + elementID] = matrixValue
+          }
+        }
+        
+        // Pad this loop to the cache dimension.
+        for sweepID in (blockStart..<blockStart + blockSize).reversed() {
+          let rowID: Int = sweepID + rowOffset + 1
+          guard rowID < problemSize else {
+            continue
+          }
+          
+          let sweepCacheOffset = (sweepID - blockStart) * (2 * blockSize)
+          let nextRowID = min(rowID + blockSize, problemSize)
+          let dotProductCount = nextRowID - rowID
+          
+          // Back-transform the eigenvectors.
+          for vectorID in 0..<problemSize {
+            let baseAddress = vectorID * problemSize
+            
+            var dotProduct: Float = .zero
+            for elementID in 0..<dotProductCount {
+              let reflectorDatum = sweepCache[sweepCacheOffset + elementID]
+              let vectorDatum = eigenvectors[baseAddress + rowID + elementID]
+              dotProduct += reflectorDatum * vectorDatum
+            }
+            for elementID in 0..<dotProductCount {
+              let reflectorDatum = sweepCache[sweepCacheOffset + elementID]
+              eigenvectors[baseAddress + rowID + elementID] -= reflectorDatum * dotProduct
+            }
+          }
+        }
+      }
+    }
     
+    // Previous implementation, for reference.
+    #if false
     for sweepID in (0..<problemSize).reversed() {
       bulgeChasingReflectors.withContiguousStorageIfAvailable {
         let sweep = $0.baseAddress! + sweepID * problemSize
@@ -43,6 +102,7 @@ extension Diagonalization {
         }
       }
     }
+    #endif
   }
   
   mutating func backTransform(
