@@ -60,7 +60,19 @@ extension Diagonalization {
     bandFormReflectors: [[Float]]
   ) {
     for bandReflector in bandFormReflectors.reversed() {
-      let panelReflectors = bandReflector
+      let forwardPanelReflectors = bandReflector
+      
+      // Reverse the order of the reflectors.
+      var panelReflectors = [Float](
+        repeating: 0, count: blockSize * problemSize)
+      for oldReflectorID in 0..<blockSize {
+        let newReflectorID = blockSize - 1 - oldReflectorID
+        for elementID in 0..<problemSize {
+          let oldAddress = oldReflectorID * problemSize + elementID
+          let newAddress = newReflectorID * problemSize + elementID
+          panelReflectors[newAddress] = forwardPanelReflectors[oldAddress]
+        }
+      }
       
       // Create the T matrix using the 'WYTransform' API.
       var transformDesc = WYTransformDescriptor()

@@ -86,7 +86,7 @@ extension Diagonalization {
       transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
       transformDesc.reflectorBlock = panelReflectors
-      var transform = WYTransform(descriptor: transformDesc)
+      let transform = WYTransform(descriptor: transformDesc)
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
       
@@ -286,23 +286,10 @@ extension Diagonalization {
 #endif
       }
       
-      // TODO: Relocate this to the back-transformation stage. Store the V
-      // matrices in an n x n supermatrix.
-      
-      // Reverse the order of the reflectors.
-      var reversedPanelReflectors = [Float](
-        repeating: 0, count: blockSize * problemSize)
-      for oldReflectorID in 0..<blockSize {
-        let newReflectorID = blockSize - 1 - oldReflectorID
-        for elementID in 0..<problemSize {
-          let oldAddress = oldReflectorID * problemSize + elementID
-          let newAddress = newReflectorID * problemSize + elementID
-          reversedPanelReflectors[newAddress] = panelReflectors[oldAddress]
-        }
-      }
+      // TODO: Store the V matrices in an n x n supermatrix.
       
       // Store the reflectors to main memory.
-      bandReflectors.append(reversedPanelReflectors)
+      bandReflectors.append(panelReflectors)
     }
     
     return bandReflectors
