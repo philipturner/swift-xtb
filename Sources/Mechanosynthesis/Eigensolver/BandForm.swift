@@ -9,8 +9,9 @@ import Accelerate
 
 extension Diagonalization {
   // Returns an array of reflector blocks.
-  mutating func reduceToBandForm() -> [[Float]] {
-    var bandReflectors: [[Float]] = []
+  mutating func reduceToBandForm() -> [Float] {
+    var bandFormReflectors = [Float](
+      repeating: .zero, count: problemSize * problemSize)
     
     // Reduce the matrix to band form, and collect up the reflectors.
     var blockStart: Int = 0
@@ -30,7 +31,7 @@ extension Diagonalization {
       }
       
       // Allocate cache memory for the reflectors.
-      var panelReflectors = [Float](
+      var reflectorBlock = [Float](
         repeating: 0, count: blockSize * problemSize)
       
       // Generate the reflectors.
@@ -55,7 +56,7 @@ extension Diagonalization {
           for elementID in 0..<problemSize {
             let address = (
               previousReflectorID - blockStart) * problemSize + elementID
-            reflector[elementID] = panelReflectors[address]
+            reflector[elementID] = reflectorBlock[address]
           }
           
           // Apply the reflector.
@@ -73,7 +74,7 @@ extension Diagonalization {
         vector.withContiguousStorageIfAvailable { buffer in
           generationDesc.source = buffer.baseAddress! + bandOffset
         }
-        panelReflectors.withContiguousMutableStorageIfAvailable { buffer in
+        reflectorBlock.withContiguousMutableStorageIfAvailable { buffer in
           let offset = (reflectorID - blockStart) * problemSize + bandOffset
           generationDesc.destination = buffer.baseAddress! + offset
         }
@@ -85,7 +86,7 @@ extension Diagonalization {
       var transformDesc = WYTransformDescriptor()
       transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
-      transformDesc.reflectorBlock = panelReflectors
+      transformDesc.reflectorBlock = reflectorBlock
       let transform = WYTransform(descriptor: transformDesc)
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the left
@@ -98,7 +99,7 @@ extension Diagonalization {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<problemSize {
-              let lhsValue = panelReflectors[m * problemSize + k]
+              let lhsValue = reflectorBlock[m * problemSize + k]
               let rhsValue = matrix[k * problemSize + n]
               dotProduct += lhsValue * rhsValue
             }
@@ -118,7 +119,7 @@ extension Diagonalization {
           var LDB = Int32(problemSize)
           var LDC = Int32(blockSize)
           sgemm_(
-            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
             matrix, &LDB, &BETA, &VA, &LDC)
         }
 #endif
@@ -161,7 +162,7 @@ extension Diagonalization {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = panelReflectors[k * problemSize + m]
+              let lhsValue = reflectorBlock[k * problemSize + m]
               let rhsValue = TVA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
@@ -182,7 +183,7 @@ extension Diagonalization {
           var LDC = Int32(problemSize)
           sgemm_(
             &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, TVA, &LDA,
-            panelReflectors, &LDB, &BETA, &matrix, &LDC)
+            reflectorBlock, &LDB, &BETA, &matrix, &LDC)
         }
 #endif
       }
@@ -217,7 +218,7 @@ extension Diagonalization {
           var LDB = Int32(problemSize)
           var LDC = Int32(blockSize)
           sgemm_(
-            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
             matrix, &LDB, &BETA, &VA, &LDC)
         }
 #endif
@@ -260,7 +261,7 @@ extension Diagonalization {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<blockSize {
-              let lhsValue = panelReflectors[k * problemSize + m]
+              let lhsValue = reflectorBlock[k * problemSize + m]
               let rhsValue = TVA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
@@ -280,18 +281,22 @@ extension Diagonalization {
           var LDB = Int32(blockSize)
           var LDC = Int32(problemSize)
           sgemm_(
-            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+            &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
             TVA, &LDB, &BETA, &matrix, &LDC)
         }
 #endif
       }
       
-      // TODO: Store the V matrices in an n x n supermatrix.
-      
       // Store the reflectors to main memory.
-      bandReflectors.append(panelReflectors)
+      for rowID in blockStart..<blockEnd {
+        for columnID in 0..<problemSize {
+          let matrixAddress = rowID * problemSize + columnID
+          let panelAddress = (rowID - blockStart) * problemSize + columnID
+          bandFormReflectors[matrixAddress] = reflectorBlock[panelAddress]
+        }
+      }
     }
     
-    return bandReflectors
+    return bandFormReflectors
   }
 }

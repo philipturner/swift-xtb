@@ -99,8 +99,8 @@ public struct Diagonalization {
   
   mutating func solveEigenproblem() {
     // Create variables to store the reflectors.
-    var bandFormReflectors: [[Float]] = []
-    var bulgeReflectorMatrix: [Float] = []
+    var bandFormReflectors: [Float] = []
+    var bulgeChasingReflectors: [Float] = []
     
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.
     let checkpoint0 = CACurrentMediaTime()
@@ -109,7 +109,7 @@ public struct Diagonalization {
     // If the matrix is already in tridiagonal form, there is no work to do.
     let checkpoint1 = CACurrentMediaTime()
     if blockSize > 1 {
-      bulgeReflectorMatrix = chaseBulges()
+      bulgeChasingReflectors = chaseBulges()
     }
     
     // Acquire the eigenvectors (using the LAPACK divide-and-conquer until all
@@ -120,7 +120,7 @@ public struct Diagonalization {
     // If the matrix was already in tridiagonal form, there is no work to do.
     let checkpoint3 = CACurrentMediaTime()
     if blockSize > 1 {
-      backTransform(bulgeReflectorMatrix: bulgeReflectorMatrix)
+      backTransform(bulgeChasingReflectors: bulgeChasingReflectors)
     }
     
     // Expand the bandwidth from 'blockSize' to 'problemSize'.

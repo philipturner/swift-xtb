@@ -9,7 +9,7 @@ import Accelerate
 
 extension Diagonalization {
   mutating func backTransform(
-    bulgeReflectorMatrix: [Float]
+    bulgeChasingReflectors: [Float]
   ) {
     // Back-transform the eigenvectors.
     for vectorID in 0..<problemSize {
@@ -25,7 +25,7 @@ extension Diagonalization {
       // elements.
       
       for sweepID in (0..<problemSize).reversed() {
-        bulgeReflectorMatrix.withContiguousStorageIfAvailable {
+        bulgeChasingReflectors.withContiguousStorageIfAvailable {
           let sweep = $0.baseAddress! + sweepID * problemSize
           var rowID: Int = sweepID + 1
           while rowID < problemSize {
@@ -57,20 +57,25 @@ extension Diagonalization {
   }
   
   mutating func backTransform(
-    bandFormReflectors: [[Float]]
+    bandFormReflectors: [Float]
   ) {
-    for bandReflector in bandFormReflectors.reversed() {
-      let forwardPanelReflectors = bandReflector
+    var blockStart = (problemSize - blockSize - 1) / blockSize * blockSize
+    while blockStart >= 0 {
+      // Adjust the loop end, to account for the factorization band offset.
+      let blockEnd = min(blockStart + blockSize, problemSize - blockSize)
+      defer { blockStart -= blockSize }
       
       // Reverse the order of the reflectors.
-      var panelReflectors = [Float](
-        repeating: 0, count: blockSize * problemSize)
-      for oldReflectorID in 0..<blockSize {
-        let newReflectorID = blockSize - 1 - oldReflectorID
-        for elementID in 0..<problemSize {
-          let oldAddress = oldReflectorID * problemSize + elementID
-          let newAddress = newReflectorID * problemSize + elementID
-          panelReflectors[newAddress] = forwardPanelReflectors[oldAddress]
+      var reflectorBlock = [Float](
+        repeating: .zero, count: blockSize * problemSize)
+      for rowID in blockStart..<blockEnd {
+        var panelRowID = rowID - blockStart
+        panelRowID = (blockSize - 1) - panelRowID
+        
+        for columnID in 0..<problemSize {
+          let matrixAddress = rowID * problemSize + columnID
+          let panelAddress = panelRowID * problemSize + columnID
+          reflectorBlock[panelAddress] = bandFormReflectors[matrixAddress]
         }
       }
       
@@ -78,7 +83,7 @@ extension Diagonalization {
       var transformDesc = WYTransformDescriptor()
       transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
-      transformDesc.reflectorBlock = panelReflectors
+      transformDesc.reflectorBlock = reflectorBlock
       let transform = WYTransform(descriptor: transformDesc)
       
       // V^H A
@@ -88,7 +93,7 @@ extension Diagonalization {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
           for k in 0..<problemSize {
-            let lhsValue = panelReflectors[m * problemSize + k]
+            let lhsValue = reflectorBlock[m * problemSize + k]
             let rhsValue = eigenvectors[n * problemSize + k]
             dotProduct += lhsValue * rhsValue
           }
@@ -108,7 +113,7 @@ extension Diagonalization {
         var LDB = Int32(problemSize)
         var LDC = Int32(blockSize)
         sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
           eigenvectors, &LDB, &BETA, &VA, &LDC)
       }
 #endif
@@ -151,7 +156,7 @@ extension Diagonalization {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
           for k in 0..<blockSize {
-            let lhsValue = panelReflectors[k * problemSize + m]
+            let lhsValue = reflectorBlock[k * problemSize + m]
             let rhsValue = TVA[n * blockSize + k]
             dotProduct += lhsValue * rhsValue
           }
@@ -171,7 +176,7 @@ extension Diagonalization {
         var LDB = Int32(blockSize)
         var LDC = Int32(problemSize)
         sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
           TVA, &LDB, &BETA, &eigenvectors, &LDC)
       }
 #endif
