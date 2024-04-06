@@ -11,47 +11,36 @@ extension Diagonalization {
   mutating func backTransform(
     bulgeChasingReflectors: [Float]
   ) {
-    // Back-transform the eigenvectors.
-    for vectorID in 0..<problemSize {
-      // Load the vector into the cache.
-      var vector = [Float](repeating: 0, count: problemSize)
-      for elementID in 0..<problemSize {
-        let address = vectorID * problemSize + elementID
-        vector[elementID] = eigenvectors[address]
-      }
-      
-      // TODO: Start optimizing this by breaking into sections modulo 32.
-      // These will be pivot points, at which you reorder the reflector
-      // elements.
-      
-      for sweepID in (0..<problemSize).reversed() {
-        bulgeChasingReflectors.withContiguousStorageIfAvailable {
-          let sweep = $0.baseAddress! + sweepID * problemSize
-          var rowID: Int = sweepID + 1
-          while rowID < problemSize {
-            let nextRowID = min(rowID + blockSize, problemSize)
-            let dotProductCount = nextRowID - rowID
-            defer { rowID += blockSize }
+    // TODO: Start optimizing this by breaking into sections modulo 32.
+    // These will be pivot points, at which you reorder the reflector
+    // elements.
+    
+    for sweepID in (0..<problemSize).reversed() {
+      bulgeChasingReflectors.withContiguousStorageIfAvailable {
+        let sweep = $0.baseAddress! + sweepID * problemSize
+        
+        var rowID: Int = sweepID + 1
+        while rowID < problemSize {
+          let nextRowID = min(rowID + blockSize, problemSize)
+          let dotProductCount = nextRowID - rowID
+          defer { rowID += blockSize }
+          
+          // Back-transform the eigenvectors.
+          for vectorID in 0..<problemSize {
+            let baseAddress = vectorID * problemSize
             
-            // Apply the reflector.
             var dotProduct: Float = .zero
             for elementID in 0..<dotProductCount {
               let reflectorDatum = sweep[rowID + elementID]
-              let vectorDatum = vector[rowID + elementID]
+              let vectorDatum = eigenvectors[baseAddress + rowID + elementID]
               dotProduct += reflectorDatum * vectorDatum
             }
             for elementID in 0..<dotProductCount {
               let reflectorDatum = sweep[rowID + elementID]
-              vector[rowID + elementID] -= reflectorDatum * dotProduct
+              eigenvectors[baseAddress + rowID + elementID] -= reflectorDatum * dotProduct
             }
           }
         }
-      }
-      
-      // Store the vector to main memory.
-      for elementID in 0..<problemSize {
-        let address = vectorID * problemSize + elementID
-        eigenvectors[address] = vector[elementID]
       }
     }
   }
