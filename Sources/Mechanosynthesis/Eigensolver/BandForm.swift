@@ -54,6 +54,8 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
+        // TODO: Refactor the reflector application to use BLAS.
+        
         // Apply preceding reflectors (from this panel) to the column.
         for previousReflectorID in blockStart..<reflectorID {
           // Load the reflector into the cache.
@@ -75,59 +77,20 @@ extension Diagonalization {
           }
         }
         
-        // Zero out the elements above the band offset.
-        for elementID in 0..<bandOffset {
-          vector[elementID] = 0
+        // Create a reflector using the 'ReflectorGeneration' API.
+        var generationDesc = ReflectorGenerationDescriptor()
+        vector.withContiguousStorageIfAvailable { buffer in
+          generationDesc.source = buffer.baseAddress! + bandOffset
         }
-        
-        // Take the norm of the vector.
-        var norm: Float = .zero
-        for elementID in 0..<problemSize {
-          norm += vector[elementID] * vector[elementID]
-        }
-        norm.formSquareRoot()
-        
-        // Predict the normalization factor.
-        let oldSubdiagonal = vector[bandOffset]
-        let newSubdiagonal = norm * Float((oldSubdiagonal >= 0) ? -1 : 1)
-        var tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
-        
-        // Check for NANs.
-        var nanPresent = false
-        let epsilon: Float = 2 * .leastNormalMagnitude
-        if (newSubdiagonal - oldSubdiagonal).magnitude < epsilon {
-          nanPresent = true
-        }
-        if newSubdiagonal.magnitude < epsilon {
-          nanPresent = true
-        }
-        
-        // Modify the vector, turning it into a reflector.
-        for elementID in 0..<problemSize {
-          var element = vector[elementID]
-          if elementID < bandOffset {
-            element = 0
-          } else if elementID == bandOffset {
-            element = 1
-          } else {
-            element /= oldSubdiagonal - newSubdiagonal
-          }
-          
-          if nanPresent {
-            element = 0
-          }
-          vector[elementID] = element
-        }
-        if nanPresent {
-          tau = 0
-        }
+        generationDesc.dimension = problemSize - bandOffset
+        let generation = ReflectorGeneration(descriptor: generationDesc)
         
         // Store the reflector to the cache.
-        for elementID in 0..<problemSize {
+        for elementID in bandOffset..<problemSize {
           let address = (reflectorID - blockStart) * problemSize + elementID
-          panelReflectors[address] = vector[elementID]
+          panelReflectors[address] = generation.reflector[elementID - bandOffset]
         }
-        panelTau[reflectorID - blockStart] = tau
+        panelTau[reflectorID - blockStart] = generation.tau
       }
       
       let T = createT(panelReflectors: panelReflectors, panelTau: panelTau)
