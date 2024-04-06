@@ -7,18 +7,10 @@
 
 import Accelerate
 
-struct BandReflector {
-  // A matrix of reflectors, which describes a specific panel.
-  var matrixV: [Float]
-  
-  // A matrix of coefficients to multiply dot products by.
-  var matrixT: [Float]
-}
-
 extension Diagonalization {
-  // Returns a matrix of reflectors.
-  mutating func reduceToBandForm() -> [BandReflector] {
-    var bandReflectors: [BandReflector] = []
+  // Returns an array of reflector blocks.
+  mutating func reduceToBandForm() -> [[Float]] {
+    var bandReflectors: [[Float]] = []
     
     // Reduce the matrix to band form, and collect up the reflectors.
     var blockStart: Int = 0
@@ -53,7 +45,8 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: Refactor the reflector application to use BLAS.
+        // TODO: Refactor the application of reflectors to use BLAS and/or
+        // recursive panel factorization.
         
         // Apply preceding reflectors (from this panel) to the column.
         for previousReflectorID in blockStart..<reflectorID {
@@ -293,8 +286,8 @@ extension Diagonalization {
 #endif
       }
       
-      // TODO: Relocate this to the back-transformation stage. Make the T
-      // matrices transient and store the V matrices in an n x n supermatrix.
+      // TODO: Relocate this to the back-transformation stage. Store the V
+      // matrices in an n x n supermatrix.
       
       // Reverse the order of the reflectors.
       var reversedPanelReflectors = [Float](
@@ -308,17 +301,8 @@ extension Diagonalization {
         }
       }
       
-      // Create the T matrix using the 'WYTransform' API.
-      transformDesc = WYTransformDescriptor()
-      transformDesc.dimension = SIMD2(problemSize, blockSize)
-      transformDesc.reflectorBlock = reversedPanelReflectors
-      transform = WYTransform(descriptor: transformDesc)
-      
       // Store the reflectors to main memory.
-      bandReflectors.append(
-        BandReflector(
-          matrixV: reversedPanelReflectors,
-          matrixT: transform.tau))
+      bandReflectors.append(reversedPanelReflectors)
     }
     
     return bandReflectors

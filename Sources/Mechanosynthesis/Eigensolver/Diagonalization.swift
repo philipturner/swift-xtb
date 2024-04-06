@@ -99,7 +99,7 @@ public struct Diagonalization {
   
   mutating func solveEigenproblem() {
     // Create variables to store the reflectors.
-    var bandFormReflectors: [BandReflector] = []
+    var bandFormReflectors: [[Float]] = []
     var bulgeReflectorMatrix: [Float] = []
     
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.

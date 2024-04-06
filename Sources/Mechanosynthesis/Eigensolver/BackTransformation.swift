@@ -57,11 +57,17 @@ extension Diagonalization {
   }
   
   mutating func backTransform(
-    bandFormReflectors: [BandReflector]
+    bandFormReflectors: [[Float]]
   ) {
     for bandReflector in bandFormReflectors.reversed() {
-      let panelReflectors = bandReflector.matrixV
-      let T = bandReflector.matrixT
+      let panelReflectors = bandReflector
+      
+      // Create the T matrix using the 'WYTransform' API.
+      var transformDesc = WYTransformDescriptor()
+      transformDesc = WYTransformDescriptor()
+      transformDesc.dimension = SIMD2(problemSize, blockSize)
+      transformDesc.reflectorBlock = panelReflectors
+      let transform = WYTransform(descriptor: transformDesc)
       
       // V^H A
       var VA = [Float](repeating: 0, count: problemSize * blockSize)
@@ -102,7 +108,7 @@ extension Diagonalization {
         for n in 0..<problemSize {
           var dotProduct: Float = .zero
           for k in 0..<blockSize {
-            let lhsValue = T[k * blockSize + m]
+            let lhsValue = transform.tau[k * blockSize + m]
             let rhsValue = VA[n * blockSize + k]
             dotProduct += lhsValue * rhsValue
           }
@@ -122,7 +128,7 @@ extension Diagonalization {
         var LDB = Int32(blockSize)
         var LDC = Int32(blockSize)
         sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, T, &LDA,
+          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, transform.tau, &LDA,
           VA, &LDB, &BETA, &TVA, &LDC)
       }
 #endif
