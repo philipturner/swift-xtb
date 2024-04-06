@@ -163,7 +163,7 @@ extension Diagonalization {
 #endif
         
         // V (T^H V^H A)
-        #if false
+#if false
         for m in 0..<problemSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
@@ -175,7 +175,7 @@ extension Diagonalization {
             matrix[m * problemSize + n] -= dotProduct
           }
         }
-        #else
+#else
         do {
           var TRANSA = CChar(Character("T").asciiValue!)
           var TRANSB = CChar(Character("T").asciiValue!)
@@ -191,7 +191,7 @@ extension Diagonalization {
             &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, TVA, &LDA,
             panelReflectors, &LDB, &BETA, &matrix, &LDC)
         }
-        #endif
+#endif
       }
       
       // MARK: - Update by applying H**T to A(I:M,I+IB:N) from the right
@@ -337,21 +337,22 @@ extension Diagonalization {
       }
     }
 #else
-    do {
-      var TRANSA = CChar(Character("T").asciiValue!)
-      var TRANSB = CChar(Character("N").asciiValue!)
-      var M = Int32(blockSize)
-      var N = Int32(blockSize)
-      var K = Int32(problemSize)
-      var ALPHA = Float(1)
-      var LDA = Int32(problemSize)
-      var BETA = Float(0)
-      var LDB = Int32(problemSize)
-      var LDC = Int32(blockSize)
-      sgemm_(
-        &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, panelReflectors, &LDA,
-        panelReflectors, &LDB, &BETA, &reflectorDotProducts, &LDC)
+    var gemmDesc = GEMMDescriptor()
+    gemmDesc.dimension = SIMD3(blockSize, blockSize, problemSize)
+    panelReflectors.withContiguousStorageIfAvailable {
+      gemmDesc.leftOperand = $0.baseAddress!
+      gemmDesc.leftOperandStride = problemSize
+      gemmDesc.leftTransposeState = "T"
     }
+    panelReflectors.withContiguousStorageIfAvailable {
+      gemmDesc.rightOperand = $0.baseAddress!
+      gemmDesc.rightOperandStride = problemSize
+    }
+    reflectorDotProducts.withContiguousMutableStorageIfAvailable {
+      gemmDesc.accumulator = $0.baseAddress!
+      gemmDesc.accumulatorStride = blockSize
+    }
+    GEMM(descriptor: gemmDesc)
 #endif
     
     // Allocate cache memory for the T matrix.
