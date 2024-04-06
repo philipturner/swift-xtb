@@ -29,12 +29,16 @@ struct GEMMDescriptor {
   // The 'alpha' and 'beta' arguments.
   var productScale: Float = 1
   var accumulatorScale: Float = 0
+  
+  @_transparent
+  init() { }
 }
 
 // Descriptor-based wrapper over `sgemm_` from Accelerate.
 struct GEMM {
   // In typical API usage, one does not access the object's properties.
   @discardableResult
+  @_transparent
   init(descriptor: GEMMDescriptor) {
     guard let dimension = descriptor.dimension,
           let leftOperand = descriptor.leftOperand,

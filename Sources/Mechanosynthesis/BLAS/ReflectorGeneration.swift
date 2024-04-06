@@ -10,12 +10,16 @@ struct ReflectorGenerationDescriptor {
   var source: UnsafePointer<Float>?
   var destination: UnsafeMutablePointer<Float>?
   var dimension: Int?
+  
+  @_transparent
+  init() { }
 }
 
 // Creates a reflector that transforms the provided vector into [1, 0, 0, ...].
 struct ReflectorGeneration {
   // In typical API usage, one does not access the object's properties.
   @discardableResult
+  @_transparent
   init(descriptor: ReflectorGenerationDescriptor) {
     guard let source = descriptor.source,
           let destination = descriptor.destination,

@@ -13,15 +13,19 @@ struct WYTransformDescriptor {
   
   // The block of reflectors, stored in column-major order.
   var reflectorBlock: [Float]?
+  
+  @_transparent
+  init() { }
 }
 
-// Applies the _compact WY transform_ to a block of reflectors.
+// Applies the 'compact WY transform' to a block of reflectors.
 struct WYTransform {
   // The T matrix.
   // - dimensions: dimension[1] x dimension[1]
   // - order: unknown
   var tau: [Float]
   
+  @_transparent
   init(descriptor: WYTransformDescriptor) {
     guard let dimension = descriptor.dimension,
           let reflectorBlock = descriptor.reflectorBlock else {
@@ -33,7 +37,7 @@ struct WYTransform {
     
     // Generate an overlap matrix for the reflectors.
     var reflectorDotProducts = [Float](
-      repeating: 0, count: blockSize * blockSize)
+      repeating: .zero, count: blockSize * blockSize)
 #if false
     for m in 0..<blockSize {
       for n in 0..<blockSize {
@@ -64,6 +68,7 @@ struct WYTransform {
     }
     GEMM(descriptor: gemmDesc)
 #endif
+    withExtendedLifetime(reflectorBlock) { }
     
     // Initialize the T matrix to the identity matrix.
     for n in 0..<blockSize {

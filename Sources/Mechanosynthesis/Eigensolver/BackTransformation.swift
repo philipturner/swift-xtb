@@ -87,7 +87,7 @@ extension Diagonalization {
       let transform = WYTransform(descriptor: transformDesc)
       
       // V^H A
-      var VA = [Float](repeating: 0, count: problemSize * blockSize)
+      var VA = [Float](repeating: .zero, count: problemSize * blockSize)
 #if false
       for m in 0..<blockSize {
         for n in 0..<problemSize {
@@ -101,25 +101,28 @@ extension Diagonalization {
         }
       }
 #else
-      do {
-        var TRANSA = CChar(Character("T").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(blockSize)
-        var N = Int32(problemSize)
-        var K = Int32(problemSize)
-        var ALPHA = Float(1)
-        var LDA = Int32(problemSize)
-        var BETA = Float(0)
-        var LDB = Int32(problemSize)
-        var LDC = Int32(blockSize)
-        sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
-          eigenvectors, &LDB, &BETA, &VA, &LDC)
+      var gemmDesc = GEMMDescriptor()
+      gemmDesc.dimension = SIMD3(blockSize, problemSize, problemSize)
+      reflectorBlock.withContiguousStorageIfAvailable {
+        gemmDesc.leftOperand = $0.baseAddress!
+        gemmDesc.leftOperandStride = problemSize
+        gemmDesc.leftTransposeState = "T"
       }
+      eigenvectors.withContiguousStorageIfAvailable {
+        gemmDesc.rightOperand = $0.baseAddress!
+        gemmDesc.rightOperandStride = problemSize
+      }
+      VA.withContiguousMutableStorageIfAvailable {
+        gemmDesc.accumulator = $0.baseAddress!
+        gemmDesc.accumulatorStride = blockSize
+      }
+      GEMM(descriptor: gemmDesc)
+      withExtendedLifetime(reflectorBlock) { }
+      withExtendedLifetime(eigenvectors) { }
 #endif
       
       // T^H (V^H A)
-      var TVA = [Float](repeating: 0, count: problemSize * blockSize)
+      var TVA = [Float](repeating: .zero, count: problemSize * blockSize)
 #if false
       for m in 0..<blockSize {
         for n in 0..<problemSize {
@@ -133,21 +136,23 @@ extension Diagonalization {
         }
       }
 #else
-      do {
-        var TRANSA = CChar(Character("N").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(blockSize)
-        var N = Int32(problemSize)
-        var K = Int32(blockSize)
-        var ALPHA = Float(1)
-        var LDA = Int32(blockSize)
-        var BETA = Float(0)
-        var LDB = Int32(blockSize)
-        var LDC = Int32(blockSize)
-        sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, transform.tau, &LDA,
-          VA, &LDB, &BETA, &TVA, &LDC)
+      gemmDesc = GEMMDescriptor()
+      gemmDesc.dimension = SIMD3(blockSize, problemSize, blockSize)
+      transform.tau.withContiguousStorageIfAvailable {
+        gemmDesc.leftOperand = $0.baseAddress!
+        gemmDesc.leftOperandStride = blockSize
       }
+      VA.withContiguousStorageIfAvailable {
+        gemmDesc.rightOperand = $0.baseAddress!
+        gemmDesc.rightOperandStride = blockSize
+      }
+      TVA.withContiguousMutableStorageIfAvailable {
+        gemmDesc.accumulator = $0.baseAddress!
+        gemmDesc.accumulatorStride = blockSize
+      }
+      GEMM(descriptor: gemmDesc)
+      withExtendedLifetime(transform.tau) { }
+      withExtendedLifetime(VA) { }
 #endif
       
       // V (T^H V^H A)
@@ -164,21 +169,25 @@ extension Diagonalization {
         }
       }
 #else
-      do {
-        var TRANSA = CChar(Character("N").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(problemSize)
-        var N = Int32(problemSize)
-        var K = Int32(blockSize)
-        var ALPHA = Float(-1)
-        var LDA = Int32(problemSize)
-        var BETA = Float(1)
-        var LDB = Int32(blockSize)
-        var LDC = Int32(problemSize)
-        sgemm_(
-          &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, reflectorBlock, &LDA,
-          TVA, &LDB, &BETA, &eigenvectors, &LDC)
+      gemmDesc = GEMMDescriptor()
+      gemmDesc.dimension = SIMD3(problemSize, problemSize, blockSize)
+      gemmDesc.productScale = -1
+      gemmDesc.accumulatorScale = 1
+      reflectorBlock.withContiguousStorageIfAvailable {
+        gemmDesc.leftOperand = $0.baseAddress!
+        gemmDesc.leftOperandStride = problemSize
       }
+      TVA.withContiguousStorageIfAvailable {
+        gemmDesc.rightOperand = $0.baseAddress!
+        gemmDesc.rightOperandStride = blockSize
+      }
+      eigenvectors.withContiguousMutableStorageIfAvailable {
+        gemmDesc.accumulator = $0.baseAddress!
+        gemmDesc.accumulatorStride = problemSize
+      }
+      GEMM(descriptor: gemmDesc)
+      withExtendedLifetime(reflectorBlock) { }
+      withExtendedLifetime(TVA) { }
 #endif
     }
   }
