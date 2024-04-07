@@ -75,16 +75,32 @@ struct WYTransform {
       tau[n * blockSize + n] = 1
     }
     
+    // Use a heuristic for the recursive block size.
+    let smallBlockSize = max(1, min((blockSize + 3) / 4, blockSize))
+    
     // Generate the other entries.
-    for n in 0..<blockSize {
-      for m in 0..<n {
-        var dotProduct: Float = .zero
-        for k in 0..<blockSize {
-          let matrixValue = tau[m * blockSize + k]
-          let vectorValue = reflectorDotProducts[k * blockSize + n]
-          dotProduct += matrixValue * vectorValue
+    for m in 0..<blockSize {
+      var blockStart: Int = .zero
+      while blockStart < blockSize {
+        let blockEnd = min(blockStart + smallBlockSize, blockSize)
+        defer { blockStart += smallBlockSize }
+        
+        for k in blockStart..<blockEnd {
+          for n in (k + 1)..<blockEnd {
+            let matrixValue = tau[m * blockSize + k]
+            let vectorValue = reflectorDotProducts[k * blockSize + n]
+            tau[m * blockSize + n] -= matrixValue * vectorValue
+          }
         }
-        tau[m * blockSize + n] = -dotProduct
+        
+        // GEMM
+        for k in blockStart..<blockEnd {
+          for n in blockEnd..<blockSize {
+            let matrixValue = tau[m * blockSize + k]
+            let vectorValue = reflectorDotProducts[k * blockSize + n]
+            tau[m * blockSize + n] -= matrixValue * vectorValue
+          }
+        }
       }
     }
   }
