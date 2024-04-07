@@ -46,6 +46,7 @@ extension Diagonalization {
     // The panels here are rectangular. The small block size is a heuristic to
     // minimize overhead, while keeping the growth in compute cost to <2x.
     let smallBlockSize = (blockSize + 1) / 2
+    let smallProblemSize = blockSize + smallBlockSize
     
     var rowOffset: Int = 1
     while rowOffset < problemSize {
@@ -58,7 +59,7 @@ extension Diagonalization {
         // Establish bounds for 'rowID + elementID'.
         let remainingRowCount = max(0, problemSize - blockStart - rowOffset)
         let panelWidth = min(smallBlockSize, remainingRowCount)
-        let panelHeight = min(blockSize + smallBlockSize, remainingRowCount)
+        let panelHeight = min(smallProblemSize, remainingRowCount)
         if panelHeight == 0 || panelWidth == 0 {
           continue
         }
@@ -66,26 +67,24 @@ extension Diagonalization {
         // Load the sweep into the cache.
         var reflectorBlock = [Float](
           repeating: .zero, 
-          count: smallBlockSize * (blockSize + smallBlockSize))
-        
-        for sweepRelativeID in 0..<panelWidth {
-          let sweepID = sweepRelativeID + blockStart
-          let sweepMemoryOffset = sweepID * (problemSize + 1) + rowOffset
-          let sweepCacheRow = smallBlockSize - 1 - sweepRelativeID
-          var sweepCacheOffset = sweepCacheRow * (blockSize + smallBlockSize)
-          sweepCacheOffset += sweepRelativeID
+          count: smallBlockSize * smallProblemSize)
+        for m in 0..<panelWidth {
+          let memorySweepID = m + blockStart
+          let memoryBaseAddress = memorySweepID * (problemSize + 1) + rowOffset
           
-          let reflectorHeight = min(blockSize, remainingRowCount)
-          for elementID in 0..<reflectorHeight {
-            let matrixAddress = sweepMemoryOffset + elementID
-            let matrixValue = bulgeReflectors[matrixAddress]
-            reflectorBlock[sweepCacheOffset + elementID] = matrixValue
+          let cacheSweepID = smallBlockSize - 1 - m
+          let cacheBaseAddress = cacheSweepID * smallProblemSize + m
+          
+          let reflectorLength = min(blockSize, remainingRowCount)
+          for k in 0..<reflectorLength {
+            let memoryValue = bulgeReflectors[memoryBaseAddress + k]
+            reflectorBlock[cacheBaseAddress + k] = memoryValue
           }
         }
         
         // Create the T matrix using the 'WYTransform' API.
         var transformDesc = WYTransformDescriptor()
-        transformDesc.dimension = SIMD2(blockSize + smallBlockSize, smallBlockSize)
+        transformDesc.dimension = SIMD2(smallProblemSize, smallBlockSize)
         transformDesc.reflectorBlock = reflectorBlock
         let transform = WYTransform(descriptor: transformDesc)
         
@@ -93,21 +92,19 @@ extension Diagonalization {
         var VA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
         
-        for sweepRelativeID in 0..<smallBlockSize {
-          let sweepBaseAddress = sweepRelativeID * (blockSize + smallBlockSize)
-          for vectorID in 0..<problemSize {
-            var vectorBaseAddress = vectorID * problemSize
+        for m in 0..<smallBlockSize {
+          for n in 0..<problemSize {
+            var vectorBaseAddress = n * problemSize
             vectorBaseAddress += blockStart
             vectorBaseAddress += rowOffset
             
             var dotProduct: Float = .zero
-            for elementID in 0..<panelHeight {
-              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
-              let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
-              dotProduct += reflectorDatum * vectorDatum
+            for k in 0..<panelHeight {
+              let lhsValue = reflectorBlock[m * smallProblemSize + k]
+              let rhsValue = eigenvectors[vectorBaseAddress + k]
+              dotProduct += lhsValue * rhsValue
             }
-            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
-            VA[dotProductAddress] = dotProduct
+            VA[n * smallBlockSize + m] = dotProduct
           }
         }
         
@@ -138,7 +135,7 @@ extension Diagonalization {
         
         // V (T^H V^H A)
         for sweepRelativeID in 0..<smallBlockSize {
-          let sweepBaseAddress = sweepRelativeID * (blockSize + smallBlockSize)
+          let sweepBaseAddress = sweepRelativeID * smallProblemSize
           for vectorID in 0..<problemSize {
             var vectorBaseAddress = vectorID * problemSize
             vectorBaseAddress += blockStart
