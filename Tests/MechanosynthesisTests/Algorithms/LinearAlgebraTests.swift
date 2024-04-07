@@ -1087,7 +1087,7 @@ final class LinearAlgebraTests: XCTestCase {
       var diagonalizationDesc = DiagonalizationDescriptor()
       diagonalizationDesc.matrix = A
       diagonalizationDesc.problemSize = n
-      diagonalizationDesc.blockSize = 32
+      diagonalizationDesc.blockSize = 8
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       
       let oneStageEigenvalues = Self.diagonalize(matrix: A, n: n).0

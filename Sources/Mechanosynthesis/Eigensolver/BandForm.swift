@@ -47,10 +47,14 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: Refactor the application of reflectors to use BLAS and
+        // TODO: Bulge chasing gets slower when you go from block 8 -> block 4.
+        // Why is this? Eliminate all possible sources of overhead from
+        // non-floating point operations.
+        //
+        // Refactor the application of reflectors to use BLAS and
         // recursive panel factorization.
         //
-        // After this is finished, employ all possible constant-factor
+        // Employ all possible constant-factor
         // improvements:
         // - exploiting symmetry,
         // - eliding multiplications by 0
