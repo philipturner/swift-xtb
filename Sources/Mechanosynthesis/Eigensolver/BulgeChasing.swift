@@ -11,8 +11,8 @@ extension Diagonalization {
   // Returns a sequence of reflectors.
   mutating func chaseBulges() -> [Float] {
     // Allocate a matrix to store the bulge reflectors.
-    var bulgeReflectorMatrix = [Float](
-      repeating: 0, count: problemSize * problemSize)
+    var bulgeReflectors = [Float](
+      repeating: .zero, count: problemSize * problemSize)
     
     // Loop over the bulge chasing sweeps.
     let sweepEnd = max(0, problemSize - 2)
@@ -36,7 +36,7 @@ extension Diagonalization {
         
         // Find the address to begin writing data at.
         let reflectorBaseAddress = startOfColumn + (sweepID + 1) + startOfRow
-        bulgeReflectorMatrix.withContiguousMutableStorageIfAvailable {
+        bulgeReflectors.withContiguousMutableStorageIfAvailable {
           generationDesc.destination = $0.baseAddress! + reflectorBaseAddress
         }
         
@@ -47,7 +47,7 @@ extension Diagonalization {
         ReflectorGeneration(descriptor: generationDesc)
         
         // Apply to the trailing submatrix.
-        bulgeReflectorMatrix.withContiguousStorageIfAvailable {
+        bulgeReflectors.withContiguousStorageIfAvailable {
           let reflector = $0.baseAddress! + reflectorBaseAddress
           let endRowID = min(startRowID + blockSize, problemSize)
           applyBulgeChase(
@@ -58,7 +58,7 @@ extension Diagonalization {
       }
     }
     
-    return bulgeReflectorMatrix
+    return bulgeReflectors
   }
   
   // Applies the reflector to the trailing submatrix.

@@ -10,10 +10,11 @@ import Accelerate
 extension Diagonalization {
   // Returns an array of reflector blocks.
   mutating func reduceToBandForm() -> [Float] {
-    var bandFormReflectors = [Float](
+    // Allocate a matrix to store the band reflectors.
+    var bandReflectors = [Float](
       repeating: .zero, count: problemSize * problemSize)
     
-    // Reduce the matrix to band form, and collect up the reflectors.
+    // Loop over the panels of the matrix.
     var blockStart: Int = 0
     while blockStart < problemSize - blockSize {
       // Adjust the loop end, to account for the factorization band offset.
@@ -310,11 +311,11 @@ extension Diagonalization {
         for columnID in 0..<problemSize {
           let matrixAddress = rowID * problemSize + columnID
           let panelAddress = (rowID - blockStart) * problemSize + columnID
-          bandFormReflectors[matrixAddress] = reflectorBlock[panelAddress]
+          bandReflectors[matrixAddress] = reflectorBlock[panelAddress]
         }
       }
     }
     
-    return bandFormReflectors
+    return bandReflectors
   }
 }

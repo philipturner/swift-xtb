@@ -9,67 +9,12 @@ import Accelerate
 
 extension Diagonalization {
   mutating func backTransform(
-    bulgeChasingReflectors: [Float]
+    bulgeReflectors: [Float]
   ) {
-    var rowOffset: Int = .zero
-    while rowOffset < problemSize {
-      defer { rowOffset += blockSize }
-      
-      let smallBlockSize = (blockSize + 1) - 1
-      
-      var blockStart = (problemSize - 1) / smallBlockSize * smallBlockSize
-      while blockStart >= 0 {
-        defer { blockStart -= smallBlockSize }
-        
-        // Establish bounds for 'rowID + elementID'.
-        let startRowID = min(blockStart + rowOffset + 1, problemSize)
-        let panelWidth = min(blockSize, problemSize - startRowID)
-        let panelHeight = min(2 * blockSize - 1, problemSize - startRowID)
-        
-        // Load the sweep into the cache.
-        var sweepCache = [Float](
-          repeating: .zero, count: 2 * blockSize * blockSize)
-        for sweepRelativeID in 0..<panelWidth {
-          let sweepID = sweepRelativeID + blockStart
-          let rowID = sweepRelativeID + startRowID
-          let reflectorHeight = min(blockSize, problemSize - rowID)
-          
-          let sweepMemoryOffset = sweepID * problemSize + rowID
-          let sweepCacheOffset = sweepRelativeID * (2 * blockSize)
-          for elementID in 0..<reflectorHeight {
-            let matrixAddress = sweepMemoryOffset + elementID
-            let matrixValue = bulgeChasingReflectors[matrixAddress]
-            sweepCache[sweepCacheOffset + sweepRelativeID + elementID] = matrixValue
-          }
-        }
-        
-        // Pad this loop to the cache dimension.
-        for sweepRelativeID in (0..<panelWidth).reversed() {
-          let sweepBaseAddress = sweepRelativeID * (2 * blockSize)
-          
-          // Back-transform the eigenvectors.
-          for vectorID in 0..<problemSize {
-            let vectorBaseAddress = vectorID * problemSize + startRowID
-            
-            var dotProduct: Float = .zero
-            for elementID in 0..<panelHeight {
-              let reflectorDatum = sweepCache[sweepBaseAddress + elementID]
-              let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
-              dotProduct += reflectorDatum * vectorDatum
-            }
-            for elementID in 0..<panelHeight {
-              let reflectorDatum = sweepCache[sweepBaseAddress + elementID]
-              eigenvectors[vectorBaseAddress + elementID] -= reflectorDatum * dotProduct
-            }
-          }
-        }
-      }
-    }
-    
-    // Previous implementation, for reference.
     #if false
+    // Unoptimized implementation for debugging.
     for sweepID in (0..<problemSize).reversed() {
-      bulgeChasingReflectors.withContiguousStorageIfAvailable {
+      bulgeReflectors.withContiguousStorageIfAvailable {
         let sweep = $0.baseAddress! + sweepID * problemSize
         
         var rowID: Int = sweepID + 1
@@ -96,11 +41,83 @@ extension Diagonalization {
         }
       }
     }
+    #else
+    
+    // The panels here are rectangular. The small block size is a heuristic to
+    // minimize overhead, while keeping the growth in compute cost to <2x.
+    let smallBlockSize = (blockSize + 1) / 2
+    
+    var rowOffset: Int = 1
+    while rowOffset < problemSize {
+      defer { rowOffset += blockSize }
+      
+      var blockStart = (problemSize - 1) / smallBlockSize * smallBlockSize
+      while blockStart >= 0 {
+        defer { blockStart -= smallBlockSize }
+        
+        // Establish bounds for 'rowID + elementID'.
+        let remainingRowCount = max(0, problemSize - blockStart - rowOffset)
+        let panelWidth = min(smallBlockSize, remainingRowCount)
+        let panelHeight = min(blockSize + smallBlockSize, remainingRowCount)
+        if panelHeight == 0 || panelWidth == 0 {
+          continue
+        }
+        
+        // Load the sweep into the cache.
+        var reflectorBlock = [Float](
+          repeating: .zero, count: panelHeight * blockSize)
+        for sweepRelativeID in 0..<panelWidth {
+          let sweepID = sweepRelativeID + blockStart
+          let sweepMemoryOffset = sweepID * (problemSize + 1) + rowOffset
+          let sweepCacheOffset = sweepRelativeID * (panelHeight + 1)
+          
+          let reflectorHeight = min(blockSize, remainingRowCount)
+          for elementID in 0..<reflectorHeight {
+            let matrixAddress = sweepMemoryOffset + elementID
+            let matrixValue = bulgeReflectors[matrixAddress]
+            reflectorBlock[sweepCacheOffset + elementID] = matrixValue
+          }
+        }
+        
+        // Create the T matrix using the 'WYTransform' API.
+        var transformDesc = WYTransformDescriptor()
+        transformDesc.dimension = SIMD2(panelHeight, panelWidth)
+        transformDesc.reflectorBlock = reflectorBlock
+        let transform = WYTransform(descriptor: transformDesc)
+        
+        // Pad this loop to the small block size.
+        for sweepRelativeID in (0..<smallBlockSize).reversed() {
+          let sweepBaseAddress = sweepRelativeID * panelHeight
+          var dotProducts = [Float](repeating: .zero, count: problemSize)
+          
+          // Back-transform the eigenvectors.
+          for vectorID in 0..<problemSize {
+            let vectorBaseAddress = vectorID * problemSize + blockStart + rowOffset
+            var dotProduct: Float = .zero
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
+              let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
+              dotProduct += reflectorDatum * vectorDatum
+            }
+            dotProducts[vectorID] = dotProduct
+          }
+          
+          for vectorID in 0..<problemSize {
+            let vectorBaseAddress = vectorID * problemSize + blockStart + rowOffset
+            let dotProduct = dotProducts[vectorID]
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
+              eigenvectors[vectorBaseAddress + elementID] -= reflectorDatum * dotProduct
+            }
+          }
+        }
+      }
+    }
     #endif
   }
   
   mutating func backTransform(
-    bandFormReflectors: [Float]
+    bandReflectors: [Float]
   ) {
     var blockStart = (problemSize - blockSize - 1) / blockSize * blockSize
     while blockStart >= 0 {
@@ -118,13 +135,12 @@ extension Diagonalization {
         for columnID in 0..<problemSize {
           let matrixAddress = rowID * problemSize + columnID
           let panelAddress = panelRowID * problemSize + columnID
-          reflectorBlock[panelAddress] = bandFormReflectors[matrixAddress]
+          reflectorBlock[panelAddress] = bandReflectors[matrixAddress]
         }
       }
       
       // Create the T matrix using the 'WYTransform' API.
       var transformDesc = WYTransformDescriptor()
-      transformDesc = WYTransformDescriptor()
       transformDesc.dimension = SIMD2(problemSize, blockSize)
       transformDesc.reflectorBlock = reflectorBlock
       let transform = WYTransform(descriptor: transformDesc)
