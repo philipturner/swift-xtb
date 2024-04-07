@@ -90,22 +90,12 @@ extension Diagonalization {
         transformDesc.reflectorBlock = reflectorBlock
         let transform = WYTransform(descriptor: transformDesc)
         if blockSize == 4 {
-//          print()
-//          print("reflectors:", reflectorBlock)
-//          print("tau", transform.tau)
-//          print("blockStart:", blockStart)
-//          print("rowOffset:", rowOffset)
-//          print("problemSize:", problemSize)
-//          
-//          var reflectorDotProduct: Float = .zero
-//          print("reflector dot product:", terminator: " ")
-//          for elementID in 0..<blockSize + smallBlockSize {
-//            let value0 = reflectorBlock[elementID]
-//            let value1 = reflectorBlock[elementID + blockSize + smallBlockSize]
-//            reflectorDotProduct += value0 * value1
-//            print("(\(value0) * \(value1))", value0 * value1, terminator: " + ")
-//          }
-//          print("=", reflectorDotProduct)
+          print()
+          print("reflectors:", reflectorBlock)
+          print("tau", transform.tau)
+          print("blockStart:", blockStart)
+          print("rowOffset:", rowOffset)
+          print("problemSize:", problemSize)
         }
         
         #if true
@@ -131,24 +121,26 @@ extension Diagonalization {
         }
         
         let oldEigenvectors = eigenvectors
-        if blockSize == 4 {
-          //print("VA:", VA)
-          //print("eigenvectors:", eigenvectors)
-          
-          
-          
-          //print("VA:", VA)
-          //print("eigenvectors:", eigenvectors)
-        }
+        
+        var TVA = [Float](
+          repeating: .zero, count: problemSize * smallBlockSize)
         
         for vectorID in 0..<problemSize {
-          let Tvalue = transform.tau[1]
-          var VA0 = VA[vectorID * smallBlockSize]
-          var VA1 = VA[vectorID * smallBlockSize + 1]
-          //print(VA0, VA1, Tvalue, VA1 + VA0 * Tvalue)
+          var VArow = [Float](repeating: .zero, count: smallBlockSize)
+          for reflectorID in 0..<smallBlockSize {
+            let VAvalue = VA[vectorID * smallBlockSize + reflectorID]
+            VArow[reflectorID] = VAvalue
+          }
           
-          VA1 = VA1 + VA0 * Tvalue
-          VA[vectorID * smallBlockSize + 1] = VA1
+          let Tvalue = transform.tau[1]
+          var TVArow = [Float](repeating: .zero, count: smallBlockSize)
+          TVArow[0] = VArow[0]
+          TVArow[1] = VArow[1] + VArow[0] * Tvalue
+          
+          for reflectorID in 0..<smallBlockSize {
+            let TVAvalue = TVArow[reflectorID]
+            TVA[vectorID * smallBlockSize + reflectorID] = TVAvalue
+          }
         }
         
         for sweepRelativeID in 0..<smallBlockSize {
@@ -159,7 +151,7 @@ extension Diagonalization {
             vectorBaseAddress += rowOffset
             
             let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
-            let dotProduct = VA[dotProductAddress]
+            let dotProduct = TVA[dotProductAddress]
             for elementID in 0..<panelHeight {
               let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
               eigenvectors[vectorBaseAddress + elementID]
@@ -169,8 +161,8 @@ extension Diagonalization {
         }
         
         let proposedNewEigenvectors = eigenvectors
-        
         eigenvectors = oldEigenvectors
+        
         VA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
         
@@ -208,20 +200,12 @@ extension Diagonalization {
         }
         
         if blockSize == 4 {
-          for vectorID in 0..<problemSize {
-            let Tvalue = transform.tau[1]
-            let VA0 = VA[vectorID * smallBlockSize]
-            let VA1 = VA[vectorID * smallBlockSize + 1]
-            //print(VA0, VA1)
-          }
-          //print("VA:", VA)
-          
-//          print("old eigenvectors:         ", Array(oldEigenvectors[..<7]))
-//          print("proposed new eigenvectors:", Array(proposedNewEigenvectors[..<7]))
-//          print("eigenvectors:             ", Array(eigenvectors[..<7]))
-          
-          eigenvectors = proposedNewEigenvectors
+          print("old eigenvectors:         ", Array(oldEigenvectors[..<7]))
+          print("proposed new eigenvectors:", Array(proposedNewEigenvectors[..<7]))
+          print("eigenvectors:             ", Array(eigenvectors[..<7]))
         }
+        
+        // eigenvectors = proposedNewEigenvectors
         
         
         #else
