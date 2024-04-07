@@ -45,7 +45,8 @@ extension Diagonalization {
     
     // The panels here are rectangular. The small block size is a heuristic to
     // minimize overhead, while keeping the growth in compute cost to <2x.
-    let smallBlockSize = (blockSize + 1) / 2
+    // let smallBlockSize = (blockSize + 1) / 2
+    let smallBlockSize: Int = 2
     
     var rowOffset: Int = 1
     while rowOffset < problemSize {
@@ -85,12 +86,92 @@ extension Diagonalization {
         
         // Create the T matrix using the 'WYTransform' API.
         var transformDesc = WYTransformDescriptor()
-        transformDesc.dimension = SIMD2(panelHeight, panelWidth)
+        transformDesc.dimension = SIMD2(blockSize + smallBlockSize, smallBlockSize)
         transformDesc.reflectorBlock = reflectorBlock
         let transform = WYTransform(descriptor: transformDesc)
+        if blockSize == 4 {
+//          print()
+//          print("reflectors:", reflectorBlock)
+//          print("tau", transform.tau)
+//          print("blockStart:", blockStart)
+//          print("rowOffset:", rowOffset)
+//          print("problemSize:", problemSize)
+//          
+//          var reflectorDotProduct: Float = .zero
+//          print("reflector dot product:", terminator: " ")
+//          for elementID in 0..<blockSize + smallBlockSize {
+//            let value0 = reflectorBlock[elementID]
+//            let value1 = reflectorBlock[elementID + blockSize + smallBlockSize]
+//            reflectorDotProduct += value0 * value1
+//            print("(\(value0) * \(value1))", value0 * value1, terminator: " + ")
+//          }
+//          print("=", reflectorDotProduct)
+        }
         
         #if true
         var VA = [Float](
+          repeating: .zero, count: problemSize * smallBlockSize)
+        
+        for sweepRelativeID in 0..<smallBlockSize {
+          let sweepBaseAddress = sweepRelativeID * (blockSize + smallBlockSize)
+          for vectorID in 0..<problemSize {
+            var vectorBaseAddress = vectorID * problemSize
+            vectorBaseAddress += blockStart
+            vectorBaseAddress += rowOffset
+            
+            var dotProduct: Float = .zero
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
+              let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
+              dotProduct += reflectorDatum * vectorDatum
+            }
+            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
+            VA[dotProductAddress] = dotProduct
+          }
+        }
+        
+        let oldEigenvectors = eigenvectors
+        if blockSize == 4 {
+          //print("VA:", VA)
+          //print("eigenvectors:", eigenvectors)
+          
+          
+          
+          //print("VA:", VA)
+          //print("eigenvectors:", eigenvectors)
+        }
+        
+        for vectorID in 0..<problemSize {
+          let Tvalue = transform.tau[1]
+          var VA0 = VA[vectorID * smallBlockSize]
+          var VA1 = VA[vectorID * smallBlockSize + 1]
+          //print(VA0, VA1, Tvalue, VA1 + VA0 * Tvalue)
+          
+          VA1 = VA1 + VA0 * Tvalue
+          VA[vectorID * smallBlockSize + 1] = VA1
+        }
+        
+        for sweepRelativeID in 0..<smallBlockSize {
+          let sweepBaseAddress = sweepRelativeID * (blockSize + smallBlockSize)
+          for vectorID in 0..<problemSize {
+            var vectorBaseAddress = vectorID * problemSize
+            vectorBaseAddress += blockStart
+            vectorBaseAddress += rowOffset
+            
+            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
+            let dotProduct = VA[dotProductAddress]
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
+              eigenvectors[vectorBaseAddress + elementID]
+              -= reflectorDatum * dotProduct
+            }
+          }
+        }
+        
+        let proposedNewEigenvectors = eigenvectors
+        
+        eigenvectors = oldEigenvectors
+        VA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
         
         // Back-transform the eigenvectors.
@@ -125,6 +206,24 @@ extension Diagonalization {
             }
           }
         }
+        
+        if blockSize == 4 {
+          for vectorID in 0..<problemSize {
+            let Tvalue = transform.tau[1]
+            let VA0 = VA[vectorID * smallBlockSize]
+            let VA1 = VA[vectorID * smallBlockSize + 1]
+            //print(VA0, VA1)
+          }
+          //print("VA:", VA)
+          
+//          print("old eigenvectors:         ", Array(oldEigenvectors[..<7]))
+//          print("proposed new eigenvectors:", Array(proposedNewEigenvectors[..<7]))
+//          print("eigenvectors:             ", Array(eigenvectors[..<7]))
+          
+          eigenvectors = proposedNewEigenvectors
+        }
+        
+        
         #else
         // Apply the block reflector (A - V T^H V^H A).
         
@@ -135,8 +234,12 @@ extension Diagonalization {
         // TODO: Copy the vector's (used) data into a temporary cache. Apply 
         // the reflectors, then write back to memory. That may reveal an
         // incremental approach to integrating block reflections.
-        #endif
         
+        // TODO: Perhaps debug by observing behavior of the second row. This
+        // one has the simplest relationship between dot products with and w/o
+        // the WY transform.
+        // - set the small block size to 2
+        #endif
       }
     }
     #endif
