@@ -91,15 +91,15 @@ extension Diagonalization {
         // V^H A
         var VA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
-        
+        #if false
         for m in 0..<smallBlockSize {
           for n in 0..<problemSize {
-            var vectorBaseAddress = n * problemSize
-            vectorBaseAddress += blockStart
-            vectorBaseAddress += rowOffset
-            
             var dotProduct: Float = .zero
             for k in 0..<panelHeight {
+              var vectorBaseAddress = n * problemSize
+              vectorBaseAddress += blockStart
+              vectorBaseAddress += rowOffset
+              
               let lhsValue = reflectorBlock[m * smallProblemSize + k]
               let rhsValue = eigenvectors[vectorBaseAddress + k]
               dotProduct += lhsValue * rhsValue
@@ -107,6 +107,26 @@ extension Diagonalization {
             VA[n * smallBlockSize + m] = dotProduct
           }
         }
+        #else
+        var gemmDesc = GEMMDescriptor()
+        gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, panelHeight)
+        reflectorBlock.withContiguousStorageIfAvailable {
+          gemmDesc.leftOperand = $0.baseAddress!
+          gemmDesc.leftOperandStride = smallProblemSize
+          gemmDesc.leftTransposeState = "T"
+        }
+        eigenvectors.withContiguousStorageIfAvailable {
+          gemmDesc.rightOperand = $0.baseAddress! + blockStart + rowOffset
+          gemmDesc.rightOperandStride = problemSize
+        }
+        VA.withContiguousMutableStorageIfAvailable {
+          gemmDesc.accumulator = $0.baseAddress!
+          gemmDesc.accumulatorStride = smallBlockSize
+        }
+        GEMM(descriptor: gemmDesc)
+        withExtendedLifetime(reflectorBlock) { }
+        withExtendedLifetime(eigenvectors) { }
+        #endif
         
         // T^H (V^H A)
         var TVA = [Float](
