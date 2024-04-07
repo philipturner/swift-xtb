@@ -45,8 +45,82 @@ extension Diagonalization {
     
     // The panels here are rectangular. The small block size is a heuristic to
     // minimize overhead, while keeping the growth in compute cost to <2x.
-    let smallBlockSize = (blockSize + 1) / 2
+    let smallBlockSize = (blockSize + 3) / 4
     let smallProblemSize = blockSize + smallBlockSize
+    
+    // blockSize = 16, smallBlockSize = 8
+    // 100 - 320
+    // 250 - 2846
+    // 500 - 16963
+    // 750 - 49177
+    // 1000 - 111923
+    
+    // blockSize = 16, smallBlockSize = 16
+    // 100 - 201
+    // 250 - 1247
+    // 500 - 7789
+    // 750 - 21661
+    // 1000 - 49386
+    
+    // blockSize = 16, smallBlockSize = 32
+    // 100 - 253
+    // 250 - 1465
+    // 500 - 7664
+    // 750 - 21278
+    // 1000 - 47899
+    
+    
+    
+    // blockSize = 32, smallBlockSize = 8
+    // 100 - 174
+    // 250 - 1613
+    // 500 - 10143
+    // 750 - 30517
+    // 1000 - 69658
+    
+    // blockSize = 32, smallBlockSize = 16
+    // 100 - 126
+    // 250 - 779
+    // 500 - 4907
+    // 750 - 14310
+    // 1000 - 33737
+    
+    // blockSize = 32, smallBlockSize = 32
+    // 100 - 164
+    // 250 - 754
+    // 500 - 4091
+    // 750 - 11673
+    // 1000 - 28347
+    
+    // blockSize = 32, smallBlockSize = 64
+    // 100 - 491
+    // 250 - 1751
+    // 500 - 7877
+    // 750 - 19703
+    // 1000 - 40990
+    
+    
+    
+    // blockSize = 64, smallBlockSize = 16
+    // 100 - 90
+    // 250 - 543
+    // 500 - 3452
+    // 750 - 10039
+    // 1000 - 25686
+    
+    // blockSize = 64, smallBlockSize = 32
+    // 100 - 109
+    // 250 - 489
+    // 500 - 3020
+    // 750 - 7329
+    // 1000 - 17091
+    
+    // blockSize = 64, smallBlockSize = 64
+    // 100 - 236
+    // 250 - 901
+    // 500 - 4086
+    // 750 - 10578
+    // 1000 - 22205
     
     var rowOffset: Int = 1
     while rowOffset < problemSize {

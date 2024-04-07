@@ -151,10 +151,10 @@ public struct Diagonalization {
       print()
       print("[n = \(problemSize)] Performance Breakdown:")
       printPart(index: 0, label: "Reduction to band form")
-      printPart(index: 1, label: "Bulge chasing")
-      printPart(index: 2, label: "Divide and conquer")
+//      printPart(index: 1, label: "Bulge chasing")
+//      printPart(index: 2, label: "Divide and conquer")
       printPart(index: 3, label: "Back transformation (2nd stage)")
-      printPart(index: 4, label: "Back transformation (1st stage)")
+//      printPart(index: 4, label: "Back transformation (1st stage)")
     }
     
     // Deallocate the matrix after it's finished.

@@ -1087,7 +1087,7 @@ final class LinearAlgebraTests: XCTestCase {
       var diagonalizationDesc = DiagonalizationDescriptor()
       diagonalizationDesc.matrix = A
       diagonalizationDesc.problemSize = n
-      diagonalizationDesc.blockSize = 32
+      diagonalizationDesc.blockSize = 64
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       
       let oneStageEigenvalues = Self.diagonalize(matrix: A, n: n).0
@@ -1133,10 +1133,10 @@ final class LinearAlgebraTests: XCTestCase {
     benchmarkProblemSize(n: 500, trialCount: 3)
     
     // We need to speed up the custom eigensolver before testing these sizes.
-//    benchmarkProblemSize(n: 600, trialCount: 3)
-//    benchmarkProblemSize(n: 750, trialCount: 3)
-//    benchmarkProblemSize(n: 800, trialCount: 3)
-//    benchmarkProblemSize(n: 1000, trialCount: 3)
+    benchmarkProblemSize(n: 600, trialCount: 3)
+    benchmarkProblemSize(n: 750, trialCount: 3)
+    benchmarkProblemSize(n: 800, trialCount: 3)
+    benchmarkProblemSize(n: 1000, trialCount: 3)
   }
 }
 
