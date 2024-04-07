@@ -91,16 +91,13 @@ extension Diagonalization {
         transformDesc.dimension = SIMD2(smallProblemSize, smallBlockSize)
         transformDesc.reflectorBlock = reflectorBlock
         
-        // Prior to optimizing the WY transform:
-        // 28000 μs without duplicated calls
-        // 44000 μs with duplicated calls
+        // Optimizing the WY transform:
+        // 28000 μs -> 26000 μs without duplicated calls
+        // 44000 μs -> 36000 μs with duplicated calls
         //
         // Assume 1/2-2/3 of the overhead could have been elided through
         // early loop termination.
         let transform = WYTransform(descriptor: transformDesc)
-        _ = WYTransform(descriptor: transformDesc)
-        _ = WYTransform(descriptor: transformDesc)
-        _ = WYTransform(descriptor: transformDesc)
         
         // V^H A
         var VA = [Float](

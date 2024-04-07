@@ -71,113 +71,123 @@ struct WYTransform {
 #endif
     withExtendedLifetime(reflectorBlock) { }
     
+    // Initialize the T matrix to the identity matrix.
+    tau = Array(repeating: .zero, count: blockSize * blockSize)
+    for n in 0..<blockSize {
+      tau[n * blockSize + n] = 1
+    }
+    
+    // Fetch raw pointers for the matrices.
+    let reflectorDotProductPointer = reflectorDotProducts
+      .withContiguousStorageIfAvailable { $0.baseAddress! }!
+    let tauPointer = tau
+      .withContiguousMutableStorageIfAvailable { $0.baseAddress! }!
+    
     // Use a heuristic for the recursive block size.
     let smallBlockSize = max(1, min((blockSize + 3) / 4, blockSize))
     
-    // Make the T matrix technically initialized, according to the Swift
-    // compiler.
-    tau = []
-    for _ in 0..<4 {
-      // Initialize the T matrix to the identity matrix.
-      tau = Array(repeating: .zero, count: blockSize * blockSize)
-      for n in 0..<blockSize {
-        tau[n * blockSize + n] = 1
-      }
+    // Fill in the T matrix in blocks.
+    var blockStart: Int = .zero
+    while blockStart < blockSize {
+      let blockEnd = min(blockStart + smallBlockSize, blockSize)
+      defer { blockStart += smallBlockSize }
       
-      let reflectorDotProductPointer = reflectorDotProducts
-        .withContiguousStorageIfAvailable { $0.baseAddress! }!
-      let tauPointer = tau
-        .withContiguousMutableStorageIfAvailable { $0.baseAddress! }!
-      
-      // Fill in the T matrix in blocks.
-      var blockStart: Int = .zero
-      while blockStart < blockSize {
-        let blockEnd = min(blockStart + smallBlockSize, blockSize)
-        defer { blockStart += smallBlockSize }
-        
-        for k in blockStart..<blockEnd {
-          let tauOffsetInput = k * blockSize
-          let reflectorOffset = k * blockSize + (k + 1)
-          let tauOffsetOutput = (k + 1) * blockSize
-          
-          #if true
-          for m in 0..<(blockEnd - k - 1) {
-            for n in 0..<blockSize {
-              let lhsValue = reflectorDotProducts[reflectorOffset + m]
-              let rhsValue = tau[tauOffsetInput + n]
-              tau[tauOffsetOutput + m * blockSize + n] -= lhsValue * rhsValue
-            }
-          }
-          #else
-          var M = Int32(truncatingIfNeeded: blockSize)
-//          var N = Int32(truncatingIfNeeded: )
-          #endif
-        }
+      for k in blockStart..<blockEnd {
+        let reflectorOffset = k * blockSize + (k + 1)
+        let tauOffsetInput = k * blockSize
+        let tauOffsetOutput = (k + 1) * blockSize
         
 #if false
-        for m in 0..<blockSize {
-          for n in 0..<blockSize - blockEnd {
-            var dotProduct: Float = .zero
-            for k in 0..<blockEnd - blockStart {
-              var tauAddress = blockStart * blockSize
-              tauAddress += k * blockSize + m
-              
-              var reflectorAddress = blockEnd * blockSize + blockStart
-              reflectorAddress += n * blockSize + k
-              
-              let lhsValue = tau[tauAddress]
-              let rhsValue = reflectorDotProducts[reflectorAddress]
-              dotProduct += lhsValue * rhsValue
-            }
-            
-            var tauAddress = blockEnd * blockSize
-            tauAddress += n * blockSize + m
-            tau[tauAddress] -= dotProduct
+        for m in 0..<(blockEnd - k - 1) {
+          for n in 0..<blockSize {
+            let lhsValue = reflectorDotProducts[reflectorOffset + m]
+            let rhsValue = tau[tauOffsetInput + n]
+            tau[tauOffsetOutput + m * blockSize + n] -= lhsValue * rhsValue
           }
         }
 #else
-        let dotProductOffset = blockEnd * blockSize + blockStart
-        let A = UnsafePointer(tauPointer) + blockStart * blockSize
-        let B = reflectorDotProductPointer + dotProductOffset
-        let C = UnsafeMutablePointer(tauPointer) + blockEnd * blockSize
+        let X = tauPointer + tauOffsetInput
+        let Y = reflectorDotProductPointer + reflectorOffset
+        let A = tauPointer + tauOffsetOutput
         
-        // T = 84, N = 78
-        var TRANSA = CChar(78)
-        var TRANSB = CChar(78)
         var M = Int32(truncatingIfNeeded: blockSize)
-        var N = Int32(truncatingIfNeeded: blockSize - blockEnd)
-        var K = Int32(truncatingIfNeeded: blockEnd - blockStart)
+        var N = Int32(truncatingIfNeeded: blockEnd - k - 1)
         var ALPHA = Float(-1)
+        var INCX = Int32(1)
+        var INCY = Int32(1)
         var LDA = Int32(truncatingIfNeeded: blockSize)
-        var BETA = Float(1)
-        var LDB = Int32(truncatingIfNeeded: blockSize)
-        var LDC = Int32(truncatingIfNeeded: blockSize)
-        sgemm_(
-          &TRANSA,
-          &TRANSB,
+        sger_(
           &M,
           &N,
-          &K,
           &ALPHA,
-          A, &LDA,
-          B, &LDB,
-          &BETA,
-          C, &LDC)
+          X, &INCX,
+          Y, &INCY,
+          A, &LDA)
 #endif
       }
       
-      withExtendedLifetime(tau) { }
-      withExtendedLifetime(reflectorDotProducts) { }
+#if false
+      for m in 0..<blockSize {
+        for n in 0..<blockSize - blockEnd {
+          var dotProduct: Float = .zero
+          for k in 0..<blockEnd - blockStart {
+            var tauAddress = blockStart * blockSize
+            tauAddress += k * blockSize + m
+            
+            var reflectorAddress = blockEnd * blockSize + blockStart
+            reflectorAddress += n * blockSize + k
+            
+            let lhsValue = tau[tauAddress]
+            let rhsValue = reflectorDotProducts[reflectorAddress]
+            dotProduct += lhsValue * rhsValue
+          }
+          
+          var tauAddress = blockEnd * blockSize
+          tauAddress += n * blockSize + m
+          tau[tauAddress] -= dotProduct
+        }
+      }
+#else
+      let dotProductOffset = blockEnd * blockSize + blockStart
+      let A = UnsafePointer(tauPointer) + blockStart * blockSize
+      let B = reflectorDotProductPointer + dotProductOffset
+      let C = UnsafeMutablePointer(tauPointer) + blockEnd * blockSize
+      
+      var TRANSA = CChar(78) // N
+      var TRANSB = CChar(78) // N
+      var M = Int32(truncatingIfNeeded: blockSize)
+      var N = Int32(truncatingIfNeeded: blockSize - blockEnd)
+      var K = Int32(truncatingIfNeeded: blockEnd - blockStart)
+      var ALPHA = Float(-1)
+      var LDA = Int32(truncatingIfNeeded: blockSize)
+      var BETA = Float(1)
+      var LDB = Int32(truncatingIfNeeded: blockSize)
+      var LDC = Int32(truncatingIfNeeded: blockSize)
+      sgemm_(
+        &TRANSA,
+        &TRANSB,
+        &M,
+        &N,
+        &K,
+        &ALPHA,
+        A, &LDA,
+        B, &LDB,
+        &BETA,
+        C, &LDC)
+#endif
     }
+    withExtendedLifetime(tau) { }
+    withExtendedLifetime(reflectorDotProducts) { }
     
     transposeTau(blockSize: blockSize)
   }
   
-  private mutating func transposeTau(blockSize: Int) {
+  mutating func transposeTau(blockSize: Int) {
     var newTau = [Float](repeating: .zero, count: blockSize * blockSize)
     for rowID in 0..<blockSize {
       for columnID in 0..<blockSize {
-        newTau[columnID * blockSize + rowID] = tau[rowID * blockSize + columnID]
+        let oldValue = tau[rowID * blockSize + columnID]
+        newTau[columnID * blockSize + rowID] = oldValue
       }
     }
     tau = newTau
