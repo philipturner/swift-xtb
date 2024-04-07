@@ -65,11 +65,15 @@ extension Diagonalization {
         
         // Load the sweep into the cache.
         var reflectorBlock = [Float](
-          repeating: .zero, count: panelHeight * blockSize)
+          repeating: .zero, 
+          count: smallBlockSize * (blockSize + smallBlockSize))
+        
         for sweepRelativeID in 0..<panelWidth {
           let sweepID = sweepRelativeID + blockStart
           let sweepMemoryOffset = sweepID * (problemSize + 1) + rowOffset
-          let sweepCacheOffset = sweepRelativeID * (panelHeight + 1)
+          let sweepCacheRow = smallBlockSize - 1 - sweepRelativeID
+          var sweepCacheOffset = sweepCacheRow * (blockSize + smallBlockSize)
+          sweepCacheOffset += sweepRelativeID
           
           let reflectorHeight = min(blockSize, remainingRowCount)
           for elementID in 0..<reflectorHeight {
@@ -85,32 +89,54 @@ extension Diagonalization {
         transformDesc.reflectorBlock = reflectorBlock
         let transform = WYTransform(descriptor: transformDesc)
         
-        // Pad this loop to the small block size.
-        for sweepRelativeID in (0..<smallBlockSize).reversed() {
-          let sweepBaseAddress = sweepRelativeID * panelHeight
-          var dotProducts = [Float](repeating: .zero, count: problemSize)
-          
-          // Back-transform the eigenvectors.
+        #if true
+        var VA = [Float](
+          repeating: .zero, count: problemSize * smallBlockSize)
+        
+        // Back-transform the eigenvectors.
+        for sweepRelativeID in 0..<smallBlockSize {
+          let sweepBaseAddress = sweepRelativeID * (blockSize + smallBlockSize)
           for vectorID in 0..<problemSize {
-            let vectorBaseAddress = vectorID * problemSize + blockStart + rowOffset
+            var vectorBaseAddress = vectorID * problemSize
+            vectorBaseAddress += blockStart
+            vectorBaseAddress += rowOffset
+            
             var dotProduct: Float = .zero
             for elementID in 0..<panelHeight {
               let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
               let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
               dotProduct += reflectorDatum * vectorDatum
             }
-            dotProducts[vectorID] = dotProduct
+            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
+            VA[dotProductAddress] = dotProduct
           }
           
           for vectorID in 0..<problemSize {
-            let vectorBaseAddress = vectorID * problemSize + blockStart + rowOffset
-            let dotProduct = dotProducts[vectorID]
+            var vectorBaseAddress = vectorID * problemSize
+            vectorBaseAddress += blockStart
+            vectorBaseAddress += rowOffset
+            
+            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
+            let dotProduct = VA[dotProductAddress]
             for elementID in 0..<panelHeight {
               let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
-              eigenvectors[vectorBaseAddress + elementID] -= reflectorDatum * dotProduct
+              eigenvectors[vectorBaseAddress + elementID]
+              -= reflectorDatum * dotProduct
             }
           }
         }
+        #else
+        // Apply the block reflector (A - V T^H V^H A).
+        
+        // TODO: Try operating on a single vector in isolation. It should
+        // technically be possible to apply the block reflector via
+        // matrix-vector multiplications.
+        
+        // TODO: Copy the vector's (used) data into a temporary cache. Apply 
+        // the reflectors, then write back to memory. That may reveal an
+        // incremental approach to integrating block reflections.
+        #endif
+        
       }
     }
     #endif
