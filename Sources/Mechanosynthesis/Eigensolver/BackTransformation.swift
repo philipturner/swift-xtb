@@ -15,57 +15,51 @@ extension Diagonalization {
     while rowOffset < problemSize {
       defer { rowOffset += blockSize }
       
-      var blockStart = (problemSize - 1) / blockSize * blockSize
+      let smallBlockSize = (blockSize + 1) - 1
+      
+      var blockStart = (problemSize - 1) / smallBlockSize * smallBlockSize
       while blockStart >= 0 {
-        let blockEnd = min(blockStart + blockSize, problemSize)
-        defer { blockStart -= blockSize }
+        defer { blockStart -= smallBlockSize }
+        
+        // Establish bounds for 'rowID + elementID'.
+        let startRowID = min(blockStart + rowOffset + 1, problemSize)
+        let panelWidth = min(blockSize, problemSize - startRowID)
+        let panelHeight = min(2 * blockSize - 1, problemSize - startRowID)
         
         // Load the sweep into the cache.
-        // TODO: Start each sweep's elements at the corresponding diagonal entry.
         var sweepCache = [Float](
           repeating: .zero, count: 2 * blockSize * blockSize)
-        for sweepID in blockStart..<blockEnd {
-          let rowID: Int = sweepID + rowOffset + 1
-          guard rowID < problemSize else {
-            continue
-          }
+        for sweepRelativeID in 0..<panelWidth {
+          let sweepID = sweepRelativeID + blockStart
+          let rowID = sweepRelativeID + startRowID
+          let reflectorHeight = min(blockSize, problemSize - rowID)
           
           let sweepMemoryOffset = sweepID * problemSize + rowID
-          let sweepCacheOffset = (sweepID - blockStart) * (2 * blockSize)
-          
-          let nextRowID = min(rowID + blockSize, problemSize)
-          let dotProductCount = nextRowID - rowID
-          for elementID in 0..<dotProductCount {
+          let sweepCacheOffset = sweepRelativeID * (2 * blockSize)
+          for elementID in 0..<reflectorHeight {
             let matrixAddress = sweepMemoryOffset + elementID
             let matrixValue = bulgeChasingReflectors[matrixAddress]
-            sweepCache[sweepCacheOffset + elementID] = matrixValue
+            sweepCache[sweepCacheOffset + sweepRelativeID + elementID] = matrixValue
           }
         }
         
         // Pad this loop to the cache dimension.
-        for sweepID in (blockStart..<blockStart + blockSize).reversed() {
-          let rowID: Int = sweepID + rowOffset + 1
-          guard rowID < problemSize else {
-            continue
-          }
-          
-          let sweepCacheOffset = (sweepID - blockStart) * (2 * blockSize)
-          let nextRowID = min(rowID + blockSize, problemSize)
-          let dotProductCount = nextRowID - rowID
+        for sweepRelativeID in (0..<panelWidth).reversed() {
+          let sweepBaseAddress = sweepRelativeID * (2 * blockSize)
           
           // Back-transform the eigenvectors.
           for vectorID in 0..<problemSize {
-            let baseAddress = vectorID * problemSize
+            let vectorBaseAddress = vectorID * problemSize + startRowID
             
             var dotProduct: Float = .zero
-            for elementID in 0..<dotProductCount {
-              let reflectorDatum = sweepCache[sweepCacheOffset + elementID]
-              let vectorDatum = eigenvectors[baseAddress + rowID + elementID]
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = sweepCache[sweepBaseAddress + elementID]
+              let vectorDatum = eigenvectors[vectorBaseAddress + elementID]
               dotProduct += reflectorDatum * vectorDatum
             }
-            for elementID in 0..<dotProductCount {
-              let reflectorDatum = sweepCache[sweepCacheOffset + elementID]
-              eigenvectors[baseAddress + rowID + elementID] -= reflectorDatum * dotProduct
+            for elementID in 0..<panelHeight {
+              let reflectorDatum = sweepCache[sweepBaseAddress + elementID]
+              eigenvectors[vectorBaseAddress + elementID] -= reflectorDatum * dotProduct
             }
           }
         }
