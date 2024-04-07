@@ -11,7 +11,7 @@ extension Diagonalization {
   mutating func backTransform(
     bulgeReflectors: [Float]
   ) {
-    #if false
+#if false
     // Unoptimized implementation for debugging.
     for sweepID in (0..<problemSize).reversed() {
       bulgeReflectors.withContiguousStorageIfAvailable {
@@ -41,7 +41,7 @@ extension Diagonalization {
         }
       }
     }
-    #else
+#else
     
     // The panels here are rectangular. The small block size is a heuristic to
     // minimize overhead, while keeping the growth in compute cost to <2x.
@@ -66,7 +66,7 @@ extension Diagonalization {
         
         // Load the sweep into the cache.
         var reflectorBlock = [Float](
-          repeating: .zero, 
+          repeating: .zero,
           count: smallBlockSize * smallProblemSize)
         for m in 0..<panelWidth {
           let memorySweepID = m + blockStart
@@ -91,7 +91,7 @@ extension Diagonalization {
         // V^H A
         var VA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
-        #if false
+#if false
         for m in 0..<smallBlockSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
@@ -107,7 +107,7 @@ extension Diagonalization {
             VA[n * smallBlockSize + m] = dotProduct
           }
         }
-        #else
+#else
         var gemmDesc = GEMMDescriptor()
         gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, panelHeight)
         reflectorBlock.withContiguousStorageIfAvailable {
@@ -126,12 +126,12 @@ extension Diagonalization {
         GEMM(descriptor: gemmDesc)
         withExtendedLifetime(reflectorBlock) { }
         withExtendedLifetime(eigenvectors) { }
-        #endif
+#endif
         
         // T^H (V^H A)
         var TVA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
-        #if false
+#if false
         for m in 0..<smallBlockSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
@@ -143,7 +143,7 @@ extension Diagonalization {
             TVA[n * smallBlockSize + m] = dotProduct
           }
         }
-        #else
+#else
         gemmDesc = GEMMDescriptor()
         gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, smallBlockSize)
         transform.tau.withContiguousStorageIfAvailable {
@@ -161,28 +161,47 @@ extension Diagonalization {
         GEMM(descriptor: gemmDesc)
         withExtendedLifetime(transform.tau) { }
         withExtendedLifetime(VA) { }
-        #endif
+#endif
         
         // V (T^H V^H A)
-        for sweepRelativeID in 0..<smallBlockSize {
-          let sweepBaseAddress = sweepRelativeID * smallProblemSize
-          for vectorID in 0..<problemSize {
-            var vectorBaseAddress = vectorID * problemSize
-            vectorBaseAddress += blockStart
-            vectorBaseAddress += rowOffset
-            
-            let dotProductAddress = vectorID * smallBlockSize + sweepRelativeID
-            let dotProduct = TVA[dotProductAddress]
-            for elementID in 0..<panelHeight {
-              let reflectorDatum = reflectorBlock[sweepBaseAddress + elementID]
-              eigenvectors[vectorBaseAddress + elementID]
-              -= reflectorDatum * dotProduct
+#if false
+        for m in 0..<panelHeight {
+          for n in 0..<problemSize {
+            for k in 0..<smallBlockSize {
+              var vectorBaseAddress = n * problemSize
+              vectorBaseAddress += blockStart
+              vectorBaseAddress += rowOffset
+              
+              let lhsValue = reflectorBlock[k * smallProblemSize + m]
+              let rhsValue = TVA[n * smallBlockSize + k]
+              eigenvectors[vectorBaseAddress + m] -= lhsValue * rhsValue
             }
           }
         }
+#else
+        gemmDesc = GEMMDescriptor()
+        gemmDesc.dimension = SIMD3(panelHeight, problemSize, smallBlockSize)
+        gemmDesc.productScale = -1
+        gemmDesc.accumulatorScale = 1
+        reflectorBlock.withContiguousStorageIfAvailable {
+          gemmDesc.leftOperand = $0.baseAddress!
+          gemmDesc.leftOperandStride = smallProblemSize
+        }
+        TVA.withContiguousStorageIfAvailable {
+          gemmDesc.rightOperand = $0.baseAddress!
+          gemmDesc.rightOperandStride = smallBlockSize
+        }
+        eigenvectors.withContiguousMutableStorageIfAvailable {
+          gemmDesc.accumulator = $0.baseAddress! + blockStart + rowOffset
+          gemmDesc.accumulatorStride = problemSize
+        }
+        GEMM(descriptor: gemmDesc)
+        withExtendedLifetime(reflectorBlock) { }
+        withExtendedLifetime(TVA) { }
+#endif
       }
     }
-    #endif
+#endif
   }
   
   mutating func backTransform(
