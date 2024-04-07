@@ -78,13 +78,13 @@ struct WYTransform {
     // Use a heuristic for the recursive block size.
     let smallBlockSize = max(1, min((blockSize + 3) / 4, blockSize))
     
-    // Generate the other entries.
-    for m in 0..<blockSize {
-      var blockStart: Int = .zero
-      while blockStart < blockSize {
-        let blockEnd = min(blockStart + smallBlockSize, blockSize)
-        defer { blockStart += smallBlockSize }
-        
+    // Fill in the T matrix in blocks.
+    var blockStart: Int = .zero
+    while blockStart < blockSize {
+      let blockEnd = min(blockStart + smallBlockSize, blockSize)
+      defer { blockStart += smallBlockSize }
+      
+      for m in 0..<blockSize {
         for k in blockStart..<blockEnd {
           for n in (k + 1)..<blockEnd {
             let matrixValue = tau[m * blockSize + k]
@@ -92,16 +92,31 @@ struct WYTransform {
             tau[m * blockSize + n] -= matrixValue * vectorValue
           }
         }
-        
-        // GEMM
-        for k in blockStart..<blockEnd {
-          for n in blockEnd..<blockSize {
-            let matrixValue = tau[m * blockSize + k]
-            let vectorValue = reflectorDotProducts[k * blockSize + n]
-            tau[m * blockSize + n] -= matrixValue * vectorValue
+      }
+      
+      #if true
+      for m in 0..<blockSize {
+        for n in 0..<blockSize - blockEnd {
+          var dotProduct: Float = .zero
+          for k in blockStart..<blockEnd {
+            var reflectorAddress = blockEnd
+            reflectorAddress += k * blockSize + n
+            
+            let lhsValue = tau[m * blockSize + k]
+            let rhsValue = reflectorDotProducts[reflectorAddress]
+            dotProduct += lhsValue * rhsValue
           }
+          
+          var tauAddress = blockEnd
+          tauAddress += m * blockSize + n
+          tau[tauAddress] -= dotProduct
         }
       }
+      #else
+      var gemmDesc = GEMMDescriptor()
+      gemmDesc.dimension = SIMD3(
+        blockSize, blockSize - blockEnd, blockEnd - blockStart)
+      #endif
     }
   }
 }
