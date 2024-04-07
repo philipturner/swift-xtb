@@ -52,14 +52,14 @@ struct GEMM {
     
     var TRANSA = CChar(descriptor.leftTransposeState.asciiValue!)
     var TRANSB = CChar(descriptor.rightTransposeState.asciiValue!)
-    var M = Int32(dimension[0])
-    var N = Int32(dimension[1])
-    var K = Int32(dimension[2])
+    var M = Int32(truncatingIfNeeded: dimension[0])
+    var N = Int32(truncatingIfNeeded: dimension[1])
+    var K = Int32(truncatingIfNeeded: dimension[2])
     var ALPHA = descriptor.productScale
-    var LDA = Int32(leftOperandStride)
+    var LDA = Int32(truncatingIfNeeded: leftOperandStride)
     var BETA = descriptor.accumulatorScale
-    var LDB = Int32(rightOperandStride)
-    var LDC = Int32(accumulatorStride)
+    var LDB = Int32(truncatingIfNeeded: rightOperandStride)
+    var LDC = Int32(truncatingIfNeeded: accumulatorStride)
     sgemm_(
       &TRANSA,
       &TRANSB,
