@@ -132,10 +132,20 @@ extension Diagonalization {
             VArow[reflectorID] = VAvalue
           }
           
-          let Tvalue = transform.tau[1]
           var TVArow = [Float](repeating: .zero, count: smallBlockSize)
-          TVArow[0] = VArow[0]
-          TVArow[1] = VArow[1] + VArow[0] * Tvalue
+          for TcolumnID in 0..<smallBlockSize {
+            for TrowID in 0..<smallBlockSize {
+              let TmatrixAddress = TcolumnID * smallBlockSize + TrowID
+              let TmatrixValue = transform.tau[TmatrixAddress]
+              TVArow[TrowID] += VArow[TcolumnID] * TmatrixValue
+            }
+          }
+          
+//          TVArow[0] += VArow[0] * transform.tau[0]
+//          TVArow[1] += VArow[0] * transform.tau[1]
+//          
+//          TVArow[0] += VArow[1] * transform.tau[2]
+//          TVArow[1] += VArow[1] * transform.tau[3]
           
           for reflectorID in 0..<smallBlockSize {
             let TVAvalue = TVArow[reflectorID]
