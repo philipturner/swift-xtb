@@ -95,47 +95,48 @@ struct WYTransform {
         let blockEnd = min(blockStart + smallBlockSize, blockSize)
         defer { blockStart += smallBlockSize }
         
-        for m in 0..<blockSize {
-          for k in blockStart..<blockEnd {
-            for n in (k + 1)..<blockEnd {
-              let matrixValue = tau[m * blockSize + k]
+        for k in blockStart..<blockEnd {
+          for n in (k + 1)..<blockEnd {
+            for m in 0..<blockSize {
+              let matrixValue = tau[k * blockSize + m]
               let vectorValue = reflectorDotProducts[k * blockSize + n]
-              tau[m * blockSize + n] -= matrixValue * vectorValue
+              tau[n * blockSize + m] -= matrixValue * vectorValue
             }
           }
         }
         
 #if false
-        for m in 0..<blockSize - blockEnd {
-          for n in 0..<blockSize {
+        for m in 0..<blockSize {
+          for n in 0..<blockSize - blockEnd {
             var dotProduct: Float = .zero
             for k in 0..<blockEnd - blockStart {
+              var tauAddress = blockStart * blockSize
+              tauAddress += k * blockSize + m
+              
               var reflectorAddress = blockEnd * blockSize + blockStart
-              reflectorAddress += m * blockSize + k
+              reflectorAddress += n * blockSize + k
               
-              var tauAddress = blockStart
-              tauAddress += n * blockSize + k
-              
-              let lhsValue = reflectorDotProducts[reflectorAddress]
-              let rhsValue = tau[tauAddress]
+              let lhsValue = tau[tauAddress]
+              let rhsValue = reflectorDotProducts[reflectorAddress]
               dotProduct += lhsValue * rhsValue
             }
             
-            var tauAddress = blockEnd
+            var tauAddress = blockEnd * blockSize
             tauAddress += n * blockSize + m
             tau[tauAddress] -= dotProduct
           }
         }
 #else
         let dotProductOffset = blockEnd * blockSize + blockStart
-        let A = reflectorDotProductPointer + dotProductOffset
-        let B = UnsafePointer(tauPointer) + blockStart
-        let C = UnsafeMutablePointer(tauPointer) + blockEnd
+        let A = UnsafePointer(tauPointer) + blockStart * blockSize
+        let B = reflectorDotProductPointer + dotProductOffset
+        let C = UnsafeMutablePointer(tauPointer) + blockEnd * blockSize
         
-        var TRANSA = CChar(84) // T
-        var TRANSB = CChar(78) // N
-        var M = Int32(truncatingIfNeeded: blockSize - blockEnd)
-        var N = Int32(truncatingIfNeeded: blockSize)
+        // T = 84, N = 78
+        var TRANSA = CChar(78)
+        var TRANSB = CChar(78)
+        var M = Int32(truncatingIfNeeded: blockSize)
+        var N = Int32(truncatingIfNeeded: blockSize - blockEnd)
         var K = Int32(truncatingIfNeeded: blockEnd - blockStart)
         var ALPHA = Float(-1)
         var LDA = Int32(truncatingIfNeeded: blockSize)
@@ -159,5 +160,17 @@ struct WYTransform {
       withExtendedLifetime(tau) { }
       withExtendedLifetime(reflectorDotProducts) { }
     }
+    
+    transposeTau(blockSize: blockSize)
+  }
+  
+  private mutating func transposeTau(blockSize: Int) {
+    var newTau = [Float](repeating: .zero, count: blockSize * blockSize)
+    for rowID in 0..<blockSize {
+      for columnID in 0..<blockSize {
+        newTau[columnID * blockSize + rowID] = tau[rowID * blockSize + columnID]
+      }
+    }
+    tau = newTau
   }
 }
