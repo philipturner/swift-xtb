@@ -47,8 +47,23 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: Refactor the application of reflectors to use BLAS and/or
+        // TODO: Refactor the application of reflectors to use BLAS and
         // recursive panel factorization.
+        //
+        // After this is finished, employ all possible constant-factor
+        // improvements:
+        // - exploiting symmetry,
+        // - eliding multiplications by 0
+        //
+        // Precompute the WY transforms and check that there are no major
+        // regressions. Parallelize everything as much as possible:
+        // - parallelize the last two stages
+        // - parallelize the bulge chasing
+        //
+        // The last few optimizations could be important in the future, but
+        // perhaps not an economical use of time:
+        // - pipeline the bulge chasing with panel factorization
+        // - prepare the WY transforms simultaneously with other stages
         
         // Apply preceding reflectors (from this panel) to the column.
         for previousReflectorID in blockStart..<reflectorID {

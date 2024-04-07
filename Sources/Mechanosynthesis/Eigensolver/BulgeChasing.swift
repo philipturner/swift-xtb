@@ -74,9 +74,6 @@ extension Diagonalization {
     let dotProductCount = endApplicationID - startApplicationID
     var dotProducts = [Float](repeating: 0, count: dotProductCount)
     
-    // TODO: Try hard-coding some ASCII codes and using the
-    // 'truncatingIfNeeded' initializers for integers.
-    
     // Apply the reflector to the matrix, from the left.
     matrix.withContiguousMutableStorageIfAvailable {
       let matrixBaseAddress: Int =
@@ -97,16 +94,16 @@ extension Diagonalization {
       }
       #else
       do {
-        var TRANSA = CChar(Character("T").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(dotProductCount)
+        var TRANSA = CChar(84) // T
+        var TRANSB = CChar(78) // N
+        var M = Int32(truncatingIfNeeded: dotProductCount)
         var N = Int32(1)
-        var K = Int32(rangeCount)
+        var K = Int32(truncatingIfNeeded: rangeCount)
         var ALPHA = Float(1)
-        var LDA = Int32(problemSize)
+        var LDA = Int32(truncatingIfNeeded: problemSize)
         var BETA = Float(0)
-        var LDB = Int32(dotProductCount)
-        var LDC = Int32(dotProductCount)
+        var LDB = Int32(truncatingIfNeeded: dotProductCount)
+        var LDC = Int32(truncatingIfNeeded: dotProductCount)
         sgemm_(
           &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, matrix, &LDA,
           reflector, &LDB, &BETA, &dotProducts, &LDC)
@@ -123,12 +120,12 @@ extension Diagonalization {
       }
       #else
       do {
-        var M = Int32(rangeCount)
-        var N = Int32(dotProductCount)
+        var M = Int32(truncatingIfNeeded: rangeCount)
+        var N = Int32(truncatingIfNeeded: dotProductCount)
         var ALPHA = Float(-1)
         var INCX = Int32(1)
         var INCY = Int32(1)
-        var LDA = Int32(problemSize)
+        var LDA = Int32(truncatingIfNeeded: problemSize)
         sger_(
           &M, &N, &ALPHA, reflector, &INCX, dotProducts, &INCY,
           matrix, &LDA)
@@ -156,16 +153,16 @@ extension Diagonalization {
       }
       #else
       do {
-        var TRANSA = CChar(Character("N").asciiValue!)
-        var TRANSB = CChar(Character("N").asciiValue!)
-        var M = Int32(dotProductCount)
+        var TRANSA = CChar(78) // N
+        var TRANSB = CChar(78) // N
+        var M = Int32(truncatingIfNeeded: dotProductCount)
         var N = Int32(1)
-        var K = Int32(rangeCount)
+        var K = Int32(truncatingIfNeeded: rangeCount)
         var ALPHA = Float(1)
-        var LDA = Int32(problemSize)
+        var LDA = Int32(truncatingIfNeeded: problemSize)
         var BETA = Float(0)
-        var LDB = Int32(dotProductCount)
-        var LDC = Int32(dotProductCount)
+        var LDB = Int32(truncatingIfNeeded: dotProductCount)
+        var LDC = Int32(truncatingIfNeeded: dotProductCount)
         sgemm_(
           &TRANSA, &TRANSB, &M, &N, &K, &ALPHA, matrix, &LDA,
           reflector, &LDB, &BETA, &dotProducts, &LDC)
@@ -182,12 +179,12 @@ extension Diagonalization {
       }
       #else
       do {
-        var M = Int32(dotProductCount)
-        var N = Int32(rangeCount)
+        var M = Int32(truncatingIfNeeded: dotProductCount)
+        var N = Int32(truncatingIfNeeded: rangeCount)
         var ALPHA = Float(-1)
         var INCX = Int32(1)
         var INCY = Int32(1)
-        var LDA = Int32(problemSize)
+        var LDA = Int32(truncatingIfNeeded: problemSize)
         sger_(
           &M, &N, &ALPHA, dotProducts, &INCX, reflector, &INCY,
           matrix, &LDA)

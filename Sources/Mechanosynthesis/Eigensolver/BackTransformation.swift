@@ -44,12 +44,8 @@ extension Diagonalization {
 #else
     
     // The panels here are rectangular. The small block size must balance
-    // memory overhead with the increase in compute cost. The following
-    // heursitic works well for Apple AMX and single precision.
-    //
-    // TODO: Revisit the heuristic after T matrix generation is sped up.
-    // Does blockSize=64 favor smallBlockSize=32 or smallBlockSize=64?
-    let smallBlockSize = min(blockSize, 32)
+    // memory overhead with the increase in compute cost.
+    let smallBlockSize = blockSize
     let smallProblemSize = blockSize + smallBlockSize
     
     var rowOffset: Int = 1
@@ -90,13 +86,6 @@ extension Diagonalization {
         var transformDesc = WYTransformDescriptor()
         transformDesc.dimension = SIMD2(smallProblemSize, smallBlockSize)
         transformDesc.reflectorBlock = reflectorBlock
-        
-        // Optimizing the WY transform:
-        // 28000 μs -> 26000 μs without duplicated calls
-        // 44000 μs -> 36000 μs with duplicated calls
-        //
-        // Assume 1/2-2/3 of the overhead could have been elided through
-        // early loop termination.
         let transform = WYTransform(descriptor: transformDesc)
         
         // V^H A
