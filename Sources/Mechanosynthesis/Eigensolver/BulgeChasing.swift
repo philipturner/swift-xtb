@@ -74,6 +74,9 @@ extension Diagonalization {
     let dotProductCount = endApplicationID - startApplicationID
     var dotProducts = [Float](repeating: 0, count: dotProductCount)
     
+    // TODO: Try hard-coding some ASCII codes and using the
+    // 'truncatingIfNeeded' initializers for integers.
+    
     // Apply the reflector to the matrix, from the left.
     matrix.withContiguousMutableStorageIfAvailable {
       let matrixBaseAddress: Int =

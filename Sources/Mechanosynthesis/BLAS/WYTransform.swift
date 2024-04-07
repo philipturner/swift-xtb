@@ -96,13 +96,22 @@ struct WYTransform {
         defer { blockStart += smallBlockSize }
         
         for k in blockStart..<blockEnd {
-          for n in (k + 1)..<blockEnd {
-            for m in 0..<blockSize {
-              let matrixValue = tau[k * blockSize + m]
-              let vectorValue = reflectorDotProducts[k * blockSize + n]
-              tau[n * blockSize + m] -= matrixValue * vectorValue
+          let tauOffsetInput = k * blockSize
+          let reflectorOffset = k * blockSize + (k + 1)
+          let tauOffsetOutput = (k + 1) * blockSize
+          
+          #if true
+          for m in 0..<(blockEnd - k - 1) {
+            for n in 0..<blockSize {
+              let lhsValue = reflectorDotProducts[reflectorOffset + m]
+              let rhsValue = tau[tauOffsetInput + n]
+              tau[tauOffsetOutput + m * blockSize + n] -= lhsValue * rhsValue
             }
           }
+          #else
+          var M = Int32(truncatingIfNeeded: blockSize)
+//          var N = Int32(truncatingIfNeeded: )
+          #endif
         }
         
 #if false
