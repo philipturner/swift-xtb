@@ -131,27 +131,37 @@ extension Diagonalization {
         // T^H (V^H A)
         var TVA = [Float](
           repeating: .zero, count: problemSize * smallBlockSize)
-        
-        for vectorID in 0..<problemSize {
-          var VArow = [Float](repeating: .zero, count: smallBlockSize)
-          for reflectorID in 0..<smallBlockSize {
-            let VAvalue = VA[vectorID * smallBlockSize + reflectorID]
-            VArow[reflectorID] = VAvalue
-          }
-          
-          var TVArow = [Float](repeating: .zero, count: smallBlockSize)
-          for TcolumnID in 0..<smallBlockSize {
-            for TrowID in 0..<smallBlockSize {
-              let TmatrixAddress = TcolumnID * smallBlockSize + TrowID
-              let TmatrixValue = transform.tau[TmatrixAddress]
-              TVArow[TrowID] += VArow[TcolumnID] * TmatrixValue
+        #if false
+        for m in 0..<smallBlockSize {
+          for n in 0..<problemSize {
+            var dotProduct: Float = .zero
+            for k in 0..<smallBlockSize {
+              let lhsValue = transform.tau[k * smallBlockSize + m]
+              let rhsValue = VA[n * smallBlockSize + k]
+              dotProduct += lhsValue * rhsValue
             }
-          }
-          for reflectorID in 0..<smallBlockSize {
-            let TVAvalue = TVArow[reflectorID]
-            TVA[vectorID * smallBlockSize + reflectorID] = TVAvalue
+            TVA[n * smallBlockSize + m] = dotProduct
           }
         }
+        #else
+        gemmDesc = GEMMDescriptor()
+        gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, smallBlockSize)
+        transform.tau.withContiguousStorageIfAvailable {
+          gemmDesc.leftOperand = $0.baseAddress!
+          gemmDesc.leftOperandStride = smallBlockSize
+        }
+        VA.withContiguousStorageIfAvailable {
+          gemmDesc.rightOperand = $0.baseAddress!
+          gemmDesc.rightOperandStride = smallBlockSize
+        }
+        TVA.withContiguousMutableStorageIfAvailable {
+          gemmDesc.accumulator = $0.baseAddress!
+          gemmDesc.accumulatorStride = smallBlockSize
+        }
+        GEMM(descriptor: gemmDesc)
+        withExtendedLifetime(transform.tau) { }
+        withExtendedLifetime(VA) { }
+        #endif
         
         // V (T^H V^H A)
         for sweepRelativeID in 0..<smallBlockSize {
