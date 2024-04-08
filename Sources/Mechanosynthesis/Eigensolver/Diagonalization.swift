@@ -43,7 +43,8 @@ public struct Diagonalization {
   
   /// The current state of the matrix, which is progressing toward tridiagonal
   /// form.
-  var matrix: [Float]
+  var matrix: [Float] = []
+  var matrixPointer: UnsafeMutablePointer<Float>?
   
   /// The number of unknowns, `n`.
   var problemSize: Int
@@ -61,10 +62,6 @@ public struct Diagonalization {
           let problemSize = descriptor.problemSize else {
       fatalError("Invalid descriptor.")
     }
-    self.matrix = matrix
-    self.problemSize = problemSize
-    self.blockSize = -1
-    
     guard matrix.count == problemSize * problemSize else {
       fatalError("""
         Invalid matrix size: expected '\(problemSize * problemSize)' \
@@ -74,6 +71,9 @@ public struct Diagonalization {
     guard problemSize > 0 else {
       fatalError("Cannot solve a problem with less than one unknown.")
     }
+    self.problemSize = problemSize
+    self.blockSize = -1
+    
     guard problemSize > 1 else {
       // This cannot be solved with standard tridiagonalization techniques.
       eigenvalues = [matrix[0]]
@@ -82,7 +82,7 @@ public struct Diagonalization {
     }
     
     createBlockSize(descriptor: descriptor)
-    solveEigenproblem()
+    solveEigenproblem(descriptor: descriptor)
   }
   
   mutating func createBlockSize(descriptor: DiagonalizationDescriptor) {
@@ -97,13 +97,30 @@ public struct Diagonalization {
     blockSize = min(blockSize, problemSize - 1)
   }
   
-  mutating func solveEigenproblem() {
-    // Create variables to store the reflectors.
+  mutating func createMatrix(descriptor: DiagonalizationDescriptor) {
+    matrix = Array(repeating: .zero, count: problemSize * problemSize)
+    memcpy(&matrix, descriptor.matrix!, problemSize * problemSize * 4)
+    matrixPointer = matrix.withContiguousMutableStorageIfAvailable {
+      $0.baseAddress!
+    }!
+    guard UInt(bitPattern: matrixPointer) != 0 else {
+      fatalError("Matrix pointer was null.")
+    }
+  }
+  
+  // Deallocate the matrix after it's finished.
+  mutating func destroyMatrix() {
+    matrix = []
+    matrixPointer = nil
+  }
+  
+  mutating func solveEigenproblem(descriptor: DiagonalizationDescriptor) {
     var bandReflectors: [Float] = []
     var bulgeReflectors: [Float] = []
     
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.
     let checkpoint0 = CACurrentMediaTime()
+    createMatrix(descriptor: descriptor)
     bandReflectors = reduceToBandForm()
     
     // If the matrix is already in tridiagonal form, there is no work to do.
@@ -126,9 +143,10 @@ public struct Diagonalization {
     // Expand the bandwidth from 'blockSize' to 'problemSize'.
     let checkpoint4 = CACurrentMediaTime()
     backTransform(bandReflectors: bandReflectors)
+    destroyMatrix()
+    let checkpoint5 = CACurrentMediaTime()
     
     // Report diagonistics for debugging performance.
-    let checkpoint5 = CACurrentMediaTime()
     if problemSize >= 100 {
       let time01 = 1e6 * (checkpoint1 - checkpoint0)
       let time12 = 1e6 * (checkpoint2 - checkpoint1)
@@ -156,8 +174,5 @@ public struct Diagonalization {
       printPart(index: 3, label: "Back transformation (2nd stage)")
       printPart(index: 4, label: "Back transformation (1st stage)")
     }
-    
-    // Deallocate the matrix after it's finished.
-    matrix = []
   }
 }
