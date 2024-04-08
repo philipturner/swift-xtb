@@ -47,12 +47,14 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: Change all of the code to be centered around two block sizes:
-        // the small one, and the large one.
+        // TODO: - Task List
         //
         // Refactor the panel factorization into a separate file. That way,
         // it will be straightforward to optimize with BLAS and recursive panel
         // factorization. In addition, SBR will be easier to implement.
+        // - Only accepts 'smallBlockSize' as a parameter. That way, it's the
+        //   caller's responsibility to do the recursion part of recursive
+        //   factorization, and to generate the T matrix in-place.
         //
         // Employ the remaining improvements to single-core execution speed:
         // - exploiting symmetry
@@ -105,7 +107,9 @@ extension Diagonalization {
       // Create the T matrix using the 'WYTransform' API.
       var transformDesc = WYTransformDescriptor()
       transformDesc = WYTransformDescriptor()
-      transformDesc.dimension = SIMD2(problemSize, blockSize)
+      transformDesc.problemSize = problemSize
+      transformDesc.blockSize = blockSize
+      transformDesc.smallBlockSize = smallBlockSize
       transformDesc.reflectorBlock = reflectorBlock
       let transform = WYTransform(descriptor: transformDesc)
       

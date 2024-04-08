@@ -766,14 +766,24 @@ final class LinearAlgebraTests: XCTestCase {
     // overhead of checking small, and prevent it from polluting the cache.
     // This is the best way to reproduce the Accelerate ssyevd_2stage_ failure.
     
-    testBlockSize(nb: 1)
-    testBlockSize(nb: 2)
-    testBlockSize(nb: 3)
-    testBlockSize(nb: 4)
-    testBlockSize(nb: 5)
-    testBlockSize(nb: 6)
+    testBlockSize(nb: 1, sb: 1)
+    testBlockSize(nb: 2, sb: 1)
+    testBlockSize(nb: 3, sb: 1)
+    testBlockSize(nb: 4, sb: 1)
+    testBlockSize(nb: 5, sb: 1)
+    testBlockSize(nb: 6, sb: 1)
     
-    func testBlockSize(nb: Int) {
+    testBlockSize(nb: 2, sb: 2)
+    testBlockSize(nb: 3, sb: 3)
+    testBlockSize(nb: 4, sb: 4)
+    testBlockSize(nb: 5, sb: 5)
+    testBlockSize(nb: 6, sb: 6)
+    
+    testBlockSize(nb: 4, sb: 2)
+    testBlockSize(nb: 6, sb: 2)
+    testBlockSize(nb: 6, sb: 3)
+    
+    func testBlockSize(nb: Int, sb: Int) {
       var originalMatrixA: [Float] = [
         7, 6, 5, 4, 3, 2, 1,
         6, 7, 5, 4, 3, 2, 1,
@@ -795,6 +805,7 @@ final class LinearAlgebraTests: XCTestCase {
       diagonalizationDesc.matrix = originalMatrixA
       diagonalizationDesc.problemSize = n
       diagonalizationDesc.blockSize = nb
+      diagonalizationDesc.smallBlockSize = sb
       
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       let eigenvalues = diagonalization.eigenvalues
@@ -1087,7 +1098,16 @@ final class LinearAlgebraTests: XCTestCase {
       var diagonalizationDesc = DiagonalizationDescriptor()
       diagonalizationDesc.matrix = A
       diagonalizationDesc.problemSize = n
-      diagonalizationDesc.blockSize = 32
+      if n < 8 {
+        diagonalizationDesc.blockSize = n
+        diagonalizationDesc.smallBlockSize = 1
+      } else if n < 32 {
+        diagonalizationDesc.blockSize = 8
+        diagonalizationDesc.smallBlockSize = 2
+      } else {
+        diagonalizationDesc.blockSize = 32
+        diagonalizationDesc.smallBlockSize = 8
+      }
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       
       let oneStageEigenvalues = Self.diagonalize(matrix: A, n: n).0

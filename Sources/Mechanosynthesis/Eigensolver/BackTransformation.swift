@@ -43,23 +43,22 @@ extension Diagonalization {
     }
 #else
     
-    // The panels here are rectangular. The small block size must balance
-    // memory overhead with the increase in compute cost.
-    let smallBlockSize = blockSize
-    let smallProblemSize = blockSize + smallBlockSize
+    // The panels here are rectangular. The panel size must balance memory
+    // overhead with the increase in compute cost.
+    let panelSize = blockSize + blockSize
     
     var rowOffset: Int = 1
     while rowOffset < problemSize {
       defer { rowOffset += blockSize }
       
-      var blockStart = (problemSize - 1) / smallBlockSize * smallBlockSize
+      var blockStart = (problemSize - 1) / blockSize * blockSize
       while blockStart >= 0 {
-        defer { blockStart -= smallBlockSize }
+        defer { blockStart -= blockSize }
         
         // Establish bounds for 'rowID + elementID'.
         let remainingRowCount = max(0, problemSize - blockStart - rowOffset)
-        let panelWidth = min(smallBlockSize, remainingRowCount)
-        let panelHeight = min(smallProblemSize, remainingRowCount)
+        let panelWidth = min(blockSize, remainingRowCount)
+        let panelHeight = min(panelSize, remainingRowCount)
         if panelHeight == 0 || panelWidth == 0 {
           continue
         }
@@ -67,13 +66,13 @@ extension Diagonalization {
         // Load the sweep into the cache.
         var reflectorBlock = [Float](
           repeating: .zero,
-          count: smallBlockSize * smallProblemSize)
+          count: blockSize * panelSize)
         for m in 0..<panelWidth {
           let memorySweepID = m + blockStart
           let memoryBaseAddress = memorySweepID * (problemSize + 1) + rowOffset
           
-          let cacheSweepID = smallBlockSize - 1 - m
-          let cacheBaseAddress = cacheSweepID * smallProblemSize + m
+          let cacheSweepID = blockSize - 1 - m
+          let cacheBaseAddress = cacheSweepID * panelSize + m
           
           let reflectorLength = min(blockSize, remainingRowCount)
           for k in 0..<reflectorLength {
@@ -84,15 +83,17 @@ extension Diagonalization {
         
         // Create the T matrix using the 'WYTransform' API.
         var transformDesc = WYTransformDescriptor()
-        transformDesc.dimension = SIMD2(smallProblemSize, smallBlockSize)
+        transformDesc.problemSize = panelSize
+        transformDesc.blockSize = blockSize
+        transformDesc.smallBlockSize = smallBlockSize
         transformDesc.reflectorBlock = reflectorBlock
         let transform = WYTransform(descriptor: transformDesc)
         
         // V^H A
         var VA = [Float](
-          repeating: .zero, count: problemSize * smallBlockSize)
+          repeating: .zero, count: problemSize * blockSize)
 #if false
-        for m in 0..<smallBlockSize {
+        for m in 0..<blockSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
             for k in 0..<panelHeight {
@@ -100,19 +101,19 @@ extension Diagonalization {
               vectorBaseAddress += blockStart
               vectorBaseAddress += rowOffset
               
-              let lhsValue = reflectorBlock[m * smallProblemSize + k]
+              let lhsValue = reflectorBlock[m * panelSize + k]
               let rhsValue = eigenvectors[vectorBaseAddress + k]
               dotProduct += lhsValue * rhsValue
             }
-            VA[n * smallBlockSize + m] = dotProduct
+            VA[n * blockSize + m] = dotProduct
           }
         }
 #else
         var gemmDesc = GEMMDescriptor()
-        gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, panelHeight)
+        gemmDesc.dimension = SIMD3(blockSize, problemSize, panelHeight)
         reflectorBlock.withContiguousStorageIfAvailable {
           gemmDesc.leftOperand = $0.baseAddress!
-          gemmDesc.leftOperandStride = smallProblemSize
+          gemmDesc.leftOperandStride = panelSize
           gemmDesc.leftTransposeState = "T"
         }
         eigenvectors.withContiguousStorageIfAvailable {
@@ -121,7 +122,7 @@ extension Diagonalization {
         }
         VA.withContiguousMutableStorageIfAvailable {
           gemmDesc.accumulator = $0.baseAddress!
-          gemmDesc.accumulatorStride = smallBlockSize
+          gemmDesc.accumulatorStride = blockSize
         }
         GEMM(descriptor: gemmDesc)
         withExtendedLifetime(reflectorBlock) { }
@@ -130,33 +131,33 @@ extension Diagonalization {
         
         // T^H (V^H A)
         var TVA = [Float](
-          repeating: .zero, count: problemSize * smallBlockSize)
+          repeating: .zero, count: problemSize * blockSize)
 #if false
-        for m in 0..<smallBlockSize {
+        for m in 0..<blockSize {
           for n in 0..<problemSize {
             var dotProduct: Float = .zero
-            for k in 0..<smallBlockSize {
-              let lhsValue = transform.tau[k * smallBlockSize + m]
-              let rhsValue = VA[n * smallBlockSize + k]
+            for k in 0..<blockSize {
+              let lhsValue = transform.tau[k * blockSize + m]
+              let rhsValue = VA[n * blockSize + k]
               dotProduct += lhsValue * rhsValue
             }
-            TVA[n * smallBlockSize + m] = dotProduct
+            TVA[n * blockSize + m] = dotProduct
           }
         }
 #else
         gemmDesc = GEMMDescriptor()
-        gemmDesc.dimension = SIMD3(smallBlockSize, problemSize, smallBlockSize)
+        gemmDesc.dimension = SIMD3(blockSize, problemSize, blockSize)
         transform.tau.withContiguousStorageIfAvailable {
           gemmDesc.leftOperand = $0.baseAddress!
-          gemmDesc.leftOperandStride = smallBlockSize
+          gemmDesc.leftOperandStride = blockSize
         }
         VA.withContiguousStorageIfAvailable {
           gemmDesc.rightOperand = $0.baseAddress!
-          gemmDesc.rightOperandStride = smallBlockSize
+          gemmDesc.rightOperandStride = blockSize
         }
         TVA.withContiguousMutableStorageIfAvailable {
           gemmDesc.accumulator = $0.baseAddress!
-          gemmDesc.accumulatorStride = smallBlockSize
+          gemmDesc.accumulatorStride = blockSize
         }
         GEMM(descriptor: gemmDesc)
         withExtendedLifetime(transform.tau) { }
@@ -167,29 +168,29 @@ extension Diagonalization {
 #if false
         for m in 0..<panelHeight {
           for n in 0..<problemSize {
-            for k in 0..<smallBlockSize {
+            for k in 0..<blockSize {
               var vectorBaseAddress = n * problemSize
               vectorBaseAddress += blockStart
               vectorBaseAddress += rowOffset
               
-              let lhsValue = reflectorBlock[k * smallProblemSize + m]
-              let rhsValue = TVA[n * smallBlockSize + k]
+              let lhsValue = reflectorBlock[k * panelSize + m]
+              let rhsValue = TVA[n * blockSize + k]
               eigenvectors[vectorBaseAddress + m] -= lhsValue * rhsValue
             }
           }
         }
 #else
         gemmDesc = GEMMDescriptor()
-        gemmDesc.dimension = SIMD3(panelHeight, problemSize, smallBlockSize)
+        gemmDesc.dimension = SIMD3(panelHeight, problemSize, blockSize)
         gemmDesc.productScale = -1
         gemmDesc.accumulatorScale = 1
         reflectorBlock.withContiguousStorageIfAvailable {
           gemmDesc.leftOperand = $0.baseAddress!
-          gemmDesc.leftOperandStride = smallProblemSize
+          gemmDesc.leftOperandStride = panelSize
         }
         TVA.withContiguousStorageIfAvailable {
           gemmDesc.rightOperand = $0.baseAddress!
-          gemmDesc.rightOperandStride = smallBlockSize
+          gemmDesc.rightOperandStride = blockSize
         }
         eigenvectors.withContiguousMutableStorageIfAvailable {
           gemmDesc.accumulator = $0.baseAddress! + blockStart + rowOffset
@@ -229,7 +230,9 @@ extension Diagonalization {
       
       // Create the T matrix using the 'WYTransform' API.
       var transformDesc = WYTransformDescriptor()
-      transformDesc.dimension = SIMD2(problemSize, blockSize)
+      transformDesc.problemSize = problemSize
+      transformDesc.blockSize = blockSize
+      transformDesc.smallBlockSize = smallBlockSize
       transformDesc.reflectorBlock = reflectorBlock
       let transform = WYTransform(descriptor: transformDesc)
       

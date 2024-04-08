@@ -17,11 +17,17 @@ public struct DiagonalizationDescriptor {
   /// The number of unknowns to solve for.
   public var problemSize: Int?
   
-  /// The block size for intermediate band reduction.
+  /// The block size for panel factorization.
   ///
   /// If not specified, the optimal block size for the hardware backend is
   /// chosen.
   public var blockSize: Int?
+  
+  /// The block size for recursive panel factorization.
+  ///
+  /// If not specified, the optimal block size for the hardware backend is
+  /// chosen.
+  public var smallBlockSize: Int?
   
   public init() {
     
@@ -52,12 +58,16 @@ public struct Diagonalization {
   /// The panel factorization size, `nb`.
   var blockSize: Int
   
+  /// The recursive panel factorization size, `sb`.
+  var smallBlockSize: Int
+  
   /// Form the eigendecomposition of a matrix.
   ///
   /// This is a blocking function. It immediately solves the eigenproblem,
   /// which may incur a large amount of latency. It may also perform a
   /// blocking access to GPU hardware.
   public init(descriptor: DiagonalizationDescriptor) {
+    
     guard let matrix = descriptor.matrix,
           let problemSize = descriptor.problemSize else {
       fatalError("Invalid descriptor.")
@@ -73,6 +83,7 @@ public struct Diagonalization {
     }
     self.problemSize = problemSize
     self.blockSize = -1
+    self.smallBlockSize = -1
     
     guard problemSize > 1 else {
       // This cannot be solved with standard tridiagonalization techniques.
@@ -81,20 +92,42 @@ public struct Diagonalization {
       return
     }
     
+    
     createBlockSize(descriptor: descriptor)
+    
     solveEigenproblem(descriptor: descriptor)
+   
   }
   
   mutating func createBlockSize(descriptor: DiagonalizationDescriptor) {
-    if let blockSize = descriptor.blockSize {
-      guard blockSize > 0 else {
-        fatalError("Block size must be at least one.")
-      }
+    // Switch over the permutations of available pieces of information.
+    switch (descriptor.blockSize, descriptor.smallBlockSize) {
+    case (.some(let blockSize), .some(let smallBlockSize)):
       self.blockSize = blockSize
-    } else {
-      self.blockSize = 4
+      self.smallBlockSize = smallBlockSize
+    case (.some(let blockSize), .none):
+      self.blockSize = blockSize
+      self.smallBlockSize = max(1, min((blockSize + 3) / 4, blockSize))
+    case (.none, .some(let smallBlockSize)):
+      fatalError("""
+        The small block size was specified (\(smallBlockSize)), \
+        but the large block size was not.
+        """)
+    case (.none, .none):
+      // The current heuristic is a placeholder for a proper one.
+      blockSize = 4
+      smallBlockSize = 2
     }
-    blockSize = min(blockSize, problemSize - 1)
+    
+    guard blockSize <= problemSize else {
+      fatalError("Block size cannot exceed problem size.")
+    }
+    guard blockSize > 0, smallBlockSize > 0 else {
+      fatalError("Block size must be at least one.")
+    }
+    guard blockSize % smallBlockSize == 0 else {
+      fatalError("Block size must be divisible by small block size.")
+    }
   }
   
   mutating func createMatrix(descriptor: DiagonalizationDescriptor) {

@@ -9,9 +9,14 @@ import Accelerate
 
 // A configuration for a compact WY transform.
 struct WYTransformDescriptor {
-  // The dimensions (rows, columns) of the block. The first entry should be the
-  // leading dimension.
-  var dimension: SIMD2<Int>?
+  // The height of the panel (row count).
+  var problemSize: Int?
+  
+  // The width of the panel (column count).
+  var blockSize: Int?
+  
+  // The size of the internal blocking scheme.
+  var smallBlockSize: Int?
   
   // The block of reflectors, stored in column-major order.
   var reflectorBlock: [Float]?
@@ -29,12 +34,12 @@ struct WYTransform {
   
   @_transparent
   init(descriptor: WYTransformDescriptor) {
-    guard let dimension = descriptor.dimension,
+    guard let problemSize = descriptor.problemSize,
+          let blockSize = descriptor.blockSize,
+          let smallBlockSize = descriptor.smallBlockSize,
           let reflectorBlock = descriptor.reflectorBlock else {
       fatalError("Descriptor not complete.")
     }
-    let problemSize = dimension[0]
-    let blockSize = dimension[1]
     
     // Generate an overlap matrix for the reflectors.
     var reflectorDotProducts = [Float](
@@ -83,9 +88,6 @@ struct WYTransform {
     let tauPointer = tau
       .withContiguousMutableStorageIfAvailable { $0.baseAddress! }!
     
-    // Use a heuristic for the recursive block size.
-    let smallBlockSize = max(1, min((blockSize + 3) / 4, blockSize))
-    
     // Fill in the T matrix in blocks.
     var blockStart: Int = .zero
     while blockStart < blockSize {
@@ -96,7 +98,6 @@ struct WYTransform {
         let reflectorOffset = k * blockSize + (k + 1)
         let tauOffsetInput = k * blockSize
         let tauOffsetOutput = (k + 1) * blockSize
-        
 #if false
         for m in 0..<(blockEnd - k - 1) {
           for n in 0..<blockSize {
@@ -126,6 +127,9 @@ struct WYTransform {
 #endif
       }
       
+      guard blockSize > blockEnd else {
+        continue
+      }
 #if false
       for m in 0..<blockSize {
         for n in 0..<blockSize - blockEnd {
@@ -163,24 +167,24 @@ struct WYTransform {
       var BETA = Float(1)
       var LDB = Int32(truncatingIfNeeded: blockSize)
       var LDC = Int32(truncatingIfNeeded: blockSize)
-      if N > 0 {
-        sgemm_(
-          &TRANSA,
-          &TRANSB,
-          &M,
-          &N,
-          &K,
-          &ALPHA,
-          A, &LDA,
-          B, &LDB,
-          &BETA,
-          C, &LDC)
-      }
+      sgemm_(
+        &TRANSA,
+        &TRANSB,
+        &M,
+        &N,
+        &K,
+        &ALPHA,
+        A, &LDA,
+        B, &LDB,
+        &BETA,
+        C, &LDC)
 #endif
     }
     withExtendedLifetime(tau) { }
     withExtendedLifetime(reflectorDotProducts) { }
     
+    // TODO: Refactor all of the code, so that 'tau' is used directly, without
+    // ever transposing it.
     transposeTau(blockSize: blockSize)
   }
   
