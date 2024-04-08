@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 4/6/24.
 //
 
+import Accelerate
+
 // A configuration for a reflector generation.
 struct ReflectorGenerationDescriptor {
   var source: UnsafePointer<Float>?
@@ -48,18 +50,14 @@ struct ReflectorGeneration {
     
     // Predict the normalization factor.
     let tau = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
-    let scaleFactor = 1 / (oldSubdiagonal - newSubdiagonal)
+    let tauSquareRoot = tau.squareRoot()
+    let scaleFactor = tauSquareRoot / (oldSubdiagonal - newSubdiagonal)
     
     // Write to the reflector.
     for elementID in 0..<dimension {
       let element = source[elementID]
       destination[elementID] = element * scaleFactor
     }
-    destination[0] = 1
-    
-    // Pre-multiply by tau.
-    for elementID in 0..<dimension {
-      destination[elementID] *= tau.squareRoot()
-    }
+    destination[0] = tauSquareRoot
   }
 }

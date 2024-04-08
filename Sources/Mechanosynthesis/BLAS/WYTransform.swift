@@ -163,17 +163,19 @@ struct WYTransform {
       var BETA = Float(1)
       var LDB = Int32(truncatingIfNeeded: blockSize)
       var LDC = Int32(truncatingIfNeeded: blockSize)
-      sgemm_(
-        &TRANSA,
-        &TRANSB,
-        &M,
-        &N,
-        &K,
-        &ALPHA,
-        A, &LDA,
-        B, &LDB,
-        &BETA,
-        C, &LDC)
+      if N > 0 {
+        sgemm_(
+          &TRANSA,
+          &TRANSB,
+          &M,
+          &N,
+          &K,
+          &ALPHA,
+          A, &LDA,
+          B, &LDB,
+          &BETA,
+          C, &LDC)
+      }
 #endif
     }
     withExtendedLifetime(tau) { }

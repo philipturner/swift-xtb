@@ -47,17 +47,17 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: Bulge chasing gets slower when you go from block 8 -> block 4.
-        // Why is this? Eliminate all possible sources of overhead from
-        // non-floating point operations.
+        // TODO: Change all of the code to be centered around two block sizes:
+        // the small one, and the large one.
         //
-        // Refactor the application of reflectors to use BLAS and
-        // recursive panel factorization.
+        // Refactor the panel factorization into a separate file. That way,
+        // it will be straightforward to optimize with BLAS and recursive panel
+        // factorization. In addition, SBR will be easier to implement.
         //
-        // Employ all possible constant-factor
-        // improvements:
-        // - exploiting symmetry,
+        // Employ the remaining improvements to single-core execution speed:
+        // - exploiting symmetry
         // - eliding multiplications by 0
+        // - consider successive band reductions (SBR)
         //
         // Precompute the WY transforms and check that there are no major
         // regressions. Parallelize everything as much as possible:
