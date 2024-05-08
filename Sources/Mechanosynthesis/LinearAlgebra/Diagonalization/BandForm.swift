@@ -47,30 +47,6 @@ extension Diagonalization {
           vector[elementID] = panel[address]
         }
         
-        // TODO: - Task List
-        //
-        // Refactor the panel factorization into a separate file. That way,
-        // it will be straightforward to optimize with BLAS and recursive panel
-        // factorization. In addition, SBR will be easier to implement.
-        // - Only accepts 'smallBlockSize' as a parameter. That way, it's the
-        //   caller's responsibility to do the recursion part of recursive
-        //   factorization, and to generate the T matrix in-place.
-        //
-        // Employ the remaining improvements to single-core execution speed:
-        // - exploiting symmetry
-        // - eliding multiplications by 0
-        // - consider successive band reductions (SBR)
-        //
-        // Precompute the WY transforms and check that there are no major
-        // regressions. Parallelize everything as much as possible:
-        // - parallelize the last two stages
-        // - parallelize the bulge chasing
-        //
-        // The last few optimizations could be important in the future, but
-        // perhaps not an economical use of time:
-        // - pipeline the bulge chasing with panel factorization
-        // - prepare the WY transforms simultaneously with other stages
-        
         // Apply preceding reflectors (from this panel) to the column.
         for previousReflectorID in blockStart..<reflectorID {
           // Load the reflector into the cache.

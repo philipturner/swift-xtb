@@ -1,5 +1,9 @@
 # Screened Exchange
 
+[DeepMind 2021 XC functional](https://www.science.org/doi/10.1126/science.abj6511) (2021)
+- More accurate than the B3LYP functional used for mechanosynthesis research.
+- Provide all DM21 variants, in addition to the functionals from libxc.
+
 DM21 is a range-separated exchange-correlation functional. The regular Fock exchange integral can be evaluated with a Poisson solver, but the range-separated term is more challenging. It cannot be directly solved in real-space efficiently.
 
 <div align="center">

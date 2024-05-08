@@ -3,432 +3,7 @@ import Accelerate
 import Mechanosynthesis
 import Numerics
 
-final class LinearAlgebraTests: XCTestCase {
-  // MARK: - Linear Algebra Functions
-  
-  // Multiplies two square matrices.
-  static func matrixMultiply(
-    matrixA: [Float], transposeA: Bool = false,
-    matrixB: [Float], transposeB: Bool = false,
-    n: Int
-  ) -> [Float] {
-    var matrixC = [Float](repeating: 0, count: n * n)
-    
-    #if false
-    for rowID in 0..<n {
-      for columnID in 0..<n {
-        var dotProduct: Float = .zero
-        for k in 0..<n {
-          var value1: Float
-          var value2: Float
-          if !transposeA {
-            value1 = matrixA[rowID * n + k]
-          } else {
-            value1 = matrixA[k * n + rowID]
-          }
-          if !transposeB {
-            value2 = matrixB[k * n + columnID]
-          } else {
-            value2 = matrixB[columnID * n + k]
-          }
-          dotProduct += value1 * value2
-        }
-        matrixC[rowID * n + columnID] = dotProduct
-      }
-    }
-    #else
-    var TRANSA: CChar
-    var TRANSB: CChar
-    if transposeB {
-      TRANSA = CChar(Character("T").asciiValue!)
-    } else {
-      TRANSA = CChar(Character("N").asciiValue!)
-    }
-    if transposeA {
-      TRANSB = CChar(Character("T").asciiValue!)
-    } else {
-      TRANSB = CChar(Character("N").asciiValue!)
-    }
-    
-    var M: Int32 = Int32(n)
-    var N: Int32 = Int32(n)
-    var K: Int32 = Int32(n)
-    var ALPHA: Float = 1
-    var LDA: Int32 = Int32(n)
-    var BETA: Float = 0
-    var LDB: Int32 = Int32(n)
-    var LDC: Int32 = Int32(n)
-    matrixA.withContiguousStorageIfAvailable {
-      let B = UnsafeMutablePointer(mutating: $0.baseAddress!)
-      matrixB.withContiguousStorageIfAvailable {
-        let A = UnsafeMutablePointer(mutating: $0.baseAddress!)
-        matrixC.withContiguousMutableStorageIfAvailable {
-          let C = $0.baseAddress!
-          sgemm_(
-            &TRANSA, // TRANSA
-            &TRANSB, // TRANSB
-            &M, // M
-            &N, // N
-            &K, // K
-            &ALPHA, // ALPHA
-            A, // A
-            &LDA, // LDA
-            B, // B
-            &LDB, // LDB
-            &BETA, // BETA
-            C, // C
-            &LDC // LDC
-          )
-        }
-      }
-    }
-    #endif
-    
-    return matrixC
-  }
-  
-  // Forms an orthogonal basis from a square matrix's columns.
-  static func modifiedGramSchmidt(
-    matrix originalMatrix: [Float], n: Int
-  ) -> [Float] {
-    // Operate on the output matrix in-place.
-    var matrix = originalMatrix
-    
-    func normalize(electronID: Int) {
-      var norm: Float = .zero
-      for cellID in 0..<n {
-        let value = matrix[cellID * n + electronID]
-        norm += value * value
-      }
-      
-      let normalizationFactor = 1 / norm.squareRoot()
-      for cellID in 0..<n {
-        var value = matrix[cellID * n + electronID]
-        value *= normalizationFactor
-        matrix[cellID * n + electronID] = value
-      }
-    }
-    
-    for electronID in 0..<n {
-      // Normalize the vectors before taking dot products.
-      normalize(electronID: electronID)
-    }
-    
-    for electronID in 0..<n {
-      for neighborID in 0..<electronID {
-        // Determine the magnitude of the parallel component.
-        var dotProduct: Float = .zero
-        for cellID in 0..<n {
-          let value1 = matrix[cellID * n + electronID]
-          let value2 = matrix[cellID * n + neighborID]
-          dotProduct += value1 * value2
-        }
-        
-        // Subtract the parallel component.
-        for cellID in 0..<n {
-          var value1 = matrix[cellID * n + electronID]
-          let value2 = matrix[cellID * n + neighborID]
-          value1 -= dotProduct * value2
-          matrix[cellID * n + electronID] = value1
-        }
-      }
-      
-      // Rescale the orthogonal component to unit vector length.
-      normalize(electronID: electronID)
-    }
-    
-    return matrix
-  }
-  
-  // Reduce the matrix to tridiagonal form.
-  //
-  // No intermediate householder reflectors are returned, as this isn't
-  // the best algorithm for finding eigenvectors. When debugging, use
-  // tridiagonalization as a reference for eigenvalues, and the power method as
-  // a reference for eigenvectors.
-  static func tridiagonalize(
-    matrix originalMatrix: [Float],
-    n: Int
-  ) -> [Float] {
-    var currentMatrixA = originalMatrix
-    
-    // This requires that n > 1.
-    for transformID in 0..<n - 2 {
-      // Load the column into the cache.
-      var V = [Float](repeating: 0, count: n)
-      var columnNorm: Float = .zero
-      for rowID in (transformID + 1)..<n {
-        let address = rowID * n + transformID
-        let entry = currentMatrixA[address]
-        V[rowID] = entry
-        columnNorm += entry * entry
-      }
-      columnNorm.formSquareRoot()
-      
-      // Form the 'v' output of Householder(j,x).
-      let oldSubdiagonal = V[transformID + 1]
-      let newSubdiagonal = columnNorm * Float((oldSubdiagonal >= 0) ? -1 : 1)
-      V[transformID + 1] = 1
-      for rowID in (transformID + 2)..<n {
-        V[rowID] /= oldSubdiagonal - newSubdiagonal
-      }
-      
-      // Form the 'τ' output of Householder(j,x).
-      let T = (newSubdiagonal - oldSubdiagonal) / newSubdiagonal
-      
-      // Operation 1: VT
-      var VT = [Float](repeating: 0, count: n)
-      for rowID in 0..<n {
-        VT[rowID] = V[rowID] * T
-      }
-      
-      // Operation 2: AVT
-      var X = [Float](repeating: 0, count: n)
-      for rowID in 0..<n {
-        var dotProduct: Float = .zero
-        for columnID in 0..<n {
-          let address = rowID * n + columnID
-          dotProduct += currentMatrixA[address] * VT[columnID]
-        }
-        X[rowID] = dotProduct
-      }
-      
-      // Operation 3: V^H X
-      var VX: Float = .zero
-      for rowID in 0..<n {
-        VX += V[rowID] * X[rowID]
-      }
-      
-      // Operation 4: X - (1 / 2) VT^H (V^H X)
-      var W = [Float](repeating: 0, count: n)
-      for rowID in 0..<n {
-        W[rowID] = X[rowID] - 0.5 * V[rowID] * T * VX
-      }
-      
-      // Operation 5: A - WV^H - VW^H
-      for rowID in 0..<n {
-        for columnID in 0..<n {
-          let address = rowID * n + columnID
-          var entry = currentMatrixA[address]
-          entry -= W[rowID] * V[columnID]
-          entry -= V[rowID] * W[columnID]
-          currentMatrixA[address] = entry
-        }
-      }
-    }
-    return currentMatrixA
-  }
-  
-  // Returns the transpose of a square matrix.
-  static func transpose(matrix: [Float], n: Int) -> [Float] {
-    var output = [Float](repeating: 0, count: n * n)
-    for rowID in 0..<n {
-      for columnID in 0..<n {
-        let oldAddress = columnID * n + rowID
-        let newAddress = rowID * n + columnID
-        output[newAddress] = matrix[oldAddress]
-      }
-    }
-    return output
-  }
-  
-  // Diagonalizes a tridiagonal matrix with LAPACK divide-and-conquer.
-  // Returns the eigenvectors in column-major format, as output by LAPACK.
-  static func divideAndConquer(matrix: [Float], n: Int) -> (
-    eigenvalues: [Float], eigenvectors: [Float]
-  ) {
-    // Store the tridiagonal matrix in a compact form.
-    var D = [Float](repeating: 0, count: n)
-    var E = [Float](repeating: 0, count: n - 1)
-    for diagonalID in 0..<n {
-      let matrixAddress = diagonalID * n + diagonalID
-      let vectorAddress = diagonalID
-      D[vectorAddress] = matrix[matrixAddress]
-    }
-    for subDiagonalID in 0..<n - 1 {
-      let rowID = subDiagonalID
-      let columnID = subDiagonalID + 1
-      let matrixAddress = rowID * n + columnID
-      let vectorAddress = rowID
-      E[vectorAddress] = matrix[matrixAddress]
-    }
-    
-    // Query the workspace size.
-    var JOBZ = CChar(Character("V").asciiValue!)
-    var N = Int32(n)
-    var LDZ = Int32(n)
-    var WORK = [Float](repeating: 0, count: 1)
-    var LWORK = Int32(-1)
-    var IWORK = [Int32](repeating: 0, count: 1)
-    var LIWORK = Int32(-1)
-    var INFO = Int32(0)
-    sstevd_(
-      &JOBZ, &N, nil, nil, nil, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
-    
-    // Call into LAPACK.
-    var Z = [Float](repeating: 0, count: n * n)
-    LWORK = Int32(WORK[0])
-    LIWORK = Int32(IWORK[0])
-    WORK = [Float](repeating: 0, count: Int(LWORK))
-    IWORK = [Int32](repeating: 0, count: Int(LIWORK))
-    sstevd_(
-      &JOBZ, &N, &D, &E, &Z, &LDZ, &WORK, &LWORK, &IWORK, &LIWORK, &INFO)
-    
-    // Return the eigenpairs.
-    return (eigenvalues: D, eigenvectors: Z)
-  }
-  
-  // Reference implementation for diagonalization in LAPACK.
-  static func diagonalize(matrix: [Float], n: Int) -> (
-    eigenvalues: [Float], eigenvectors: [Float]
-  ) {
-    var JOBZ = CChar(Character("V").asciiValue!)
-    var UPLO = CChar(Character("L").asciiValue!)
-    var N: Int32 = Int32(n)
-    var A = [Float](repeating: 0, count: n * n)
-    memcpy(&A, matrix, n * n * 4)
-    var LDA: Int32 = Int32(n)
-    var W = [Float](repeating: 0, count: n)
-    var WORK: [Float] = [0]
-    var LWORK: Int32 = -1
-    var IWORK: [Int32] = [0]
-    var LIWORK: Int32 = -1
-    var INFO: Int32 = 0
-    A.withContiguousMutableStorageIfAvailable {
-      let A = $0.baseAddress!
-      W.withContiguousMutableStorageIfAvailable {
-        let W = $0.baseAddress!
-        WORK.withContiguousMutableStorageIfAvailable {
-          let WORK = $0.baseAddress!
-          IWORK.withContiguousMutableStorageIfAvailable {
-            let IWORK = $0.baseAddress!
-            ssyevd_(
-              &JOBZ, // JOBZ
-              &UPLO, // UPLO
-              &N, // N
-              A, // A
-              &LDA, // LDA
-              W, // W
-              WORK, // WORK
-              &LWORK, // LWORK
-              IWORK, // IWORK
-              &LIWORK, // LIWORK
-              &INFO // INFO
-            )
-            guard INFO == 0 else {
-              fatalError("LAPACK error code: \(INFO)")
-            }
-          }
-        }
-        
-        LWORK = Int32(WORK[0])
-        LIWORK = Int32(IWORK[0])
-        WORK = [Float](repeating: 0, count: Int(LWORK))
-        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
-        WORK.withContiguousMutableStorageIfAvailable {
-          let WORK = $0.baseAddress!
-          IWORK.withContiguousMutableStorageIfAvailable {
-            let IWORK = $0.baseAddress!
-            ssyevd_(
-              &JOBZ, // JOBZ
-              &UPLO, // UPLO
-              &N, // N
-              A, // A
-              &LDA, // LDA
-              W, // W
-              WORK, // WORK
-              &LWORK, // LWORK
-              IWORK, // IWORK
-              &LIWORK, // LIWORK
-              &INFO // INFO
-            )
-            guard INFO == 0 else {
-              fatalError("LAPACK error code: \(INFO)")
-            }
-          }
-        }
-      }
-    }
-    return (eigenvalues: W, eigenvectors: A)
-  }
-  
-  #if ACCELERATE_NEW_LAPACK
-  // Returns the eigenvalues from Accelerate's bugged 2-stage implementation.
-  static func eigenvaluesTwoStage(matrix: [Float], n: Int) -> [Float] {
-    var JOBZ = CChar(Character("N").asciiValue!)
-    var UPLO = CChar(Character("L").asciiValue!)
-    var N: Int32 = Int32(n)
-    var A = [Float](repeating: 0, count: n * n)
-    memcpy(&A, matrix, n * n * 4)
-    var LDA: Int32 = Int32(n)
-    var W = [Float](repeating: 0, count: n)
-    var WORK: [Float] = [0]
-    var LWORK: Int32 = -1
-    var IWORK: [Int32] = [0]
-    var LIWORK: Int32 = -1
-    var INFO: Int32 = 0
-    A.withContiguousMutableStorageIfAvailable {
-      let A = $0.baseAddress!
-      W.withContiguousMutableStorageIfAvailable {
-        let W = $0.baseAddress!
-        WORK.withContiguousMutableStorageIfAvailable {
-          let WORK = $0.baseAddress!
-          IWORK.withContiguousMutableStorageIfAvailable {
-            let IWORK = $0.baseAddress!
-            ssyevd_2stage_(
-              &JOBZ, // JOBZ
-              &UPLO, // UPLO
-              &N, // N
-              A, // A
-              &LDA, // LDA
-              W, // W
-              WORK, // WORK
-              &LWORK, // LWORK
-              IWORK, // IWORK
-              &LIWORK, // LIWORK
-              &INFO // INFO
-            )
-            guard INFO == 0 else {
-              fatalError("LAPACK error code: \(INFO)")
-            }
-          }
-        }
-        
-        LWORK = Int32(WORK[0])
-        LIWORK = Int32(IWORK[0])
-        WORK = [Float](repeating: 0, count: Int(LWORK))
-        IWORK = [Int32](repeating: 0, count: Int(LIWORK))
-        WORK.withContiguousMutableStorageIfAvailable {
-          let WORK = $0.baseAddress!
-          IWORK.withContiguousMutableStorageIfAvailable {
-            let IWORK = $0.baseAddress!
-            ssyevd_2stage_(
-              &JOBZ, // JOBZ
-              &UPLO, // UPLO
-              &N, // N
-              A, // A
-              &LDA, // LDA
-              W, // W
-              WORK, // WORK
-              &LWORK, // LWORK
-              IWORK, // IWORK
-              &LIWORK, // LIWORK
-              &INFO // INFO
-            )
-            guard INFO == 0 else {
-              fatalError("LAPACK error code: \(INFO)")
-            }
-          }
-        }
-      }
-    }
-    
-    return W
-  }
-  #endif
-  
-  // MARK: - Tests (Permanent)
-  
+final class DiagonalizationTests: XCTestCase {
   // Use the utility function from LAPACK to diagonalize a tridiagonal matrix.
   func testDivideAndConquer() throws {
     // The example sourced from Wikipedia.
@@ -448,8 +23,10 @@ final class LinearAlgebraTests: XCTestCase {
       -1, -2, -3, -5, -7, -9, -10,
       69, 23, 9, -48, 7, 1, 9,
     ]
-    eigenvectors = Self.transpose(matrix: eigenvectors, n: 7)
-    eigenvectors = Self.modifiedGramSchmidt(matrix: eigenvectors, n: 7)
+    eigenvectors = LinearAlgebraUtilities
+      .transpose(matrix: eigenvectors, n: 7)
+    eigenvectors = LinearAlgebraUtilities
+      .modifiedGramSchmidt(matrix: eigenvectors, n: 7)
     
     // Well-conditioned eigenspectra without degenerate clusters.
     testEigenvalues([
@@ -496,13 +73,13 @@ final class LinearAlgebraTests: XCTestCase {
       }
       let ΣT = eigenvectors
       
-      let ΛΣT = Self.matrixMultiply(
+      let ΛΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Λ, transposeA: false,
         matrixB: ΣT, transposeB: false, n: 7)
-      let A = Self.matrixMultiply(
+      let A = LinearAlgebraUtilities.matrixMultiply(
         matrixA: ΣT, transposeA: true,
         matrixB: ΛΣT, transposeB: false, n: 7)
-      let AΣT = Self.matrixMultiply(
+      let AΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: A, transposeA: false,
         matrixB: ΣT, transposeB: true, n: 7)
       
@@ -526,12 +103,14 @@ final class LinearAlgebraTests: XCTestCase {
     }
     
     func testMatrix(_ originalMatrixA: [Float], n: Int) {
-      let originalMatrixT = Self.tridiagonalize(matrix: originalMatrixA, n: n)
-      let (D, Z) = Self.divideAndConquer(matrix: originalMatrixT, n: n)
+      let originalMatrixT = LinearAlgebraUtilities
+        .tridiagonalize(matrix: originalMatrixA, n: n)
+      let (D, Z) = LinearAlgebraUtilities
+        .divideAndConquer(matrix: originalMatrixT, n: n)
       
       // Check that the eigenvectors produce the eigenvalues.
-      let HΨ = Self.matrixMultiply(
-        matrixA: originalMatrixT, 
+      let HΨ = LinearAlgebraUtilities.matrixMultiply(
+        matrixA: originalMatrixT,
         matrixB: Z,
         transposeB: true, n: n)
       for electronID in 0..<n {
@@ -737,35 +316,9 @@ final class LinearAlgebraTests: XCTestCase {
     }
   }
   
-  // MARK: - Experimental Algorithm Development
-  
   // Test the two-stage process for tridiagonalizing a matrix, and the
   // aggregation of the Householder reflectors.
   func testTwoStageTridiagonalization() throws {
-    // TODO:
-    // - Find an algorithm for programming the order of bulge chases.
-    // - Test the full-stack diagonalizer against adversarial edge cases.
-    // - Run benchmarks, starting with the unoptimized single-core CPU code.
-    //   This marks the beginning of the optimization process, which should
-    //   end with GPU acceleration.
-    //
-    // 1) Extract the custom eigensolver into a standalone function. Transform
-    //    the original test into a unit test, operating on the same 7x7 matrix.
-    // 2) Migrate the 'diagonalize()' function into the Swift module. Organize
-    //    it into potentially separate source files, to make it more workable.
-    // 3) Start benchmarking **correctness** of the eigensolver against
-    //    `ssyevd_`. Enforce correct behavior for extremely small matrices.
-    //    Reproduce the experiment where Accelerate's two-stage eigenvalue
-    //    solver failed.
-    // 4) Store the Householder transforms in a compact matrix, but don't batch
-    //    them together for efficiency yet.
-    // 5) Begin the optimization/benchmarking, which should progress from
-    //    single-core CPU and to full GPU offloading.
-    //
-    // Set up a dual performance and correctness test, similar to MFA. Keep the
-    // overhead of checking small, and prevent it from polluting the cache.
-    // This is the best way to reproduce the Accelerate ssyevd_2stage_ failure.
-    
     testBlockSize(nb: 1, sb: 1)
     testBlockSize(nb: 2, sb: 1)
     testBlockSize(nb: 3, sb: 1)
@@ -796,7 +349,7 @@ final class LinearAlgebraTests: XCTestCase {
       let n: Int = 7
       
       // Make the matrix symmetric.
-      originalMatrixA = Self.matrixMultiply(
+      originalMatrixA = LinearAlgebraUtilities.matrixMultiply(
         matrixA: originalMatrixA,
         matrixB: originalMatrixA,
         transposeB: true, n: n)
@@ -1066,14 +619,15 @@ final class LinearAlgebraTests: XCTestCase {
           Σ[address] = vector[elementID]
         }
       }
-      Σ = Self.modifiedGramSchmidt(matrix: Σ, n: n)
+      Σ = LinearAlgebraUtilities
+        .modifiedGramSchmidt(matrix: Σ, n: n)
       
       // Construct the symmetric matrix.
-      let ΛΣT = Self.matrixMultiply(
+      let ΛΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Λ, matrixB: Σ, transposeB: true, n: n)
-      let A = Self.matrixMultiply(
+      let A = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Σ, matrixB: ΛΣT, n: n)
-      let AΣ = Self.matrixMultiply(
+      let AΣ = LinearAlgebraUtilities.matrixMultiply(
         matrixA: A, matrixB: Σ, n: n)
       
       // Check self-consistency of the matrix, prior to diagonalization.
@@ -1110,9 +664,11 @@ final class LinearAlgebraTests: XCTestCase {
       }
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       
-      let oneStageEigenvalues = Self.diagonalize(matrix: A, n: n).0
+      let oneStageEigenvalues = LinearAlgebraUtilities
+        .diagonalize(matrix: A, n: n).0
       #if false
-      let twoStageEigenvalues = Self.eigenvaluesTwoStage(matrix: A, n: n)
+      let twoStageEigenvalues = LinearAlgebraUtilities
+        .eigenvaluesTwoStage(matrix: A, n: n)
       #else
       let twoStageEigenvalues = diagonalization.eigenvalues
       #endif
@@ -1137,26 +693,12 @@ final class LinearAlgebraTests: XCTestCase {
     
     // A small test that the benchmark works correctly.
     benchmarkProblemSize(n: 7, trialCount: 1)
-    
-    // Compute-intensive benchmarks across a wide range of problem sizes.
     for n in 1...20 {
       benchmarkProblemSize(n: n, trialCount: 3)
     }
     for nTenth in 3...10 {
       benchmarkProblemSize(n: 10 * nTenth, trialCount: 3)
     }
-    benchmarkProblemSize(n: 125, trialCount: 3)
-    benchmarkProblemSize(n: 200, trialCount: 3)
-    benchmarkProblemSize(n: 250, trialCount: 3)
-    benchmarkProblemSize(n: 300, trialCount: 3)
-    benchmarkProblemSize(n: 400, trialCount: 3)
-    benchmarkProblemSize(n: 500, trialCount: 3)
-    
-    // We need to speed up the custom eigensolver before testing these sizes.
-    benchmarkProblemSize(n: 600, trialCount: 3)
-    benchmarkProblemSize(n: 750, trialCount: 3)
-    benchmarkProblemSize(n: 800, trialCount: 3)
-    benchmarkProblemSize(n: 1000, trialCount: 3)
   }
 }
 
@@ -1168,7 +710,7 @@ private func executeLAPACKComparison(
   n: Int,
   degenerateEigenvalues: Set<Int> = []
 ) {
-  let (expectedEigenvalues, expectedEigenvectors) = LinearAlgebraTests
+  let (expectedEigenvalues, expectedEigenvectors) = LinearAlgebraUtilities
     .diagonalize(matrix: matrix, n: n)
   
   var diagonalizationDesc = DiagonalizationDescriptor()
