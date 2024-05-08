@@ -2,29 +2,17 @@ import XCTest
 import Mechanosynthesis
 import Numerics
 
-// Prove that a multigrid solver with rough mipmap sampling works. This is
-// different from the Real-Space DFT paper, which used a complicated
-// interpolation scheme.
-//
-// The combined electron and ion Hartree potential can be used to compute atomic
-// forces. Interpret the potential as a voltage, and the derivative of voltage
-// is electric field. The electric field exerts a force on the nucleus. The
-// cost is O(1) * O(number of nuclei).
-//
-// 64x64x64 with the current multigrid algorithm idea, by default.
-// 65x65x65 for debugging with the Real-Space DFT paper algorithm, if
-// necessary.
-final class PoissonTests: XCTestCase {
-  // Include at least the quadrupole expansion in the final code. Set the
-  // origin to the "center of charge" to have defined behavior when the
-  // quadrupole depends on the origin.
+final class ElectrostaticsTests: XCTestCase {
+  // This test defines the origin to the "center of charge", to have defined
+  // behavior when the quadrupole depends on the origin:
   // https://phys.libretexts.org/Bookshelves/Mathematical_Physics_and_Pedagogy/Mathematical_Methods/The_Multipole_Expansion
   //
   // Also reproducing the octupole expansion. This has the best tradeoff
-  // between computational overhead and improvement in quality.
+  // between computational overhead and improvement in quality:
   // https://physics.stackexchange.com/questions/269753/electric-octupole-moment-in-cartesian-coordinates
   //
   // For reference, the hexadecapole expansion is on this page (formula 19):
+  //
   // https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7017380/
   func testMultipoleExpansion() throws {
     // Create a list of point charges, compute the multipole expansion, and
@@ -262,14 +250,5 @@ final class PoissonTests: XCTestCase {
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
   
-  // Implementation path for multigrid solver test:
-  // - Establish data structures for variable-resolution grids.
-  // - Run SCF calculation on N2 with direct evaluation of Hartree term.
-  // - Check agreement with bond energies and forces from INQ.
-  // - Use this data to create a good test case for multigrids.
-  //
-  // Insight: for a large portion of the development period, you can suffice
-  // with the simplest algorithms - direct Hartree term, SD eigensolver. More
-  // complex multigrid solvers are only needed once O(n^2) scaling makes the
-  // calculation intractable.
+  
 }

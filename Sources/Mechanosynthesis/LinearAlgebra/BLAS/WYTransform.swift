@@ -183,8 +183,6 @@ struct WYTransform {
     withExtendedLifetime(tau) { }
     withExtendedLifetime(reflectorDotProducts) { }
     
-    // TODO: Refactor all of the code, so that 'tau' is used directly, without
-    // ever transposing it.
     transposeTau(blockSize: blockSize)
   }
   

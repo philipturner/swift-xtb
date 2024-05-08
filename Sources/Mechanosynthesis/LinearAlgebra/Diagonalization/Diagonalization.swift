@@ -150,36 +150,37 @@ public struct Diagonalization {
   mutating func solveEigenproblem(descriptor: DiagonalizationDescriptor) {
     var bandReflectors: [Float] = []
     var bulgeReflectors: [Float] = []
-    
+
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.
     let checkpoint0 = CACurrentMediaTime()
     createMatrix(descriptor: descriptor)
     bandReflectors = reduceToBandForm()
-    
+
     // If the matrix is already in tridiagonal form, there is no work to do.
     let checkpoint1 = CACurrentMediaTime()
     if blockSize > 1 {
       bulgeReflectors = chaseBulges()
     }
-    
+
     // Acquire the eigenvectors (using the LAPACK divide-and-conquer until all
     // other bottlenecks are suppressed).
     let checkpoint2 = CACurrentMediaTime()
     solveTridiagonalEigenproblem()
-    
+
     // If the matrix was already in tridiagonal form, there is no work to do.
     let checkpoint3 = CACurrentMediaTime()
     if blockSize > 1 {
       backTransform(bulgeReflectors: bulgeReflectors)
     }
-    
+
     // Expand the bandwidth from 'blockSize' to 'problemSize'.
     let checkpoint4 = CACurrentMediaTime()
     backTransform(bandReflectors: bandReflectors)
     destroyMatrix()
     let checkpoint5 = CACurrentMediaTime()
-    
-    // Report diagonistics for debugging performance.
+
+    #if false
+    // Report diagnostics for debugging performance.
     if problemSize >= 100 {
       let time01 = 1e6 * (checkpoint1 - checkpoint0)
       let time12 = 1e6 * (checkpoint2 - checkpoint1)
@@ -207,5 +208,6 @@ public struct Diagonalization {
       printPart(index: 3, label: "Back transformation (2nd stage)")
       printPart(index: 4, label: "Back transformation (1st stage)")
     }
+    #endif
   }
 }

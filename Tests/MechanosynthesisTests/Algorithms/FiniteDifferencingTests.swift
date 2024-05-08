@@ -2,10 +2,6 @@ import XCTest
 import Mechanosynthesis
 import Numerics
 
-// The purpose of this test file is to gain experience with asymmetric finite
-// differencing and higher-order finite differencing. This is a key component
-// of the variable-resolution basis method. Examine the tradeoff between FD
-// quality, grid resolution, and code complexity.
 final class FiniteDifferencingTests: XCTestCase {
   // Test various orders of finite differencing with a 1D function on a uniform
   // grid. Demonstrate an improvement in quality, like the multipole expansion.
