@@ -24,3 +24,33 @@ Dependencies:
   - Linked at compile-time for now.
 - OpenCL
   - SIMD-scoped shuffles through either Khronos extensions or assembly injection.
+
+## TODO List for this Branch
+
+libxc
+- LDA
+  - LDA exchange energy density and potential
+  - LDA correlation energy density and potential
+  - LSDA
+- GGA
+  - PBE
+  - r<sup>2</sup>SCAN
+
+Electrostatics
+- Fuzzy cell decomposition
+- Laplacian preconditioner
+
+FiniteDifferencing
+- Mehrstellen operator
+  - Generation of a residual vector
+  - Rayleigh quotient estimation
+- Coarsening operator
+
+LinearSolver
+- INQ steepest descent
+- INQ conjugate gradient
+- Uniform resolution multigrid
+
+Relativity
+- Recursive definition of kinetic energy
+- Solving PGPP equation for 1D square well in real space
