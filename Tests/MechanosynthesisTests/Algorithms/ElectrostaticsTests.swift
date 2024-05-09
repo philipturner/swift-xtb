@@ -311,7 +311,11 @@ final class ElectrostaticsTests: XCTestCase {
     
     // Invert the 4x4 matrix with Diagonalization.
     var diagonalizationDesc = DiagonalizationDescriptor()
-    
+    diagonalizationDesc.matrix = laplacian
+    diagonalizationDesc.problemSize = 4
+    let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    print(diagonalization.eigenvalues)
+    print(diagonalization.eigenvectors)
     
     // Test which order of matrix multiplication produces the correct answer:
     // Σ^{-1} Λ^{-1} (Σ^T)^{-1}

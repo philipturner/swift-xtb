@@ -111,9 +111,13 @@ public struct Diagonalization {
         but the large block size was not.
         """)
     case (.none, .none):
-      // The current heuristic is a placeholder for a proper one.
-      blockSize = 32
-      smallBlockSize = 8
+      if problemSize >= 8 {
+        blockSize = min(32, problemSize & (~7))
+        smallBlockSize = 8
+      } else {
+        blockSize = problemSize
+        smallBlockSize = 1
+      }
     }
     
     guard blockSize <= problemSize else {
