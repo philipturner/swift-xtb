@@ -210,4 +210,31 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(errors[5], 0)
     }
   }
+  
+  // Test formulae for quadratic interpolation (2nd order FVM).
+  //
+  // f(x) = ax^2 + bx + c
+  //
+  // | x0^2 x0 1 | | a | = | y0 |
+  // | x1^2 x1 1 | | b | = | y1 |
+  // | x2^2 x2 1 | | c | = | y2 |
+  //
+  // (x0, y0) = ( -1, y0)
+  // (x1, y1) = (  0, y1)
+  // (x2, y2) = (3/2, y2)
+  //
+  // | a | = |  2/5 -2/3 4/15 | | y0 |
+  // | b | = | -3/5  1/3 4/15 | | y1 |
+  // | c | = |    0    1    0 | | y2 |
+  //
+  // (x0, y0) = (-1, y0)
+  // (x1, y1) = ( 0, y1)
+  // (x2, y2) = ( 1, y2)
+  //
+  // | a | = |  1/2 -1 1/2 | | y0 |
+  // | b | = | -1/2  0 1/2 | | y1 |
+  // | c | = |    0  1   0 | | y2 |
+  func testQuadraticInterpolation() throws {
+    
+  }
 }
