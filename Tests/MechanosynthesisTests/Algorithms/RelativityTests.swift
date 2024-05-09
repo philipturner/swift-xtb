@@ -61,11 +61,37 @@ final class RelativityTests: XCTestCase {
   // |  60 | -1800.000 | -2252.407 | -1934.203 | -1895.682 |
   // |  80 | -3200.000 | -5317.788 | -3686.447 | -3532.192 |
   func testHydrogenicAtom() throws {
+    let h: Float = 0.1
+    let cellCount: Int = 100
+    
     // Hydrogen wave function: R(r) = 2 e^{-r}
     //
-    // First step: materialize the hydrogen wave function on a grid. Test the
+    // Solve the wavefunction on a radial grid for simplicity. Test the
     // expectation value for normalization factor and energy.
+    // - Ensure the naive version integrates to 4 pi.
+    var wavefunction: [Float] = []
+    for cellID in 0..<cellCount {
+      let r = (Float(cellID) + 0.5) * h
+      let radialTerm = 2 * Float.exp(-r)
+      
+      var normalizationFactor = 1 / (4 * Float.pi)
+      normalizationFactor.formSquareRoot()
+      wavefunction.append(normalizationFactor * radialTerm)
+    }
     
-    // Solve the wavefunction on a radial grid for simplicity.
+    // Check the normalization factor.
+    do {
+      var normalizationFactorSum: Double = .zero
+      for cellID in 0..<cellCount {
+        let r = (Float(cellID) + 0.5) * h
+        let amplitude = wavefunction[cellID]
+        
+        let drTerm = 4 * Float.pi * (r * r) * h
+        let integralTerm = (amplitude * amplitude) * drTerm
+        normalizationFactorSum += Double(integralTerm)
+      }
+      let normalizationFactor = Float(normalizationFactorSum)
+      XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-5)
+    }
   }
 }
