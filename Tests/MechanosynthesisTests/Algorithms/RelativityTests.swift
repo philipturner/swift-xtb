@@ -64,7 +64,8 @@ final class RelativityTests: XCTestCase {
     // Hydrogen wave function: R(r) = 2 e^{-r}
     //
     // First step: materialize the hydrogen wave function on a grid. Test the
-    // expectation value for normalization factor and energy. Planning to do
-    // this in 3D, to simplify the integration formula.
+    // expectation value for normalization factor and energy.
+    
+    // Solve the wavefunction on a radial grid for simplicity.
   }
 }
