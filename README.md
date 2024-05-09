@@ -37,6 +37,7 @@ libxc
   - r<sup>2</sup>SCAN
 
 Electrostatics
+- Self-repulsion integral
 - Fuzzy cell decomposition
 - Laplacian preconditioner
 
@@ -53,4 +54,4 @@ LinearSolver
 
 Relativity
 - Recursive definition of kinetic energy
-- Solving PGPP equation for 1D square well in real space
+- Solving PGPP equation for radial wavefunction of hydrogen-like atoms
