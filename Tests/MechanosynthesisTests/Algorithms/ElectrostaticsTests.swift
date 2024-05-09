@@ -282,7 +282,7 @@ final class ElectrostaticsTests: XCTestCase {
     laplacianInverse += [-0.2, -0.4, -0.6, -0.8]
     
     // Evaluate the product of these two matrices.
-    var product = multiply4x4(laplacian, laplacianInverse)
+    let product = multiply4x4(laplacian, laplacianInverse)
     XCTAssertEqual(product[0 * 4 + 0], 1, accuracy: 1e-5)
     XCTAssertEqual(product[0 * 4 + 1], 0, accuracy: 1e-5)
     XCTAssertEqual(product[0 * 4 + 2], 0, accuracy: 1e-5)
@@ -465,12 +465,76 @@ final class ElectrostaticsTests: XCTestCase {
       }
     }
     
-    // Display the Laplacian matrix.
+    // Invert the 25x25 matrix with Diagonalization.
+    var diagonalizationDesc = DiagonalizationDescriptor()
+    diagonalizationDesc.matrix = laplacian
+    diagonalizationDesc.problemSize = 25
+    let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    
+    // Materialize the eigenvalues into a square matrix, then invert it.
+    var inverseΛ = [Float](repeating: .zero, count: 625)
+    for diagonalID in 0..<25 {
+      let eigenvalue = diagonalization.eigenvalues[diagonalID]
+      let address = diagonalID * 25 + diagonalID
+      inverseΛ[address] = 1 / eigenvalue
+    }
+    
+    // The eigenvectors are returned in column-major order.
+    let Σ = transpose25x25(diagonalization.eigenvectors)
+    var laplacianInverse = multiply25x25(inverseΛ, transpose25x25(Σ))
+    laplacianInverse = multiply25x25(Σ, laplacianInverse)
+    
+    // Evaluate the product of these two matrices.
+    let product = multiply25x25(laplacian, laplacianInverse)
+    for rowID in 0..<25 {
+      let diagonal = product[rowID * 25 + rowID]
+      XCTAssertEqual(diagonal, 1, accuracy: 1e-5)
+      
+      for columnID in (rowID + 1)..<25 {
+        let entry = product[rowID * 25 + columnID]
+        XCTAssertEqual(entry, 0, accuracy: 1e-5)
+      }
+    }
+    
+    // Display the inverse of the Laplacian operator.
     print()
     for rowID in 0..<25 {
       for columnID in 0..<25 {
-        let value = laplacian[rowID * 25 + columnID]
-        print(value, terminator: "")
+        var value = laplacianInverse[rowID * 25 + columnID]
+        
+        
+        if rowID != columnID {
+//          value = -0
+        }
+        
+        let repr = String(format: "%.4f", value)
+        print(repr, terminator: "")
+        
+        if columnID == 24 {
+          print()
+        } else {
+          print(", ", terminator: "")
+        }
+      }
+    }
+    
+    // Display the matrix form of the integral operator.
+    print()
+    for rowID in 0..<25 {
+      for columnID in 0..<25 {
+        var value: Float = .zero
+        if rowID == columnID {
+          value = -Float(25).squareRoot()
+        } else {
+          let r = Float(rowID - columnID).magnitude
+          let diagonalValue = -Float(25).squareRoot()
+          let edgeValue = 0
+          
+          let progress = (25 - r) / 25
+          value = progress * diagonalValue
+        }
+        let repr = String(format: "%.4f", value)
+        print(repr, terminator: "")
         
         if columnID == 24 {
           print()
@@ -482,7 +546,7 @@ final class ElectrostaticsTests: XCTestCase {
   }
   
   // Analyze the case where a cell overlaps itself, and the explicit integral
-  // for Hartree potential evalutes to infinity.
+  // for Hartree potential evaluates to infinity.
   //
   // The 1D case was calculated analytically, and it supposedly diverges.
   // The 3D case was calculated analytically:
