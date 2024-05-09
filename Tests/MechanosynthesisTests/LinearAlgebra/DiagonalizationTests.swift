@@ -23,9 +23,9 @@ final class DiagonalizationTests: XCTestCase {
       -1, -2, -3, -5, -7, -9, -10,
       69, 23, 9, -48, 7, 1, 9,
     ]
-    eigenvectors = DiagonalizationTests
+    eigenvectors = LinearAlgebraUtilities
       .transpose(matrix: eigenvectors, n: 7)
-    eigenvectors = DiagonalizationTests
+    eigenvectors = LinearAlgebraUtilities
       .modifiedGramSchmidt(matrix: eigenvectors, n: 7)
     
     // Well-conditioned eigenspectra without degenerate clusters.
@@ -73,13 +73,13 @@ final class DiagonalizationTests: XCTestCase {
       }
       let ΣT = eigenvectors
       
-      let ΛΣT = DiagonalizationTests.matrixMultiply(
+      let ΛΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Λ, transposeA: false,
         matrixB: ΣT, transposeB: false, n: 7)
-      let A = DiagonalizationTests.matrixMultiply(
+      let A = LinearAlgebraUtilities.matrixMultiply(
         matrixA: ΣT, transposeA: true,
         matrixB: ΛΣT, transposeB: false, n: 7)
-      let AΣT = DiagonalizationTests.matrixMultiply(
+      let AΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: A, transposeA: false,
         matrixB: ΣT, transposeB: true, n: 7)
       
@@ -103,13 +103,13 @@ final class DiagonalizationTests: XCTestCase {
     }
     
     func testMatrix(_ originalMatrixA: [Float], n: Int) {
-      let originalMatrixT = DiagonalizationTests
+      let originalMatrixT = LinearAlgebraUtilities
         .tridiagonalize(matrix: originalMatrixA, n: n)
-      let (D, Z) = DiagonalizationTests
+      let (D, Z) = LinearAlgebraUtilities
         .divideAndConquer(matrix: originalMatrixT, n: n)
       
       // Check that the eigenvectors produce the eigenvalues.
-      let HΨ = DiagonalizationTests.matrixMultiply(
+      let HΨ = LinearAlgebraUtilities.matrixMultiply(
         matrixA: originalMatrixT,
         matrixB: Z,
         transposeB: true, n: n)
@@ -349,7 +349,7 @@ final class DiagonalizationTests: XCTestCase {
       let n: Int = 7
       
       // Make the matrix symmetric.
-      originalMatrixA = DiagonalizationTests.matrixMultiply(
+      originalMatrixA = LinearAlgebraUtilities.matrixMultiply(
         matrixA: originalMatrixA,
         matrixB: originalMatrixA,
         transposeB: true, n: n)
@@ -619,15 +619,15 @@ final class DiagonalizationTests: XCTestCase {
           Σ[address] = vector[elementID]
         }
       }
-      Σ = DiagonalizationTests
+      Σ = LinearAlgebraUtilities
         .modifiedGramSchmidt(matrix: Σ, n: n)
       
       // Construct the symmetric matrix.
-      let ΛΣT = DiagonalizationTests.matrixMultiply(
+      let ΛΣT = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Λ, matrixB: Σ, transposeB: true, n: n)
-      let A = DiagonalizationTests.matrixMultiply(
+      let A = LinearAlgebraUtilities.matrixMultiply(
         matrixA: Σ, matrixB: ΛΣT, n: n)
-      let AΣ = DiagonalizationTests.matrixMultiply(
+      let AΣ = LinearAlgebraUtilities.matrixMultiply(
         matrixA: A, matrixB: Σ, n: n)
       
       // Check self-consistency of the matrix, prior to diagonalization.
@@ -664,10 +664,10 @@ final class DiagonalizationTests: XCTestCase {
       }
       let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       
-      let oneStageEigenvalues = DiagonalizationTests
+      let oneStageEigenvalues = LinearAlgebraUtilities
         .diagonalize(matrix: A, n: n).0
       #if false
-      let twoStageEigenvalues = DiagonalizationTests
+      let twoStageEigenvalues = LinearAlgebraUtilities
         .eigenvaluesTwoStage(matrix: A, n: n)
       #else
       let twoStageEigenvalues = diagonalization.eigenvalues
@@ -710,7 +710,7 @@ private func executeLAPACKComparison(
   n: Int,
   degenerateEigenvalues: Set<Int> = []
 ) {
-  let (expectedEigenvalues, expectedEigenvectors) = DiagonalizationTests
+  let (expectedEigenvalues, expectedEigenvectors) = LinearAlgebraUtilities
     .diagonalize(matrix: matrix, n: n)
   
   var diagonalizationDesc = DiagonalizationDescriptor()

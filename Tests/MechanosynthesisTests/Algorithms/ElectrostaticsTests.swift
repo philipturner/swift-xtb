@@ -250,28 +250,14 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
   
-  
-  
+  // Directly invert the Laplacian for a 4-cell domain.
   func testLaplacianInverse4x4() throws {
     // The matrices are in row-major order.
     func multiply4x4(_ A: [Float], _ B: [Float]) -> [Float] {
-      var C = [Float](repeating: 0, count: 4 * 4)
-      for m in 0..<4 {
-        for n in 0..<4 {
-          var dotProduct: Float = .zero
-          
-          for k in 0..<4 {
-            let lhs = A[m * 4 + k]
-            let rhs = B[k * 4 + n]
-            dotProduct += lhs * rhs
-          }
-          C[m * 4 + n] = dotProduct
-        }
-      }
-      return C
+      LinearAlgebraUtilities.matrixMultiply(matrixA: A, matrixB: B, n: 4)
     }
     func transpose4x4(_ A: [Float]) -> [Float] {
-      var output = [Float](repeating: 0, count: 4 * 4)
+      var output = [Float](repeating: 0, count: 16)
       for m in 0..<4 {
         for n in 0..<4 {
           let value = A[n * 4 + m]
@@ -310,25 +296,27 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertEqual(product[3 * 4 + 3], 1, accuracy: 1e-5)
     
     // Invert the 4x4 matrix with Diagonalization.
-    // - Note that the eigenvectors are returned in column-major order.
     var diagonalizationDesc = DiagonalizationDescriptor()
     diagonalizationDesc.matrix = laplacian
     diagonalizationDesc.problemSize = 4
-    
     let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    
+    // Check that the eigenvalues match a previously evaluated result.
     XCTAssertEqual(diagonalization.eigenvalues[0], -3.618, accuracy: 1e-3)
     XCTAssertEqual(diagonalization.eigenvalues[1], -2.618, accuracy: 1e-3)
     XCTAssertEqual(diagonalization.eigenvalues[2], -1.382, accuracy: 1e-3)
     XCTAssertEqual(diagonalization.eigenvalues[3], -0.382, accuracy: 1e-3)
     
-    // The eigenvectors are returned in column-major order.
-    let Σ = transpose4x4(diagonalization.eigenvectors)
+    // Materialize the eigenvalues into a square matrix, then invert it.
     let inverseΛ: [Float] = [
       1 / diagonalization.eigenvalues[0], 0, 0, 0,
       0, 1 / diagonalization.eigenvalues[1], 0, 0,
       0, 0, 1 / diagonalization.eigenvalues[2], 0,
       0, 0, 0, 1 / diagonalization.eigenvalues[3],
     ]
+    
+    // The eigenvectors are returned in column-major order.
+    let Σ = transpose4x4(diagonalization.eigenvectors)
     var calculatedInverse = multiply4x4(inverseΛ, transpose4x4(Σ))
     calculatedInverse = multiply4x4(Σ, calculatedInverse)
     
@@ -340,7 +328,158 @@ final class ElectrostaticsTests: XCTestCase {
     }
   }
   
-  // TODO: Repeat the test above, with a 10x10 Laplacian matrix.
+  // Directly invert the Laplacian for a 10-cell domain.
+  func testLaplacianInverse10x10() throws {
+    // The matrices are in row-major order.
+    func multiply10x10(_ A: [Float], _ B: [Float]) -> [Float] {
+      LinearAlgebraUtilities.matrixMultiply(matrixA: A, matrixB: B, n: 10)
+    }
+    func transpose10x10(_ A: [Float]) -> [Float] {
+      var output = [Float](repeating: 0, count: 100)
+      for m in 0..<10 {
+        for n in 0..<10 {
+          let value = A[n * 10 + m]
+          output[m * 10 + n] = value
+        }
+      }
+      return output
+    }
+    
+    // Create a 10x10 matrix that represents an aperiodic Laplacian.
+    var laplacian: [Float] = []
+    laplacian += [-2, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    laplacian += [1, -2, 1, 0, 0, 0, 0, 0, 0, 0]
+    laplacian += [0, 1, -2, 1, 0, 0, 0, 0, 0, 0]
+    laplacian += [0, 0, 1, -2, 1, 0, 0, 0, 0, 0]
+    laplacian += [0, 0, 0, 1, -2, 1, 0, 0, 0, 0]
+    laplacian += [0, 0, 0, 0, 1, -2, 1, 0, 0, 0]
+    laplacian += [0, 0, 0, 0, 0, 1, -2, 1, 0, 0]
+    laplacian += [0, 0, 0, 0, 0, 0, 1, -2, 1, 0]
+    laplacian += [0, 0, 0, 0, 0, 0, 0, 1, -2, 1]
+    laplacian += [0, 0, 0, 0, 0, 0, 0, 0, 1, -2]
+    
+    // Invert the 10x10 matrix with Diagonalization.
+    var diagonalizationDesc = DiagonalizationDescriptor()
+    diagonalizationDesc.matrix = laplacian
+    diagonalizationDesc.problemSize = 10
+    let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    
+    // Check that the eigenvalues match a previously evaluated result.
+    var expectedEigenvalues: [Float] = []
+    expectedEigenvalues += [-3.919, -3.683, -3.310, -2.831, -2.285]
+    expectedEigenvalues += [-1.715, -1.169, -0.690, -0.317, -0.081]
+    for eigenpairID in 0..<10 {
+      let expected = expectedEigenvalues[eigenpairID]
+      let actual = diagonalization.eigenvalues[eigenpairID]
+      XCTAssertEqual(expected, actual, accuracy: 1e-3)
+    }
+    
+    // Materialize the eigenvalues into a square matrix, then invert it.
+    var inverseΛ = [Float](repeating: .zero, count: 100)
+    for diagonalID in 0..<10 {
+      let eigenvalue = diagonalization.eigenvalues[diagonalID]
+      let address = diagonalID * 10 + diagonalID
+      inverseΛ[address] = 1 / eigenvalue
+    }
+    
+    // The eigenvectors are returned in column-major order.
+    let Σ = transpose10x10(diagonalization.eigenvectors)
+    var laplacianInverse = multiply10x10(inverseΛ, transpose10x10(Σ))
+    laplacianInverse = multiply10x10(Σ, laplacianInverse)
+    
+    // Evaluate the product of these two matrices.
+    let product = multiply10x10(laplacian, laplacianInverse)
+    for rowID in 0..<10 {
+      let diagonal = product[rowID * 10 + rowID]
+      XCTAssertEqual(diagonal, 1, accuracy: 1e-5)
+      
+      for columnID in (rowID + 1)..<10 {
+        let entry = product[rowID * 10 + columnID]
+        XCTAssertEqual(entry, 0, accuracy: 1e-5)
+      }
+    }
+    
+    // Display the inverse of the Laplacian operator.
+    print()
+    for rowID in 0..<10 {
+      for columnID in 0..<10 {
+        let value = laplacianInverse[rowID * 10 + columnID]
+        let repr = String(format: "%.4f", value)
+        print(repr, terminator: "")
+        
+        if columnID == 9 {
+          print()
+        } else {
+          print(", ", terminator: "")
+        }
+      }
+    }
+    
+    // Display the matrix form of the integral operator.
+    print()
+    for rowID in 0..<10 {
+      for columnID in 0..<10 {
+        var value: Float = .zero
+        if rowID != columnID {
+          value = -1 / Float(rowID - columnID).magnitude
+        }
+        let repr = String(format: "%.4f", value)
+        print(repr, terminator: "")
+        
+        if columnID == 9 {
+          print()
+        } else {
+          print(", ", terminator: "")
+        }
+      }
+    }
+  }
+  
+  // Directly invert the Laplacian for a 25-cell domain.
+  func testLaplacianInverse25x25() throws {
+    // The matrices are in row-major order.
+    func multiply25x25(_ A: [Float], _ B: [Float]) -> [Float] {
+      LinearAlgebraUtilities.matrixMultiply(matrixA: A, matrixB: B, n: 25)
+    }
+    func transpose25x25(_ A: [Float]) -> [Float] {
+      var output = [Float](repeating: 0, count: 625)
+      for m in 0..<25 {
+        for n in 0..<25 {
+          let value = A[n * 25 + m]
+          output[m * 25 + n] = value
+        }
+      }
+      return output
+    }
+    
+    // Create a 10x10 matrix that represents an aperiodic Laplacian.
+    var laplacian = [Float](repeating: .zero, count: 625)
+    for diagonalID in 0..<25 {
+      laplacian[diagonalID * 25 + diagonalID] = -2
+      
+      if diagonalID > 0 {
+        laplacian[diagonalID * 25 + diagonalID - 1] = 1
+      }
+      if diagonalID < 24 {
+        laplacian[diagonalID * 25 + diagonalID + 1] = 1
+      }
+    }
+    
+    // Display the Laplacian matrix.
+    print()
+    for rowID in 0..<25 {
+      for columnID in 0..<25 {
+        let value = laplacian[rowID * 25 + columnID]
+        print(value, terminator: "")
+        
+        if columnID == 24 {
+          print()
+        } else {
+          print(", ", terminator: "")
+        }
+      }
+    }
+  }
   
   // Analyze the case where a cell overlaps itself, and the explicit integral
   // for Hartree potential evalutes to infinity.
