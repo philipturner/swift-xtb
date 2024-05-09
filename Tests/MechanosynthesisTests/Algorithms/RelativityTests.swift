@@ -130,6 +130,24 @@ final class RelativityTests: XCTestCase {
       return output
     }
     
+    // Evaluates an integral in spherical coordinates.
+    func integral(_ lhs: [Float], _ rhs: [Float]) -> Float {
+      guard lhs.count == cellCount,
+            rhs.count == cellCount else {
+        fatalError("Operands must have same size as domain.")
+      }
+      
+      // Accumulate in FP64, then convert the sum to FP32.
+      var accumulator: Double = .zero
+      for cellID in 0..<cellCount {
+        let r = (Float(cellID) + 0.5) * h
+        let product = lhs[cellID] * rhs[cellID]
+        let drTerm = 4 * Float.pi * (r * r) * h
+        accumulator += Double(product * drTerm)
+      }
+      return Float(accumulator)
+    }
+    
     // Hydrogen wave function: R(r) = 2 e^{-r}
     //
     // Solve the wavefunction on a radial grid for simplicity. Test the
@@ -146,42 +164,21 @@ final class RelativityTests: XCTestCase {
     
     // Check the normalization factor.
     do {
-      var normalizationFactorSum: Double = .zero
-      for cellID in 0..<cellCount {
-        let r = (Float(cellID) + 0.5) * h
-        let Ψ = wavefunction[cellID]
-        
-        // Evaluate the norm term.
-        let ΨΨ = Ψ * Ψ
-        
-        // Sum into the integral.
-        let drTerm = 4 * Float.pi * (r * r) * h
-        normalizationFactorSum += Double(ΨΨ * drTerm)
-      }
-      let normalizationFactor = Float(normalizationFactorSum)
+      let normalizationFactor = integral(wavefunction, wavefunction)
       XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-5)
     }
     
     // Query the energy of the ansatz.
     do {
       let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
-      
-      var energySum: Double = .zero
-      for cellID in 0..<cellCount {
-        let r = (Float(cellID) + 0.5) * h
-        let Ψ = wavefunction[cellID]
-        
-        // Evaluate the hamiltonian term.
-        let HΨ = hamiltonianΨ[cellID]
-        let ΨHΨ = Ψ * HΨ
-        
-        // Sum into the integral.
-        let drTerm = 4 * Float.pi * (r * r) * h
-        energySum += Double(ΨHΨ * drTerm)
-      }
-      
-      // Log the values returned by the integral.
-      print(energySum)
+      let energy = integral(wavefunction, hamiltonianΨ)
+      print("ansatz energy:", energy)
+    }
+    
+    // Search for the lowest eigenpair.
+    for _ in 0..<1 {
+      // The Rayleigh quotient is ΨHΨ because Ψ is already normed.
+      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
     }
   }
 }
