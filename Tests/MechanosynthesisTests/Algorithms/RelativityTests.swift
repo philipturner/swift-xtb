@@ -65,31 +65,98 @@ final class RelativityTests: XCTestCase {
     let cellCount: Int = 100
     let Z: Int = 1
     
+    // Applies the Laplacian operator to the wavefunction.
+    func laplacian(Ψ: [Float]) -> [Float] {
+      var output: [Float] = []
+      for cellID in 0..<cellCount {
+        let r = (Float(cellID) + 0.5) * h
+        
+        // Gather data points for the finite difference.
+        var left: Float = .zero
+        var center: Float = .zero
+        var right: Float = .zero
+        if Ψ.indices.contains(cellID - 1) {
+          left = Ψ[cellID - 1]
+        } else {
+          // The wavefunction is spherical about the origin.
+          left = Ψ[cellID]
+        }
+        if Ψ.indices.contains(cellID) {
+          center = Ψ[cellID]
+        }
+        if Ψ.indices.contains(cellID + 1) {
+          right = Ψ[cellID + 1]
+        }
+        
+        // Evaluate the Laplacian in spherical coordinates.
+        // Source: https://en.wikipedia.org/wiki/Laplace_operator#Three_dimensions
+        
+        // Apply the derivative the first time.
+        var leftDerivative = (center - left) / h
+        var rightDerivative = (right - center) / h
+        
+        // Scale by r^2.
+        leftDerivative *= (r - 0.5 * h) * (r - 0.5 * h)
+        rightDerivative *= (r + 0.5 * h) * (r + 0.5 * h)
+        
+        // Apply the derivative the second time.
+        var secondDerivative = (rightDerivative - leftDerivative) / h
+        
+        // Undo the scaling by r^2.
+        secondDerivative /= (r * r)
+        output.append(secondDerivative)
+      }
+      return output
+    }
+    
+    // Applies the Hamiltonian operator to the wavefunction.
+    func hamiltonian(Ψ: [Float], γ: Float) -> [Float] {
+      let laplacianΨ = laplacian(Ψ: Ψ)
+      
+      var output: [Float] = []
+      for cellID in 0..<cellCount {
+        let r = (Float(cellID) + 0.5) * h
+        let amplitude = Ψ[cellID]
+        
+        // Evaluate the energy terms.
+        let LΨ = laplacianΨ[cellID]
+        let TΨ = -1 / (1 + γ) * LΨ
+        let VΨ = -Float(Z) / r * amplitude
+        
+        // Return the energy times the wavefunction.
+        let HΨ = TΨ + VΨ
+        output.append(HΨ)
+      }
+      return output
+    }
+    
     // Hydrogen wave function: R(r) = 2 e^{-r}
     //
     // Solve the wavefunction on a radial grid for simplicity. Test the
     // expectation value for normalization factor and energy.
-    // - Ensure the naive version integrates to 4 pi.
     var wavefunction: [Float] = []
     for cellID in 0..<cellCount {
       let r = (Float(cellID) + 0.5) * h
-      let radialTerm = 2 * Float.exp(-r)
+      let R = 2 * Float.exp(-r)
       
       var normalizationFactor = 1 / (4 * Float.pi)
       normalizationFactor.formSquareRoot()
-      wavefunction.append(normalizationFactor * radialTerm)
+      wavefunction.append(normalizationFactor * R)
     }
     
     // Check the normalization factor.
     do {
       var normalizationFactorSum: Double = .zero
       for cellID in 0..<cellCount {
-        let amplitude = wavefunction[cellID]
-        let valueTerm = amplitude * amplitude
-        
         let r = (Float(cellID) + 0.5) * h
+        let Ψ = wavefunction[cellID]
+        
+        // Evaluate the norm term.
+        let ΨΨ = Ψ * Ψ
+        
+        // Sum into the integral.
         let drTerm = 4 * Float.pi * (r * r) * h
-        normalizationFactorSum += Double(valueTerm * drTerm)
+        normalizationFactorSum += Double(ΨΨ * drTerm)
       }
       let normalizationFactor = Float(normalizationFactorSum)
       XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-5)
@@ -97,71 +164,24 @@ final class RelativityTests: XCTestCase {
     
     // Query the energy of the ansatz.
     do {
-      var kineticEnergySum: Double = .zero
-      var potentialEnergySum: Double = .zero
+      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      
+      var energySum: Double = .zero
       for cellID in 0..<cellCount {
         let r = (Float(cellID) + 0.5) * h
+        let Ψ = wavefunction[cellID]
         
-        func createLaplacian() -> Float {
-          // Gather data points for the finite difference.
-          var left: Float = .zero
-          var center: Float = .zero
-          var right: Float = .zero
-          if wavefunction.indices.contains(cellID - 1) {
-            left = wavefunction[cellID - 1]
-          } else {
-            // The wavefunction is spherical about the origin.
-            left = wavefunction[cellID]
-          }
-          if wavefunction.indices.contains(cellID) {
-            center = wavefunction[cellID]
-          }
-          if wavefunction.indices.contains(cellID + 1) {
-            right = wavefunction[cellID + 1]
-          }
-          
-          // Evaluate the Laplacian in spherical coordinates.
-          // Source: https://en.wikipedia.org/wiki/Laplace_operator#Three_dimensions
-          
-          // Apply the derivative the first time.
-          var leftDerivative = (center - left) / h
-          var rightDerivative = (right - center) / h
-          
-          // Scale by r^2.
-          leftDerivative *= (r - 0.5 * h) * (r - 0.5 * h)
-          rightDerivative *= (r + 0.5 * h) * (r + 0.5 * h)
-          
-          // Apply the derivative the second time.
-          var secondDerivative = (rightDerivative - leftDerivative) / h
-          
-          // Undo the scaling by r^2.
-          secondDerivative /= (r * r)
-          return secondDerivative
-        }
+        // Evaluate the hamiltonian term.
+        let HΨ = hamiltonianΨ[cellID]
+        let ΨHΨ = Ψ * HΨ
         
-        // Fetch the value of the wavefunction.
-        let amplitude = wavefunction[cellID]
-        
-        // Evaluate the energy terms.
-        let laplacian = createLaplacian()
-        var kineticEnergyTerm = -0.5 * createLaplacian()
-        var potentialEnergyTerm = -Float(Z) / r * amplitude
-        kineticEnergyTerm *= amplitude
-        potentialEnergyTerm *= amplitude
-        
-        // Sum the terms into the integral.
+        // Sum into the integral.
         let drTerm = 4 * Float.pi * (r * r) * h
-        kineticEnergySum += Double(kineticEnergyTerm * drTerm)
-        potentialEnergySum += Double(potentialEnergyTerm * drTerm)
-        print(String(format: "%.3f", r), laplacian, kineticEnergyTerm, potentialEnergyTerm)
+        energySum += Double(ΨHΨ * drTerm)
       }
       
       // Log the values returned by the integral.
-      let kineticEnergy = Float(kineticEnergySum)
-      let potentialEnergy = Float(potentialEnergySum)
-      print()
-      print(kineticEnergy)
-      print(potentialEnergy)
+      print(energySum)
     }
   }
 }
