@@ -267,4 +267,55 @@ final class ElectrostaticsTests: XCTestCase {
     //
     // Try integrating the 1D, 2D, and 3D integrals numerically.
   }
+  
+  func testLaplacianInverse4x4() throws {
+    // Create a 4x4 matrix that represents an aperiodic Laplacian.
+    var laplacian: [Float] = []
+    laplacian += [-2, 1, 0, 0]
+    laplacian += [1, -2, 1, 0]
+    laplacian += [0, 1, -2, 1]
+    laplacian += [0, 0, 1, -2]
+    
+    // Hard-code the results of a 4x4 inversion with Accelerate.
+    var laplacianInverse: [Float] = []
+    laplacianInverse += [-0.8, -0.6, -0.4, -0.2]
+    laplacianInverse += [-0.6, -1.2, -0.8, -0.4]
+    laplacianInverse += [-0.4, -0.8, -1.2, -0.6]
+    laplacianInverse += [-0.2, -0.4, -0.6, -0.8]
+    
+    // Evaluate the product of these two matrices.
+    var product = [Float](repeating: 0, count: 4 * 4)
+    for m in 0..<4 {
+      for n in 0..<4 {
+        var dotProduct: Float = .zero
+        
+        for k in 0..<4 {
+          let lhs = laplacian[m * 4 + k]
+          let rhs = laplacianInverse[k * 4 + n]
+          dotProduct += lhs * rhs
+        }
+        product[m * 4 + n] = dotProduct
+      }
+    }
+    XCTAssertEqual(product[0 * 4 + 0], 1, accuracy: 1e-5)
+    XCTAssertEqual(product[0 * 4 + 1], 0, accuracy: 1e-5)
+    XCTAssertEqual(product[0 * 4 + 2], 0, accuracy: 1e-5)
+    XCTAssertEqual(product[0 * 4 + 3], 0, accuracy: 1e-5)
+    
+    XCTAssertEqual(product[1 * 4 + 1], 1, accuracy: 1e-5)
+    XCTAssertEqual(product[1 * 4 + 2], 0, accuracy: 1e-5)
+    XCTAssertEqual(product[1 * 4 + 3], 0, accuracy: 1e-5)
+    XCTAssertEqual(product[2 * 4 + 2], 1, accuracy: 1e-5)
+    XCTAssertEqual(product[2 * 4 + 3], 0, accuracy: 1e-5)
+    XCTAssertEqual(product[3 * 4 + 3], 1, accuracy: 1e-5)
+    
+    // Invert the 4x4 matrix with Diagonalization.
+    
+    // Test which order of matrix multiplication produces the correct answer:
+    // Σ^{-1} Λ^{-1} (Σ^T)^{-1}
+    // (Σ^T)^{-1} Λ^{-1} Σ^{-1}
+    
+  }
+  
+  // TODO: Repeat the test above, with a 10x10 Laplacian matrix.
 }
