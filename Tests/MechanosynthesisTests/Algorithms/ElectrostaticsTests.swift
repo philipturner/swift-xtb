@@ -250,23 +250,7 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
   
-  // Analyze the case where a cell overlaps itself, and the explicit integral
-  // for Hartree potential evalutes to infinity.
-  //
-  // The 1D case was calculated analytically, and it supposedly diverges.
-  // The 3D case was calculated analytically:
-  // Source: https://doi.org/10.1103/PhysRevB.50.11355
-  //
-  // v(r) = Σ ρ(r') g(r, r')
-  // ijk ≠ i'j'k' | g(r, r') = h^3 / |r - r'|
-  // ijk = i'j'k' | g(r, r') = -h^2 (π / 2 + 3 ln ((√3 - 1) / (√3 + 1)))
-  func testSelfRepulsionIntegral() throws {
-    // Try to figure out the overall self-energy of a cell with itself.
-    // Calculate it numerically while excluding the singularities.
-    // Find the limit as the singularity becomes infinitesimally small.
-    //
-    // Try integrating the 1D, 2D, and 3D integrals numerically.
-  }
+  
   
   func testLaplacianInverse4x4() throws {
     // The matrices are in row-major order.
@@ -285,6 +269,16 @@ final class ElectrostaticsTests: XCTestCase {
         }
       }
       return C
+    }
+    func transpose4x4(_ A: [Float]) -> [Float] {
+      var output = [Float](repeating: 0, count: 4 * 4)
+      for m in 0..<4 {
+        for n in 0..<4 {
+          let value = A[n * 4 + m]
+          output[m * 4 + n] = value
+        }
+      }
+      return output
     }
     
     // Create a 4x4 matrix that represents an aperiodic Laplacian.
@@ -327,31 +321,42 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertEqual(diagonalization.eigenvalues[2], -1.382, accuracy: 1e-3)
     XCTAssertEqual(diagonalization.eigenvalues[3], -0.382, accuracy: 1e-3)
     
-    print(diagonalization.eigenvectors)
-    // 0.371748, -0.6015008, 0.60150087, -0.371748,
-    // -0.6015011, 0.37174788, 0.3717481, -0.60150105,
-    // -0.60150075, -0.37174785, 0.37174818, 0.601501,
-    // -0.3717481, -0.6015009, -0.6015008, -0.37174794
+    // The eigenvectors are returned in column-major order.
+    let Σ = transpose4x4(diagonalization.eigenvectors)
+    let inverseΛ: [Float] = [
+      1 / diagonalization.eigenvalues[0], 0, 0, 0,
+      0, 1 / diagonalization.eigenvalues[1], 0, 0,
+      0, 0, 1 / diagonalization.eigenvalues[2], 0,
+      0, 0, 0, 1 / diagonalization.eigenvalues[3],
+    ]
+    var calculatedInverse = multiply4x4(inverseΛ, transpose4x4(Σ))
+    calculatedInverse = multiply4x4(Σ, calculatedInverse)
     
-    // Test which order of matrix multiplication produces the correct answer:
-    // Σ^{-1} Λ^{-1} (Σ^T)^{-1}
-    // (Σ^T)^{-1} Λ^{-1} Σ^{-1}
-    var matrix1: [Float] = [
-      1, 0, 0, 0,
-      2, 1, 0, 0,
-      2, 0, 1, 0,
-      2, 0, 0, 1,
-    ]
-    var matrix2: [Float] = [
-      3, 0, 0, 0,
-      0, 3, 0, 0,
-      0, 0, 3, 4,
-      0, 0, 0, 3
-    ]
-//    let product12 = LinearAlgebraUtilities
-//      .matrixMultiply(matrixA: matrix1, matrixB: matrix2, n: 4)
-//    print(product12)
+    // Check the correctness of inversion by diagonalization.
+    for elementID in 0..<16 {
+      let expected = laplacianInverse[elementID]
+      let actual = calculatedInverse[elementID]
+      XCTAssertEqual(expected, actual, accuracy: 1e-5)
+    }
   }
   
   // TODO: Repeat the test above, with a 10x10 Laplacian matrix.
+  
+  // Analyze the case where a cell overlaps itself, and the explicit integral
+  // for Hartree potential evalutes to infinity.
+  //
+  // The 1D case was calculated analytically, and it supposedly diverges.
+  // The 3D case was calculated analytically:
+  // Source: https://doi.org/10.1103/PhysRevB.50.11355
+  //
+  // v(r) = Σ ρ(r') g(r, r')
+  // ijk ≠ i'j'k' | g(r, r') = h^3 / |r - r'|
+  // ijk = i'j'k' | g(r, r') = -h^2 (π / 2 + 3 ln ((√3 - 1) / (√3 + 1)))
+  func testSelfRepulsionIntegral() throws {
+    // Try to figure out the overall self-energy of a cell with itself.
+    // Calculate it numerically while excluding the singularities.
+    // Find the limit as the singularity becomes infinitesimally small.
+    //
+    // Try integrating the 1D, 2D, and 3D integrals numerically.
+  }
 }
