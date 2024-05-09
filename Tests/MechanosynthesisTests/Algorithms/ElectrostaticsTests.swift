@@ -250,5 +250,21 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
   
-  
+  // Analyze the case where a cell overlaps itself, and the explicit integral
+  // for Hartree potential evalutes to infinity.
+  //
+  // The 1D case was calculated analytically, and it supposedly diverges.
+  // The 3D case was calculated analytically:
+  // Source: https://doi.org/10.1103/PhysRevB.50.11355
+  //
+  // v(r) = Σ ρ(r') g(r, r')
+  // ijk ≠ i'j'k' | g(r, r') = h^3 / |r - r'|
+  // ijk = i'j'k' | g(r, r') = -h^2 (π / 2 + 3 ln ((√3 - 1) / (√3 + 1)))
+  func testSelfRepulsionIntegral() throws {
+    // Try to figure out the overall self-energy of a cell with itself.
+    // Calculate it numerically while excluding the singularities.
+    // Find the limit as the singularity becomes infinitesimally small.
+    //
+    // Try integrating the 1D, 2D, and 3D integrals numerically.
+  }
 }
