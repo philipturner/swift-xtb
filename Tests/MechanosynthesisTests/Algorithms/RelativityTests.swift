@@ -40,4 +40,30 @@ final class RelativityTests: XCTestCase {
   
   // Solve the radial wavefunction for hydrogen-like atoms. Compare the results
   // to the paper where BigDFT did quasi-relativistic quantum mechanics.
+  // - Does shifting the kinetic energy change the amplitude of the
+  //   wavefunction anywhere? The wavefunction must change so that other
+  //   electrons can see the effects.
+  // - Log the amplitude of the wavefunction at certain points, with and
+  //   without the relativistic correction. Also, include the energies with the
+  //   wavefunctions.
+  //
+  // Data for energies of different atoms, with different approximations. These
+  // pertain to the 1s orbital of the one-electron system.
+  // Source: https://doi.org/10.1016/j.comptc.2020.112711
+  // Source: https://doi.org/10.1063/1.1818681
+  //
+  // |  Z  |  E (Sch)  |   E (RK)  |  E (DKH1) |  E (DEQ)  | This Test |
+  // | --- | --------- | --------- | --------- | --------- | --------- |
+  // |   1 |    -0.500 |    -0.500 |    -0.500 |       n/a |
+  // |   8 |   -32.000 |   -32.128 |   -32.031 |       n/a |
+  // |  20 |  -200.000 |  -204.807 |  -201.341 |  -201.077 |
+  // |  40 |  -800.000 |  -878.142 |  -823.894 |  -817.807 |
+  // |  60 | -1800.000 | -2252.407 | -1934.203 | -1895.682 |
+  // |  80 | -3200.000 | -5317.788 | -3686.447 | -3532.192 |
+  func testHydrogenicAtom() throws {
+    // Hydrogen wave function: R(r) = 2 e^{-r}
+    //
+    // First step: materialize the hydrogen wave function on a grid. Test the
+    // expectation value for normalization factor and energy.
+  }
 }
