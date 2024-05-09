@@ -310,6 +310,8 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertEqual(product[3 * 4 + 3], 1, accuracy: 1e-5)
     
     // Invert the 4x4 matrix with Diagonalization.
+    var diagonalizationDesc = DiagonalizationDescriptor()
+    
     
     // Test which order of matrix multiplication produces the correct answer:
     // Σ^{-1} Λ^{-1} (Σ^T)^{-1}

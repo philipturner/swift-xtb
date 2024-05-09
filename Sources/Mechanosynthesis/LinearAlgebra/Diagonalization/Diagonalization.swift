@@ -92,11 +92,8 @@ public struct Diagonalization {
       return
     }
     
-    
     createBlockSize(descriptor: descriptor)
-    
     solveEigenproblem(descriptor: descriptor)
-   
   }
   
   mutating func createBlockSize(descriptor: DiagonalizationDescriptor) {
@@ -115,8 +112,8 @@ public struct Diagonalization {
         """)
     case (.none, .none):
       // The current heuristic is a placeholder for a proper one.
-      blockSize = 4
-      smallBlockSize = 2
+      blockSize = 32
+      smallBlockSize = 8
     }
     
     guard blockSize <= problemSize else {
