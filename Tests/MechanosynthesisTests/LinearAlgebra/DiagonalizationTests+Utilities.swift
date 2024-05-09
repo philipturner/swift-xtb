@@ -1,5 +1,5 @@
 //
-//  LinearAlgebraUtilities.swift
+//  DiagonalizationTests+Utilities.swift
 //
 //
 //  Created by Philip Turner on 5/8/24.
@@ -7,8 +7,9 @@
 
 import Accelerate
 
-struct LinearAlgebraUtilities {
+extension DiagonalizationTests {
   // Multiplies two square matrices.
+  // - The matrices are assumed to be symmetric.
   static func matrixMultiply(
     matrixA: [Float], transposeA: Bool = false,
     matrixB: [Float], transposeB: Bool = false,

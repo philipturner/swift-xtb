@@ -269,6 +269,24 @@ final class ElectrostaticsTests: XCTestCase {
   }
   
   func testLaplacianInverse4x4() throws {
+    // The matrices are in row-major order.
+    func multiply4x4(_ A: [Float], _ B: [Float]) -> [Float] {
+      var C = [Float](repeating: 0, count: 4 * 4)
+      for m in 0..<4 {
+        for n in 0..<4 {
+          var dotProduct: Float = .zero
+          
+          for k in 0..<4 {
+            let lhs = A[m * 4 + k]
+            let rhs = B[k * 4 + n]
+            dotProduct += lhs * rhs
+          }
+          C[m * 4 + n] = dotProduct
+        }
+      }
+      return C
+    }
+    
     // Create a 4x4 matrix that represents an aperiodic Laplacian.
     var laplacian: [Float] = []
     laplacian += [-2, 1, 0, 0]
@@ -284,19 +302,7 @@ final class ElectrostaticsTests: XCTestCase {
     laplacianInverse += [-0.2, -0.4, -0.6, -0.8]
     
     // Evaluate the product of these two matrices.
-    var product = [Float](repeating: 0, count: 4 * 4)
-    for m in 0..<4 {
-      for n in 0..<4 {
-        var dotProduct: Float = .zero
-        
-        for k in 0..<4 {
-          let lhs = laplacian[m * 4 + k]
-          let rhs = laplacianInverse[k * 4 + n]
-          dotProduct += lhs * rhs
-        }
-        product[m * 4 + n] = dotProduct
-      }
-    }
+    var product = multiply4x4(laplacian, laplacianInverse)
     XCTAssertEqual(product[0 * 4 + 0], 1, accuracy: 1e-5)
     XCTAssertEqual(product[0 * 4 + 1], 0, accuracy: 1e-5)
     XCTAssertEqual(product[0 * 4 + 2], 0, accuracy: 1e-5)
@@ -310,17 +316,41 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertEqual(product[3 * 4 + 3], 1, accuracy: 1e-5)
     
     // Invert the 4x4 matrix with Diagonalization.
+    // - Note that the eigenvectors are returned in column-major order.
     var diagonalizationDesc = DiagonalizationDescriptor()
     diagonalizationDesc.matrix = laplacian
     diagonalizationDesc.problemSize = 4
+    
     let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
-    print(diagonalization.eigenvalues)
+    XCTAssertEqual(diagonalization.eigenvalues[0], -3.618, accuracy: 1e-3)
+    XCTAssertEqual(diagonalization.eigenvalues[1], -2.618, accuracy: 1e-3)
+    XCTAssertEqual(diagonalization.eigenvalues[2], -1.382, accuracy: 1e-3)
+    XCTAssertEqual(diagonalization.eigenvalues[3], -0.382, accuracy: 1e-3)
+    
     print(diagonalization.eigenvectors)
+    // 0.371748, -0.6015008, 0.60150087, -0.371748,
+    // -0.6015011, 0.37174788, 0.3717481, -0.60150105,
+    // -0.60150075, -0.37174785, 0.37174818, 0.601501,
+    // -0.3717481, -0.6015009, -0.6015008, -0.37174794
     
     // Test which order of matrix multiplication produces the correct answer:
     // Σ^{-1} Λ^{-1} (Σ^T)^{-1}
     // (Σ^T)^{-1} Λ^{-1} Σ^{-1}
-    
+    var matrix1: [Float] = [
+      1, 0, 0, 0,
+      2, 1, 0, 0,
+      2, 0, 1, 0,
+      2, 0, 0, 1,
+    ]
+    var matrix2: [Float] = [
+      3, 0, 0, 0,
+      0, 3, 0, 0,
+      0, 0, 3, 4,
+      0, 0, 0, 3
+    ]
+//    let product12 = LinearAlgebraUtilities
+//      .matrixMultiply(matrixA: matrix1, matrixB: matrix2, n: 4)
+//    print(product12)
   }
   
   // TODO: Repeat the test above, with a 10x10 Laplacian matrix.
