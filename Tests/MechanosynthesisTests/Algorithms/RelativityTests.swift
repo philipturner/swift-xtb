@@ -187,21 +187,27 @@ final class RelativityTests: XCTestCase {
       XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-3)
     }
     
+    // Report the energy before doing the SCF iterations.
+    do {
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      let ΨHΨ = integral(wavefunction, hamiltonianΨ)
+      let ΨΨ  = integral(wavefunction, wavefunction)
+      let rayleighQuotient = ΨHΨ / ΨΨ
+      print()
+      print("initial energy:", rayleighQuotient)
+    }
+    
     // Search for the lowest eigenpair.
-    for _ in 0..<2 {
+    print()
+    for _ in 0..<200 {
       // Cache the hamiltonian times the wavefunction.
       var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
-      
       for iterationID in 0..<5 {
         // Find the Rayleigh quotient.
         let ΨHΨ = integral(wavefunction, hamiltonianΨ)
         let ΨΨ  = integral(wavefunction, wavefunction)
         let rayleighQuotient = ΨHΨ / ΨΨ
         let residual = shift(hamiltonianΨ, -rayleighQuotient, wavefunction)
-        print()
-        for cellID in 0..<cellCount {
-          print(wavefunction[cellID], residual[cellID])
-        }
         
         // Evaluate the integrals necessary to construct the timestep.
         let hamiltonianR = hamiltonian(Ψ: residual, γ: 1)
@@ -216,15 +222,15 @@ final class RelativityTests: XCTestCase {
         let b = m[5] * m[2] - m[4] * m[0]
         let c = m[4] * m[1] - m[3] * m[5]
         let den = b + (b * b - 4 * a * c).squareRoot()
-        print(m)
-        print(a, b, c, den)
         
         // Choose the timestep.
         var λ: Float = .zero
         if den.magnitude > 1e-15 {
           λ = 2 * c / den
         }
-        print(λ)
+        if iterationID == 4 {
+          print(rr.squareRoot(), λ)
+        }
         
         // Update the wavefunction.
         wavefunction = shift(wavefunction, λ, residual)
@@ -237,6 +243,16 @@ final class RelativityTests: XCTestCase {
       for cellID in 0..<cellCount {
         wavefunction[cellID] *= scaleFactor
       }
+    }
+    
+    // Report the energy after doing the SCF iterations.
+    do {
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      let ΨHΨ = integral(wavefunction, hamiltonianΨ)
+      let ΨΨ  = integral(wavefunction, wavefunction)
+      let rayleighQuotient = ΨHΨ / ΨΨ
+      print()
+      print("final energy:", rayleighQuotient)
     }
   }
 }
