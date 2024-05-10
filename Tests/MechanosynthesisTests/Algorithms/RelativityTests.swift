@@ -63,7 +63,7 @@ final class RelativityTests: XCTestCase {
   func testHydrogenicAtom() throws {
     let h: Float = 0.1
     let cellCount: Int = 100
-    let Z: Int = 1
+    let Z: Int = 3
     
     // Applies the Laplacian operator to the wavefunction.
     func laplacian(Ψ: [Float]) -> [Float] {
@@ -121,7 +121,7 @@ final class RelativityTests: XCTestCase {
         // Evaluate the energy terms.
         let LΨ = laplacianΨ[cellID]
         let TΨ = -1 / (1 + γ) * LΨ
-        let VΨ = -Float(Z) / r * amplitude
+        let VΨ = -Float(3) / r * amplitude
         
         // Return the energy times the wavefunction.
         let HΨ = TΨ + VΨ
@@ -148,30 +148,53 @@ final class RelativityTests: XCTestCase {
       return Float(accumulator)
     }
     
+    // Shifts the LHS by a factor times the RHS.
+    func shift(
+      _ lhs: [Float], _ factor: Float, _ rhs: [Float]
+    ) -> [Float] {
+      guard lhs.count == cellCount,
+            rhs.count == cellCount else {
+        fatalError("Operands must have same size as domain.")
+      }
+      
+      var output: [Float] = []
+      for cellID in 0..<cellCount {
+        let lhsValue = lhs[cellID]
+        let rhsValue = rhs[cellID]
+        let outValue = lhsValue + factor * rhsValue
+        output.append(outValue)
+      }
+      return output
+    }
+    
     // Hydrogen wave function: R(r) = 2 e^{-r}
     //
-    // Solve the wavefunction on a radial grid for simplicity. Test the
-    // expectation value for normalization factor and energy.
+    // Solve the wavefunction on a radial grid for simplicity.
     var wavefunction: [Float] = []
     for cellID in 0..<cellCount {
       let r = (Float(cellID) + 0.5) * h
-      let R = 2 * Float.exp(-r)
+      let R = 2 * Float.exp(-Float(Z) * r)
       
       var normalizationFactor = 1 / (4 * Float.pi)
       normalizationFactor.formSquareRoot()
+      normalizationFactor *= Float.pow(Float(Z), 1.5)
       wavefunction.append(normalizationFactor * R)
     }
     
     // Check the normalization factor.
     do {
       let normalizationFactor = integral(wavefunction, wavefunction)
-      XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-5)
+      XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-3)
     }
     
     // Query the energy of the ansatz.
     do {
       let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
       let energy = integral(wavefunction, hamiltonianΨ)
+      
+      // The energy can be calculated analytically, provided the domain covers
+      // most of the ansatz.
+      let potentialEnergy = -Float(Z)
       print("ansatz energy:", energy)
     }
     
