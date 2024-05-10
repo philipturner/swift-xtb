@@ -46,6 +46,7 @@ FiniteDifferencing
   - Generation of a residual vector
   - Rayleigh quotient estimation
 - Coarsening operator
+- Linear solver to generate polynomial coefficients
 
 LinearSolver
 - INQ steepest descent

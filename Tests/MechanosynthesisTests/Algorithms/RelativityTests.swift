@@ -60,9 +60,27 @@ final class RelativityTests: XCTestCase {
   // |  40 |  -800.000 |  -878.142 |  -823.894 |  -817.807 |
   // |  60 | -1800.000 | -2252.407 | -1934.203 | -1895.682 |
   // |  80 | -3200.000 | -5317.788 | -3686.447 | -3532.192 |
+  //
+  // Side-by-side comparison of wavefunction values and energies for Au(79):
+  //
+  //                    | Nonrelativistic | Relativistic |
+  // ------------------ | --------------- | ------------ |
+  // Energy             |
+  // Ψ(0.000025 * 0.5)  |
+  // Ψ(0.000025 * 5.5)  |
+  // Ψ(0.000025 * 10.5) |
   func testHydrogenicAtom() throws {
-    let h: Float = 0.1
-    let cellCount: Int = 100
+    // Nonrelativistic results (for debugging):
+    //
+    // Settings: cellCount = 1000, SCF iterations = 1000
+    // h = 0.02, Z = 1 -> -0.50005084
+    // h = 0.0025, Z = 8 -> -32.00325
+    // h = 0.001, Z = 20 -> -200.01988
+    // h = 0.0005, Z = 40 -> -800.0795
+    // h = 0.000333, Z = 60 -> -1800.1755
+    // h = 0.00025, Z = 80 -> -3200.318
+    let h: Float = 0.02
+    let cellCount: Int = 1000
     let Z: Int = 1
     
     // Applies the Laplacian operator to the wavefunction.
@@ -128,6 +146,18 @@ final class RelativityTests: XCTestCase {
         output.append(HΨ)
       }
       return output
+    }
+    
+    // Finds the relativistic gamma factor.
+    func createGamma(Ψ: [Float]) -> Float {
+      let laplacianΨ = laplacian(Ψ: wavefunction)
+      let ΨLΨ = integral(wavefunction, laplacianΨ)
+      let p2 = -ΨLΨ
+      
+      let c: Double = 137.035999084
+      var γ = 1 + Double(p2) / (c * c)
+      γ.formSquareRoot()
+      return Float(γ)
     }
     
     // Evaluates an integral in spherical coordinates.
@@ -199,9 +229,11 @@ final class RelativityTests: XCTestCase {
     
     // Search for the lowest eigenpair.
     print()
-    for _ in 0..<200 {
+    for _ in 0..<2 {
       // Cache the hamiltonian times the wavefunction.
+      let γ = createGamma(Ψ: wavefunction)
       var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      
       for iterationID in 0..<5 {
         // Find the Rayleigh quotient.
         let ΨHΨ = integral(wavefunction, hamiltonianΨ)
@@ -229,7 +261,7 @@ final class RelativityTests: XCTestCase {
           λ = 2 * c / den
         }
         if iterationID == 4 {
-          print(rr.squareRoot(), λ)
+          print("normres:", rr.squareRoot(), "| λ:", λ, "| γ:", γ)
         }
         
         // Update the wavefunction.
