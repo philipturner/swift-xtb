@@ -52,23 +52,52 @@ final class RelativityTests: XCTestCase {
   // Source: https://doi.org/10.1016/j.comptc.2020.112711
   // Source: https://doi.org/10.1063/1.1818681
   //
-  // |  Z  |  E (Sch)  |   E (RK)  |  E (DKH1) |  E (DEQ)  | This Test |
+  // |  Z  |  E (Sch)  |   E (RK)  |  E (DKH1) |  E (DEQ)  |  E (PGPP) |
   // | --- | --------- | --------- | --------- | --------- | --------- |
-  // |   1 |    -0.500 |    -0.500 |    -0.500 |       n/a |
-  // |   8 |   -32.000 |   -32.128 |   -32.031 |       n/a |
-  // |  20 |  -200.000 |  -204.807 |  -201.341 |  -201.077 |
-  // |  40 |  -800.000 |  -878.142 |  -823.894 |  -817.807 |
-  // |  60 | -1800.000 | -2252.407 | -1934.203 | -1895.682 |
-  // |  80 | -3200.000 | -5317.788 | -3686.447 | -3532.192 |
+  // |   1 |    -0.500 |    -0.500 |    -0.500 |       n/a |    -0.500 |
+  // |   8 |   -32.000 |   -32.128 |   -32.031 |       n/a |   -32.031 |
+  // |  20 |  -200.000 |  -204.807 |  -201.341 |  -201.077 |  -201.091 |
+  // |  40 |  -800.000 |  -878.142 |  -823.894 |  -817.807 |  -817.502 |
+  // |  60 | -1800.000 | -2252.407 | -1934.203 | -1895.682 | -1890.845 |
+  // |  80 | -3200.000 | -5317.788 | -3686.447 | -3532.192 | -3498.570 |
+  //
+  // Insights: the results of DEQ and PGPP agree remarkably well. DEQ is the
+  // "exact" version of DKH, and its results were often very close to DKH14 in
+  // the paper. However, this test only considers the one-electron case, and
+  // neglects spin-orbit coupling. PGPP could perform significantly worse for
+  // many-electron systems.
   //
   // Side-by-side comparison of wavefunction values and energies for Au(79):
   //
-  //                    | Nonrelativistic | Relativistic |
-  // ------------------ | --------------- | ------------ |
-  // Energy             |
-  // Ψ(0.000025 * 0.5)  |
-  // Ψ(0.000025 * 5.5)  |
-  // Ψ(0.000025 * 10.5) |
+  //                     | Nonrelativistic | Relativistic  |
+  // ------------------- | --------------- | ------------- |
+  // Energy              | -3120.803       | -3403.7566    |
+  // <r>                 | 0.012657344     | 0.0116049675  |
+  // ------------------- | --------------- | ------------- |
+  // Ψ(0.000025 * 0.5)   | 392.45526       | 446.65286     |
+  // Ψ(0.000025 * 5.5)   | 355.47208       | 400.93982     |
+  // Ψ(0.000025 * 10.5)  | 322.02545       | 359.9737      |
+  // Ψ(0.000025 * 50.5)  | 146.12407       | 152.04948     |
+  // Ψ(0.000025 * 100.5) | 54.42798        | 51.78401      |
+  // Ψ(0.000025 * 200.5) | 7.5521126       | 6.0070696     |
+  // Ψ(0.000025 * 300.5) | 1.0479369       | 0.6968856     |
+  // Ψ(0.000025 * 400.5) | 0.14541396      | 0.08085826    |
+  // Ψ(0.000025 * 500.5) | 0.020177867     | 0.009385774   |
+  // Ψ(0.000025 * 600.5) | 0.002799893     | 0.0010906607  |
+  // Ψ(0.000025 * 700.5) | 0.000388516     | 0.00012704461 |
+  // Ψ(0.000025 * 800.5) | 5.3894604e-05   | 1.4866069e-05 |
+  // Ψ(0.000025 * 900.5) | 7.3126744e-06   | 1.7254465e-06 |
+  // Ψ(0.000025 * 999.5) | 3.9033416e-08   | 8.479288e-09  |
+  //
+  // The radius only contracts by 1.09x. This is less than the Wikipedia value
+  // of 1.22x. However, the number on Wikipedia (and found on another lecture
+  // PDF), is a gross approximation based on the Lorentz factor. It does not
+  // enter the formula into an SCF calculation and report the result.
+  //
+  // TODO: Transform this test case into something for gold, which only
+  // checks the results after a small number of SCF iterations. The energy
+  // will have shifted most of the way toward the converged one. Check that
+  // the progress from 'original' -> 'converged' is between 50% and 120%.
   func testHydrogenicAtom() throws {
     // Nonrelativistic results (for debugging):
     //
@@ -79,9 +108,26 @@ final class RelativityTests: XCTestCase {
     // h = 0.0005, Z = 40 -> -800.0795
     // h = 0.000333, Z = 60 -> -1800.1755
     // h = 0.00025, Z = 80 -> -3200.318
-    let h: Float = 0.02
+    //
+    // Energy shift after 20000 SCF iterations:
+    // Z = 1: -0.5000574 -> -0.50005746
+    // Z = 8: -32.03047 -> -32.030556
+    // Z = 20: -201.07379 -> -201.09128
+    // Z = 40: -816.4318 -> -817.5016
+    // Z = 60: -1879.0535 -> -1890.8451
+    // Z = 80: -3434.5322 -> -3498.57
+    //
+    // Gamma shift after 20000 SCF iterations:
+    // Z = 1:  1.0000266 -> 1.0000266
+    // Z = 8:  1.0017027 -> 1.001706
+    // Z = 20: 1.0105945 -> 1.0107104
+    // Z = 40: 1.0417317 -> 1.0435414
+    // Z = 60: 1.0916555 -> 1.1007117
+    // Z = 80: 1.1579379 -> 1.1863463
+    let h: Float = 0.00025
     let cellCount: Int = 1000
-    let Z: Int = 1
+    let scfIterationCount: Int = 2
+    let Z: Int = 79
     
     // Applies the Laplacian operator to the wavefunction.
     func laplacian(Ψ: [Float]) -> [Float] {
@@ -219,7 +265,8 @@ final class RelativityTests: XCTestCase {
     
     // Report the energy before doing the SCF iterations.
     do {
-      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      let γ = createGamma(Ψ: wavefunction)
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       let ΨHΨ = integral(wavefunction, hamiltonianΨ)
       let ΨΨ  = integral(wavefunction, wavefunction)
       let rayleighQuotient = ΨHΨ / ΨΨ
@@ -229,10 +276,10 @@ final class RelativityTests: XCTestCase {
     
     // Search for the lowest eigenpair.
     print()
-    for _ in 0..<2 {
+    for _ in 0..<scfIterationCount {
       // Cache the hamiltonian times the wavefunction.
       let γ = createGamma(Ψ: wavefunction)
-      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       
       for iterationID in 0..<5 {
         // Find the Rayleigh quotient.
@@ -242,7 +289,7 @@ final class RelativityTests: XCTestCase {
         let residual = shift(hamiltonianΨ, -rayleighQuotient, wavefunction)
         
         // Evaluate the integrals necessary to construct the timestep.
-        let hamiltonianR = hamiltonian(Ψ: residual, γ: 1)
+        let hamiltonianR = hamiltonian(Ψ: residual, γ: γ)
         let rr = integral(residual, residual)
         let Ψr = integral(wavefunction, residual)
         let rHr = integral(residual, hamiltonianR)
@@ -279,12 +326,57 @@ final class RelativityTests: XCTestCase {
     
     // Report the energy after doing the SCF iterations.
     do {
-      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      let γ = createGamma(Ψ: wavefunction)
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       let ΨHΨ = integral(wavefunction, hamiltonianΨ)
       let ΨΨ  = integral(wavefunction, wavefunction)
       let rayleighQuotient = ΨHΨ / ΨΨ
       print()
       print("final energy:", rayleighQuotient)
+    }
+    
+    // Report the expectation value for radius.
+    do {
+      // Multiply the radius with the wavefunction.
+      var rΨ: [Float] = []
+      for cellID in 0..<cellCount {
+        let r = (Float(cellID) + 0.5) * h
+        let amplitude = wavefunction[cellID]
+        rΨ.append(r * amplitude)
+      }
+      
+      // Find the expectation value by taking an integral. As shown in previous
+      // experiments, the radius needs to be multiplied by 2/3 to get the
+      // "atomic radius".
+      let ΨrΨ = integral(wavefunction, rΨ)
+      let atomicRadius = ΨrΨ * 2.0 / 3
+      print("final radius:", atomicRadius)
+    }
+    
+    // Report the wavefunction values.
+    do {
+      var indices: [Int] = []
+      indices.append(0)
+      indices.append(5)
+      indices.append(10)
+      indices.append(50)
+      indices.append(100)
+      indices.append(200)
+      indices.append(300)
+      indices.append(400)
+      indices.append(500)
+      indices.append(600)
+      indices.append(700)
+      indices.append(800)
+      indices.append(900)
+      indices.append(999)
+      print()
+      print("final wavefunction values:")
+      
+      for index in indices {
+        let value = wavefunction[index]
+        print(value)
+      }
     }
   }
 }
