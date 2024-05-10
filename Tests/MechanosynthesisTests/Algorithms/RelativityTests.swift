@@ -63,7 +63,7 @@ final class RelativityTests: XCTestCase {
   func testHydrogenicAtom() throws {
     let h: Float = 0.1
     let cellCount: Int = 100
-    let Z: Int = 3
+    let Z: Int = 1
     
     // Applies the Laplacian operator to the wavefunction.
     func laplacian(Ψ: [Float]) -> [Float] {
@@ -121,7 +121,7 @@ final class RelativityTests: XCTestCase {
         // Evaluate the energy terms.
         let LΨ = laplacianΨ[cellID]
         let TΨ = -1 / (1 + γ) * LΨ
-        let VΨ = -Float(3) / r * amplitude
+        let VΨ = -Float(Z) / r * amplitude
         
         // Return the energy times the wavefunction.
         let HΨ = TΨ + VΨ
@@ -187,21 +187,56 @@ final class RelativityTests: XCTestCase {
       XCTAssertEqual(normalizationFactor, 1, accuracy: 1e-3)
     }
     
-    // Query the energy of the ansatz.
-    do {
-      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
-      let energy = integral(wavefunction, hamiltonianΨ)
-      
-      // The energy can be calculated analytically, provided the domain covers
-      // most of the ansatz.
-      let potentialEnergy = -Float(Z)
-      print("ansatz energy:", energy)
-    }
-    
     // Search for the lowest eigenpair.
-    for _ in 0..<1 {
-      // The Rayleigh quotient is ΨHΨ because Ψ is already normed.
-      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+    for _ in 0..<2 {
+      // Cache the hamiltonian times the wavefunction.
+      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: 1)
+      
+      for iterationID in 0..<5 {
+        // Find the Rayleigh quotient.
+        let ΨHΨ = integral(wavefunction, hamiltonianΨ)
+        let ΨΨ  = integral(wavefunction, wavefunction)
+        let rayleighQuotient = ΨHΨ / ΨΨ
+        let residual = shift(hamiltonianΨ, -rayleighQuotient, wavefunction)
+        print()
+        for cellID in 0..<cellCount {
+          print(wavefunction[cellID], residual[cellID])
+        }
+        
+        // Evaluate the integrals necessary to construct the timestep.
+        let hamiltonianR = hamiltonian(Ψ: residual, γ: 1)
+        let rr = integral(residual, residual)
+        let Ψr = integral(wavefunction, residual)
+        let rHr = integral(residual, hamiltonianR)
+        let ΨHr = integral(wavefunction, hamiltonianR)
+        
+        // Solve a quadratic equation.
+        let m = [rr, Ψr, rHr, ΨHr, ΨHΨ, ΨΨ]
+        let a = m[0] * m[3] - m[2] * m[1]
+        let b = m[5] * m[2] - m[4] * m[0]
+        let c = m[4] * m[1] - m[3] * m[5]
+        let den = b + (b * b - 4 * a * c).squareRoot()
+        print(m)
+        print(a, b, c, den)
+        
+        // Choose the timestep.
+        var λ: Float = .zero
+        if den.magnitude > 1e-15 {
+          λ = 2 * c / den
+        }
+        print(λ)
+        
+        // Update the wavefunction.
+        wavefunction = shift(wavefunction, λ, residual)
+        hamiltonianΨ = shift(hamiltonianΨ, λ, hamiltonianR)
+      }
+      
+      // Normalize the wavefunction.
+      let norm = integral(wavefunction, wavefunction)
+      let scaleFactor = 1 / norm.squareRoot()
+      for cellID in 0..<cellCount {
+        wavefunction[cellID] *= scaleFactor
+      }
     }
   }
 }
