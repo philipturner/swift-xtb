@@ -75,7 +75,30 @@ final class LinearSolverTests: XCTestCase {
     }
   }
   
+  // Implementation of the algorithm from the INQ codebase, which chooses the
+  // timestep based on the results of some integrals.
   func testSteepestDescent() throws {
+    
+  }
+  
+  // Implementation of weighted Jacobi, using a fixed timestep determined by
+  // the grid spacing.
+  func testWeightedJacobi() throws {
+    
+  }
+  
+  // Implementation of Gauss-Seidel, using a fixed timestep determined by the
+  // grid spacing.
+  //
+  // This test does not cover the Gauss-Seidel red-black ordering scheme.
+  // However, the results should reveal how one would go about coding GSRB.
+  func testGaussSeidel() throws {
+    
+  }
+  
+  // Implementation of the algorithm from the INQ codebase, which chooses the
+  // timestep based on the results of some integrals.
+  func testConjugateGradient() throws {
     
   }
 }

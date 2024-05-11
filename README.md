@@ -50,8 +50,11 @@ FiniteDifferencing
 
 LinearSolver
 - Direct matrix method ✅
-- INQ steepest descent
-- INQ conjugate gradient
+- Steepest descent
+  - INQ
+  - Weighted Jacobi
+  - Gauss-Seidel
+- Conjugate gradient
 - Uniform resolution multigrid
 
 Relativity
