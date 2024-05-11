@@ -69,6 +69,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Visualize the contents of the charge grid.
     print()
+    print("charge density")
     for indexY in 0..<gridSize {
       for indexX in 0..<gridSize {
         let x = (Float(indexX) + 0.5) * h
@@ -86,6 +87,54 @@ final class LinearSolverTests: XCTestCase {
     // - With the result of integration.
     //
     // Do either of the results satisfy the divergence theorem?
+    var boundaryGridX = [Float](repeating: .zero, count: gridSize * gridSize)
+    var boundaryGridY = [Float](repeating: .zero, count: gridSize * gridSize)
+    for indexY in 0..<gridSize {
+      for indexX in 0..<gridSize {
+        let coordinateIndices = SIMD2<Int>(indexX, indexY)
+        if all(coordinateIndices &- 1 .>= .zero),
+           all(coordinateIndices &+ 1 .< gridSize) {
+          continue
+        }
+        
+        let x = (Float(indexX) + 0.5) * h
+        let y = (Float(indexY) + 0.5) * h
+        let cellID = indexY * gridSize + indexX
+        boundaryGridX[cellID] = 1
+        boundaryGridY[cellID] = 1
+      }
+    }
+    
+    // Visualize the fluxes along the boundaries.
+    do {
+      print()
+      print("boundary (X)")
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          let x = (Float(indexX) + 0.5) * h
+          let y = (Float(indexY) + 0.5) * h
+          let cellID = indexY * gridSize + indexX
+          
+          let F = boundaryGridX[cellID]
+          print(F, terminator: " ")
+        }
+        print()
+      }
+      
+      print()
+      print("boundary (Y)")
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          let x = (Float(indexX) + 0.5) * h
+          let y = (Float(indexY) + 0.5) * h
+          let cellID = indexY * gridSize + indexX
+          
+          let F = boundaryGridY[cellID]
+          print(F, terminator: " ")
+        }
+        print()
+      }
+    }
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
