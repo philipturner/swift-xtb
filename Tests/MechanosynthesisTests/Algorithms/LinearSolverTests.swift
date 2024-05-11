@@ -2,10 +2,10 @@ import XCTest
 import Mechanosynthesis
 import Numerics
 
-import Accelerate
-
 final class LinearSolverTests: XCTestCase {
   // Creates a 1D Laplacian operator with 2nd order accuracy.
+  #if false
+  // NOTE: Coded prematurely, just here as reference.
   static func laplacian(h: Float) -> ([Float]) -> [Float] {
     return { potential in
       var chargeDensity: [Float] = []
@@ -33,46 +33,15 @@ final class LinearSolverTests: XCTestCase {
       return chargeDensity
     }
   }
+  #endif
   
-  // LAPACK solver as a reference implementation. This could be useful when
-  // debugging the iterative solvers.
+  // Find out how to solve a problem with boundary conditions, using the
+  // direct matrix method.
   func testDirectMatrixMethod() throws {
-    // Define the matrix of equation coefficients.
-    let coefficients: [Float] = [
-      1, 1, 1,
-      4, 2, 1,
-      9, 3, 1,
-    ]
-    
-    // Solve an equation where the first column is the RHS.
-    do {
-      let rightHandSide: [Float] = [1, 4, 9]
-      let solution = LinearAlgebraUtilities
-        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
-      XCTAssertEqual(solution[0], 1.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
-    }
-    
-    // Solve an equation where the second column is the RHS.
-    do {
-      let rightHandSide: [Float] = [1, 2, 3]
-      let solution = LinearAlgebraUtilities
-        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
-      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[1], 1.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
-    }
-    
-    // Here, the RHS is a multiple of the third column.
-    do {
-      let rightHandSide: [Float] = [-2, -2, -2]
-      let solution = LinearAlgebraUtilities
-        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
-      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
-      XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
-    }
+    // Process:
+    // - Solve using an integral.
+    // - Create a linear equation and solve without boundary conditions.
+    // - Add boundary conditions, observe how the results change.
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the

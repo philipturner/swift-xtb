@@ -49,7 +49,7 @@ FiniteDifferencing
 - Coarsening operator
 
 LinearSolver
-- Direct matrix method ✅
+- Direct matrix method
 - Steepest descent
   - INQ
   - Weighted Jacobi

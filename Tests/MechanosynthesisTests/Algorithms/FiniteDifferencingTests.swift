@@ -350,4 +350,48 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(interpolator.c, 11, accuracy: 1e-5)
     }
   }
+  
+  // Test a method for automatically solving the equation for the polynomial.
+  //
+  // A more efficient implementation would collect all the polynomials with the
+  // same X spacings, then solve them simultaneously. It is more efficient
+  // because LU decomposition only needs to happen once.
+  func testPolynomialGeneration() throws {
+    // Define the matrix of equation coefficients.
+    let coefficients: [Float] = [
+      1, 1, 1,
+      4, 2, 1,
+      9, 3, 1,
+    ]
+    
+    // Solve an equation where the first column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 4, 9]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
+    }
+    
+    // Solve an equation where the second column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 2, 3]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
+    }
+    
+    // Here, the RHS is a multiple of the third column.
+    do {
+      let rightHandSide: [Float] = [-2, -2, -2]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
+    }
+  }
 }
