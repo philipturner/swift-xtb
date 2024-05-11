@@ -49,7 +49,7 @@ FiniteDifferencing
 - Coarsening operator
 
 LinearSolver
-- LAPACK linear solver
+- Direct matrix method ✅
 - INQ steepest descent
 - INQ conjugate gradient
 - Uniform resolution multigrid

@@ -410,7 +410,7 @@ final class ElectrostaticsTests: XCTestCase {
   // v(r) = Σ ρ(r') g(r, r')
   // ijk ≠ i'j'k' | g(r, r') = h^3 / |r - r'|
   // ijk = i'j'k' | g(r, r') = -h^2 (π / 2 + 3 ln ((√3 - 1) / (√3 + 1)))
-  func testSelfRepulsionIntegral() throws {
+  func testSelfRepulsionIntegral1D() throws {
     // Try integrating the 1D, 2D, and 3D integrals numerically.
     // 1) Exclude the singularities.
     // 2) Find the limit as the singularity becomes infinitesimally small.
