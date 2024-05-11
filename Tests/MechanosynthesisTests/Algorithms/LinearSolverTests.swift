@@ -35,9 +35,7 @@ final class LinearSolverTests: XCTestCase {
   }
   #endif
   
-  // Extract this code into a shared function (above), for reuse in multiple
-  // solvers. The latency to solve the system should be very small; it will be
-  // solved 5 times.
+  // Test the process of setting up a simulation domain.
   func testDirectIntegration() throws {
     // The nucleus appears in the center of the grid. Its charge is +1.
     let h: Float = 0.1
@@ -86,25 +84,40 @@ final class LinearSolverTests: XCTestCase {
     // - With the modeled point-charge potential.
     // - With the result of integration.
     //
-    // Do either of the results satisfy the divergence theorem?
-    var boundaryGridX = [Float](repeating: .zero, count: gridSize * gridSize)
-    var boundaryGridY = [Float](repeating: .zero, count: gridSize * gridSize)
+    // Do either of the results satisfy the divergence theorem? If not, what
+    // is the easiest way to restore charge conservation?
+    
+    // Elements of the flux data structure:
+    // - [0] = lower X face
+    // - [1] = lower Y face
+    // - [2] = upper X face
+    // - [3] = upper Y face
+    var fluxPointCharge = [SIMD4<Float>](
+      repeating: .zero, count: gridSize * gridSize)
     for indexY in 0..<gridSize {
       for indexX in 0..<gridSize {
-        let coordinateIndices = SIMD2<Int>(indexX, indexY)
-        if all(coordinateIndices &- 1 .>= .zero),
-           all(coordinateIndices &+ 1 .< gridSize) {
-          continue
+        // Create the coordinate offsets for each face.
+        let faceOffsetsX: [Float] = [-0.5, 0.0, 0.5, 0.0]
+        let faceOffsetsY: [Float] = [0.0, -0.5, 0.0, 0.5]
+        var faceCenters: [SIMD2<Float>] = []
+        for faceID in 0..<4 {
+          var x = (Float(indexX) + 0.5) * h
+          var y = (Float(indexY) + 0.5) * h
+          x += faceOffsetsX[faceID] * h
+          y += faceOffsetsY[faceID] * h
+          
+          // Group the X and Y coordinates into a vector.
+          let center = SIMD2(x, y)
+          faceCenters.append(center)
         }
         
-        let x = (Float(indexX) + 0.5) * h
-        let y = (Float(indexY) + 0.5) * h
-        let cellID = indexY * gridSize + indexX
-        boundaryGridX[cellID] = 1
-        boundaryGridY[cellID] = 1
+        if Float.random(in: 0..<1) < 0.1 {
+          print(indexX, indexY, faceCenters)
+        }
       }
     }
     
+#if false
     // Visualize the fluxes along the boundaries.
     do {
       print()
@@ -135,6 +148,7 @@ final class LinearSolverTests: XCTestCase {
         print()
       }
     }
+#endif
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
