@@ -407,14 +407,15 @@ final class ElectrostaticsTests: XCTestCase {
   // - In the test below, the average value does eventually increase to
   //   infinity. The value scales with the logarithm of the number of grid
   //   points, but log(infinity) is still infinity.
-  // The 3D case was calculated analytically:
+  // The 2D case was calculated numerically: 2.9731896
+  // The 3D case was calculated analytically: 2.3800774
   // Source: https://doi.org/10.1103/PhysRevB.50.11355
   //
   // v(r) = Σ ρ(r') g(r, r')
   // ijk ≠ i'j'k' | g(r, r') = h^3 / |r - r'|
   // ijk = i'j'k' | g(r, r') = -h^2 (π / 2 + 3 ln ((√3 - 1) / (√3 + 1)))
   func testSelfRepulsionIntegral1D() throws {
-    // Try integrating the 1D, 2D, and 3D integrals numerically.
+    // Try integrating the 1D and 2D integrals numerically.
     // 1) Exclude the singularities.
     // 2) Find the limit as the singularity becomes infinitesimally small.
     // 3) Take the average over the entire volume.
@@ -436,6 +437,7 @@ final class ElectrostaticsTests: XCTestCase {
       for otherCellID in 0..<cellCount where cellID != otherCellID {
         let otherX = (Float(otherCellID) + 0.5) * h
         
+        // Integrate over 1D space.
         let ρ = chargeDistribution[otherCellID]
         let g = h / (x - otherX).magnitude
         accumulator += Double(ρ * g)
@@ -470,6 +472,98 @@ final class ElectrostaticsTests: XCTestCase {
       
       let average = Float(accumulator)
       XCTAssertEqual(average, 10.201351, accuracy: 1e-3)
+    }
+  }
+  
+  // TODO: Clean up this test case, turn into a proper unit test.
+  func testSelfRepulsionIntegral2D() throws {
+    let h: Float = 1.0 / 10
+    let gridSize: Int = 10
+    
+    // Create an array that represents the charge density.
+    let chargeGrid = [Float](repeating: 1, count: gridSize * gridSize)
+    
+    // Solve for the potential distribution with an integral.
+    var potentialGrid: [Float] = []
+    for indexY in 0..<gridSize {
+      for indexX in 0..<gridSize {
+        let x = (Float(indexX) + 0.5) * h
+        let y = (Float(indexY) + 0.5) * h
+        let cellID = indexY * gridSize + indexX
+        
+        var accumulator: Double = .zero
+        for otherIndexY in 0..<gridSize {
+          for otherIndexX in 0..<gridSize {
+            let otherX = (Float(otherIndexX) + 0.5) * h
+            let otherY = (Float(otherIndexY) + 0.5) * h
+            let otherCellID = otherIndexY * gridSize + otherIndexX
+            
+            // Skip the singularity.
+            if cellID == otherCellID {
+              continue
+            }
+            
+            // Find the distance between the two points.
+            let r = SIMD2(x, y)
+            let rPrime = SIMD2(otherX, otherY)
+            let rDelta = r - rPrime
+            let distance = (rDelta * rDelta).sum().squareRoot()
+            
+            // Integrate over 2D space.
+            let ρ = chargeGrid[otherCellID]
+            let g = (h * h) / distance
+            accumulator += Double(ρ * g)
+          }
+        }
+        
+        let v = Float(accumulator)
+        potentialGrid.append(v)
+      }
+    }
+    
+    // Visualize the potential.
+    do {
+      let size = gridSize
+      
+      let potential00 = potentialGrid[0 * size + 0]
+      let potential01 = potentialGrid[0 * size + (size / 2)]
+      let potential02 = potentialGrid[0 * size + (size - 1)]
+      print(potential00, potential01, potential02)
+      
+      let potential10 = potentialGrid[(size / 2) * size + 0]
+      let potential11 = potentialGrid[(size / 2) * size + (size / 2)]
+      let potential12 = potentialGrid[(size / 2) * size + (size - 1)]
+      print(potential10, potential11, potential12)
+      
+      let potential20 = potentialGrid[(size - 1) * size + 0]
+      let potential21 = potentialGrid[(size - 1) * size + (size / 2)]
+      let potential22 = potentialGrid[(size - 1) * size + (size - 1)]
+      print(potential20, potential21, potential22)
+    }
+    
+    // Report the average of the potential over the entire domain.
+    //
+    // This sequence converges:
+    // size =   5 | 2.2688484 |
+    // size =  10 | 2.6065936 | +0.3377452
+    // size =  20 | 2.785188 | +0.1785944
+    // size =  40 | 2.8777378 | +0.0925498
+    // size =  80 | 2.9250371 | +0.0472993
+    // size = 160 | 2.9489965 | +0.0239594
+    // size = 320 | 2.961067 | +0.0120705
+    // size = 640 | 2.9671283 | +0.0060613
+    // size = inf | 2.9731896 |
+    do {
+      var accumulator: Double = .zero
+      for cellID in 0..<gridSize * gridSize {
+        let v = potentialGrid[cellID]
+        let drTerm = h * h
+        accumulator += Double(v * drTerm)
+      }
+      
+      let average = Float(accumulator)
+      print()
+      print(average)
     }
   }
 }
