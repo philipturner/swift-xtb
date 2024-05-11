@@ -38,6 +38,7 @@ libxc
 
 Electrostatics
 - Self-repulsion integral ✅
+- Neumann boundaries
 - Fuzzy cell decomposition
 - Laplacian preconditioner
 
@@ -54,7 +55,6 @@ LinearSolver
   - Weighted Jacobi
   - Gauss-Seidel
 - Conjugate gradient
-- Uniform resolution multigrid
 
 Relativity
 - Recursive definition of kinetic energy ✅
