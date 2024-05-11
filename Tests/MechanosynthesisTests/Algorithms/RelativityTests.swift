@@ -93,40 +93,17 @@ final class RelativityTests: XCTestCase {
   // of 1.22x. However, the number on Wikipedia (and found on another lecture
   // PDF), is a gross approximation based on the Lorentz factor. It does not
   // enter the formula into an SCF calculation and report the result.
-  //
-  // TODO: Transform this test case into something for gold, which only
-  // checks the results after a small number of SCF iterations. The energy
-  // will have shifted most of the way toward the converged one. Check that
-  // the progress from 'original' -> 'converged' is between 50% and 120%.
   func testHydrogenicAtom() throws {
-    // Nonrelativistic results (for debugging):
-    //
-    // Settings: cellCount = 1000, SCF iterations = 1000
+    // Settings: cellCount = 1000, SCF iterations = 1000, nonrelativistic
     // h = 0.02, Z = 1 -> -0.50005084
     // h = 0.0025, Z = 8 -> -32.00325
     // h = 0.001, Z = 20 -> -200.01988
     // h = 0.0005, Z = 40 -> -800.0795
     // h = 0.000333, Z = 60 -> -1800.1755
     // h = 0.00025, Z = 80 -> -3200.318
-    //
-    // Energy shift after 20000 SCF iterations:
-    // Z = 1: -0.5000574 -> -0.50005746
-    // Z = 8: -32.03047 -> -32.030556
-    // Z = 20: -201.07379 -> -201.09128
-    // Z = 40: -816.4318 -> -817.5016
-    // Z = 60: -1879.0535 -> -1890.8451
-    // Z = 80: -3434.5322 -> -3498.57
-    //
-    // Gamma shift after 20000 SCF iterations:
-    // Z = 1:  1.0000266 -> 1.0000266
-    // Z = 8:  1.0017027 -> 1.001706
-    // Z = 20: 1.0105945 -> 1.0107104
-    // Z = 40: 1.0417317 -> 1.0435414
-    // Z = 60: 1.0916555 -> 1.1007117
-    // Z = 80: 1.1579379 -> 1.1863463
-    let h: Float = 0.00025
-    let cellCount: Int = 1000
-    let scfIterationCount: Int = 2
+    let h: Float = 0.001
+    let cellCount: Int = 250
+    let scfIterationCount: Int = 200
     let Z: Int = 79
     
     // Applies the Laplacian operator to the wavefunction.
@@ -266,16 +243,14 @@ final class RelativityTests: XCTestCase {
     // Report the energy before doing the SCF iterations.
     do {
       let γ = createGamma(Ψ: wavefunction)
-      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
+      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       let ΨHΨ = integral(wavefunction, hamiltonianΨ)
       let ΨΨ  = integral(wavefunction, wavefunction)
       let rayleighQuotient = ΨHΨ / ΨΨ
-      print()
-      print("initial energy:", rayleighQuotient)
+      XCTAssertEqual(rayleighQuotient, -3349.0366, accuracy: 1e-1)
     }
     
     // Search for the lowest eigenpair.
-    print()
     for _ in 0..<scfIterationCount {
       // Cache the hamiltonian times the wavefunction.
       let γ = createGamma(Ψ: wavefunction)
@@ -307,9 +282,6 @@ final class RelativityTests: XCTestCase {
         if den.magnitude > 1e-15 {
           λ = 2 * c / den
         }
-        if iterationID == 4 {
-          print("normres:", rr.squareRoot(), "| λ:", λ, "| γ:", γ)
-        }
         
         // Update the wavefunction.
         wavefunction = shift(wavefunction, λ, residual)
@@ -324,15 +296,24 @@ final class RelativityTests: XCTestCase {
       }
     }
     
+    // Utility function to check that the calculation is converging.
+    func assertProgress(start: Float, current: Float, end: Float) {
+      let progress = (current - start) / (end - start)
+      XCTAssertGreaterThan(
+        progress, 0.50, "Less than 50% way through convergence.")
+      XCTAssertLessThan(
+        progress, 1.20, "More than 120% way through convergence.")
+    }
+    
     // Report the energy after doing the SCF iterations.
     do {
       let γ = createGamma(Ψ: wavefunction)
-      var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
+      let hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       let ΨHΨ = integral(wavefunction, hamiltonianΨ)
       let ΨΨ  = integral(wavefunction, wavefunction)
       let rayleighQuotient = ΨHΨ / ΨΨ
-      print()
-      print("final energy:", rayleighQuotient)
+      assertProgress(
+        start: -3349.0366, current: rayleighQuotient, end: -3411.3223)
     }
     
     // Report the expectation value for radius.
@@ -350,32 +331,58 @@ final class RelativityTests: XCTestCase {
       // "atomic radius".
       let ΨrΨ = integral(wavefunction, rΨ)
       let atomicRadius = ΨrΨ * 2.0 / 3
-      print("final radius:", atomicRadius)
+      assertProgress(
+        start: 0.012658219, current: atomicRadius, end: 0.011579066)
     }
     
     // Report the wavefunction values.
     do {
       var indices: [Int] = []
       indices.append(0)
-      indices.append(5)
+      indices.append(1)
+      indices.append(2)
       indices.append(10)
+      indices.append(20)
       indices.append(50)
       indices.append(100)
+      indices.append(150)
       indices.append(200)
-      indices.append(300)
-      indices.append(400)
-      indices.append(500)
-      indices.append(600)
-      indices.append(700)
-      indices.append(800)
-      indices.append(900)
-      indices.append(999)
-      print()
-      print("final wavefunction values:")
+      indices.append(249)
       
-      for index in indices {
-        let value = wavefunction[index]
-        print(value)
+      var startAmplitudes: [Float] = []
+      startAmplitudes.append(380.8124)
+      startAmplitudes.append(351.88586)
+      startAmplitudes.append(325.15656)
+      startAmplitudes.append(172.82971)
+      startAmplitudes.append(78.43787)
+      startAmplitudes.append(7.3324285)
+      startAmplitudes.append(0.14118369)
+      startAmplitudes.append(0.0027184465)
+      startAmplitudes.append(5.2342937e-05)
+      startAmplitudes.append(1.0906967e-06)
+      XCTAssertEqual(indices.count, startAmplitudes.count)
+      
+      var endAmplitudes: [Float] = []
+      endAmplitudes.append(435.51288)
+      endAmplitudes.append(398.7813)
+      endAmplitudes.append(365.48648)
+      endAmplitudes.append(182.82532)
+      endAmplitudes.append(77.071526)
+      endAmplitudes.append(5.78571)
+      endAmplitudes.append(0.07740794)
+      endAmplitudes.append(0.0010362118)
+      endAmplitudes.append(1.3870742e-05)
+      endAmplitudes.append(3.0690966e-08)
+      XCTAssertEqual(indices.count, endAmplitudes.count)
+      
+      for indexID in indices.indices {
+        let startAmplitude = startAmplitudes[indexID]
+        let index = indices[indexID]
+        let endAmplitude = endAmplitudes[indexID]
+        
+        let amplitude = wavefunction[index]
+        assertProgress(
+          start: startAmplitude, current: amplitude, end: endAmplitude)
       }
     }
   }

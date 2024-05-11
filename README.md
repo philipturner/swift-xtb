@@ -42,17 +42,18 @@ Electrostatics
 - Laplacian preconditioner
 
 FiniteDifferencing
+- Quadratic interpolation ✅
 - Mehrstellen operator
   - Generation of a residual vector
   - Rayleigh quotient estimation
 - Coarsening operator
-- Linear solver to generate polynomial coefficients
 
 LinearSolver
+- LAPACK linear solver
 - INQ steepest descent
 - INQ conjugate gradient
 - Uniform resolution multigrid
 
 Relativity
-- Recursive definition of kinetic energy
-- Solving PGPP equation for radial wavefunction of hydrogen-like atoms
+- Recursive definition of kinetic energy ✅
+- Solving PGPP equation for radial wavefunction of hydrogen-like atoms ✅
