@@ -37,7 +37,7 @@ libxc
   - r<sup>2</sup>SCAN
 
 Electrostatics
-- Self-repulsion integral
+- Self-repulsion integral ✅
 - Fuzzy cell decomposition
 - Laplacian preconditioner
 

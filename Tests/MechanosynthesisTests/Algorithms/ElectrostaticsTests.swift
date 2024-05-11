@@ -475,10 +475,9 @@ final class ElectrostaticsTests: XCTestCase {
     }
   }
   
-  // TODO: Clean up this test case, turn into a proper unit test.
   func testSelfRepulsionIntegral2D() throws {
-    let h: Float = 1.0 / 10
-    let gridSize: Int = 10
+    let h: Float = 1.0 / 20
+    let gridSize: Int = 20
     
     // Create an array that represents the charge density.
     let chargeGrid = [Float](repeating: 1, count: gridSize * gridSize)
@@ -528,17 +527,23 @@ final class ElectrostaticsTests: XCTestCase {
       let potential00 = potentialGrid[0 * size + 0]
       let potential01 = potentialGrid[0 * size + (size / 2)]
       let potential02 = potentialGrid[0 * size + (size - 1)]
-      print(potential00, potential01, potential02)
+      XCTAssertEqual(potential00, 1.8474634, accuracy: 1e-3)
+      XCTAssertEqual(potential01, 2.427513, accuracy: 1e-3)
+      XCTAssertEqual(potential02, 1.8474633, accuracy: 1e-3)
       
       let potential10 = potentialGrid[(size / 2) * size + 0]
       let potential11 = potentialGrid[(size / 2) * size + (size / 2)]
       let potential12 = potentialGrid[(size / 2) * size + (size - 1)]
-      print(potential10, potential11, potential12)
+      XCTAssertEqual(potential10, 2.427513, accuracy: 1e-3)
+      XCTAssertEqual(potential11, 3.3281264, accuracy: 1e-3)
+      XCTAssertEqual(potential12, 2.427513, accuracy: 1e-3)
       
       let potential20 = potentialGrid[(size - 1) * size + 0]
       let potential21 = potentialGrid[(size - 1) * size + (size / 2)]
       let potential22 = potentialGrid[(size - 1) * size + (size - 1)]
-      print(potential20, potential21, potential22)
+      XCTAssertEqual(potential20, 1.8474633, accuracy: 1e-3)
+      XCTAssertEqual(potential21, 2.427513, accuracy: 1e-3)
+      XCTAssertEqual(potential22, 1.8474633, accuracy: 1e-3)
     }
     
     // Report the average of the potential over the entire domain.
@@ -546,11 +551,11 @@ final class ElectrostaticsTests: XCTestCase {
     // This sequence converges:
     // size =   5 | 2.2688484 |
     // size =  10 | 2.6065936 | +0.3377452
-    // size =  20 | 2.785188 | +0.1785944
+    // size =  20 | 2.785188  | +0.1785944
     // size =  40 | 2.8777378 | +0.0925498
     // size =  80 | 2.9250371 | +0.0472993
     // size = 160 | 2.9489965 | +0.0239594
-    // size = 320 | 2.961067 | +0.0120705
+    // size = 320 | 2.961067  | +0.0120705
     // size = 640 | 2.9671283 | +0.0060613
     // size = inf | 2.9731896 |
     do {
@@ -562,8 +567,7 @@ final class ElectrostaticsTests: XCTestCase {
       }
       
       let average = Float(accumulator)
-      print()
-      print(average)
+      XCTAssertEqual(average, 2.785188, accuracy: 1e-3)
     }
   }
 }
