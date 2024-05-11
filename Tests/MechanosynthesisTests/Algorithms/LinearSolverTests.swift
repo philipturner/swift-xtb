@@ -34,47 +34,45 @@ final class LinearSolverTests: XCTestCase {
     }
   }
   
-  // LAPACK solver as a reference implementation.
+  // LAPACK solver as a reference implementation. This could be useful when
+  // debugging the iterative solvers.
   func testDirectMatrixMethod() throws {
-    // The input matrix must be column-major. Code using this LAPACK function
-    // will likely need a second function that transposes the matrix.
-    var coefficients: [Float] = []
-    coefficients += [Float(1), Float(1), Float(1)]
-    coefficients += [Float(4), Float(2), Float(1)]
-    coefficients += [Float(9), Float(3), Float(1)]
+    // Define the matrix of equation coefficients.
+    let coefficients: [Float] = [
+      1, 1, 1,
+      4, 2, 1,
+      9, 3, 1,
+    ]
     
-    var rightHandSide: [Float] = []
-    rightHandSide += [Float(9), Float(3), Float(1)]
-    
-    var N: Int32 = 3
-    var NRHS: Int32 = 1
-    var A: [Float] = coefficients
-    var LDA: Int32 = 3
-    var IPIV: [Int32] = .init(repeating: .zero, count: 3)
-    var B: [Float] = rightHandSide
-    var LDB: Int32 = 3
-    var INFO: Int32 = 0
-    A.withContiguousMutableStorageIfAvailable {
-      let A = $0.baseAddress!
-      B.withContiguousMutableStorageIfAvailable {
-        let B = $0.baseAddress!
-        sgesv_(
-          &N,
-          &NRHS,
-          A,
-          &LDA,
-          &IPIV,
-          B,
-          &LDB,
-        &INFO)
-      }
+    // Solve an equation where the first column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 4, 9]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
     }
-    XCTAssertEqual(INFO, 0, "Linear solver failed.")
     
-    let X = B
-    XCTAssertEqual(X[0], 0.000, accuracy: 1e-3)
-    XCTAssertEqual(X[1], 0.000, accuracy: 1e-3)
-    XCTAssertEqual(X[2], 1.000, accuracy: 1e-3)
+    // Solve an equation where the second column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 2, 3]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
+    }
+    
+    // Here, the RHS is a multiple of the third column.
+    do {
+      let rightHandSide: [Float] = [-2, -2, -2]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
+    }
   }
   
   func testSteepestDescent() throws {
