@@ -404,6 +404,9 @@ final class ElectrostaticsTests: XCTestCase {
   // for Hartree potential evaluates to infinity.
   //
   // The 1D case was calculated analytically, and it supposedly diverges.
+  // - In the test below, the average value does eventually increase to
+  //   infinity. The value scales with the logarithm of the number of grid
+  //   points, but log(infinity) is still infinity.
   // The 3D case was calculated analytically:
   // Source: https://doi.org/10.1103/PhysRevB.50.11355
   //
@@ -415,5 +418,58 @@ final class ElectrostaticsTests: XCTestCase {
     // 1) Exclude the singularities.
     // 2) Find the limit as the singularity becomes infinitesimally small.
     // 3) Take the average over the entire volume.
+    let h: Float = 0.004
+    let cellCount: Int = 250
+    
+    // Create an array that represents the charge density.
+    //
+    // Change the default value to check that the potential solver is correctly
+    // responding to the input.
+    let chargeDistribution = [Float](repeating: 1, count: cellCount)
+    
+    // Solve for the potential distribution with an integral.
+    var potentialDistribution: [Float] = []
+    for cellID in 0..<cellCount {
+      let x = (Float(cellID) + 0.5) * h
+      
+      var accumulator: Double = .zero
+      for otherCellID in 0..<cellCount where cellID != otherCellID {
+        let otherX = (Float(otherCellID) + 0.5) * h
+        
+        let ρ = chargeDistribution[otherCellID]
+        let g = h / (x - otherX).magnitude
+        accumulator += Double(ρ * g)
+      }
+      
+      let v = Float(accumulator)
+      potentialDistribution.append(v)
+    }
+    
+    // Visualize the potential.
+    do {
+      let potentialLeft = potentialDistribution[0]
+      let potentialLeft2 = potentialDistribution[1]
+      let potentialCenter = potentialDistribution[cellCount / 2]
+      let potentialRight2 = potentialDistribution[cellCount - 2]
+      let potentialRight = potentialDistribution[cellCount - 1]
+      XCTAssertEqual(potentialLeft, 6.0966754, accuracy: 1e-3)
+      XCTAssertEqual(potentialLeft2, 7.092659, accuracy: 1e-3)
+      XCTAssertEqual(potentialCenter, 10.811043, accuracy: 1e-3)
+      XCTAssertEqual(potentialRight2, 7.0926757, accuracy: 1e-3)
+      XCTAssertEqual(potentialRight, 6.0966783, accuracy: 1e-3)
+    }
+    
+    // Report the average of the potential over the entire domain.
+    do {
+      var accumulator: Double = .zero
+      for cellID in 0..<cellCount {
+        let v = potentialDistribution[cellID]
+        let drTerm = h
+        accumulator += Double(v * drTerm)
+      }
+      
+      let average = Float(accumulator)
+      XCTAssertEqual(average, 10.201351, accuracy: 1e-3)
+    }
   }
 }
