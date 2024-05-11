@@ -572,23 +572,32 @@ final class ElectrostaticsTests: XCTestCase {
   }
   
   // Some simulations could require Neumann boundaries along the border of the
-  // integration grid.
-  //
-  // If one sums the flux at each point along the boundary, they should find
-  // that the divergence theorem has been violated. The violation comes from
-  // discretization error.
+  // integration grid. If one sums the flux at each point along the boundary,
+  // they should find that the divergence theorem has been violated. The
+  // violation comes from discretization error.
   //
   // This test case examines how to correct for the error, restoring charge
   // conservation and solvability.
   func testNeumannBoundaries() throws {
     // The nucleus appears in the center of the grid. Its charge is +1.
-    let h: Float = 0.1
-    let gridSize: Int = 10
+    let h: Float = 0.1 / 2
+    let gridSize: Int = 10 * 2
     
     // Create an array that represents the charge density (ρ).
     var chargeGrid = [Float](repeating: .zero, count: gridSize * gridSize)
     guard gridSize % 2 == 0 else {
       fatalError("The number of cells must be even.")
+    }
+    
+    // Utility function for locating the four center cells.
+    func createCenterCellIndices() -> [Int] {
+      var cellIndices: [Int] = []
+      let size = gridSize
+      cellIndices.append((size / 2 - 1) * size + (size / 2 - 1))
+      cellIndices.append((size / 2 - 1) * size + (size / 2))
+      cellIndices.append((size / 2) * size + (size / 2 - 1))
+      cellIndices.append((size / 2) * size + (size / 2))
+      return cellIndices
     }
     
     // Divide the charge among four cells in the center.
@@ -597,13 +606,7 @@ final class ElectrostaticsTests: XCTestCase {
       let chargePerCell = totalCharge / 4
       let chargeDensity = chargePerCell / (h * h)
       
-      var cellIndices: [Int] = []
-      let size = gridSize
-      cellIndices.append((size / 2 - 1) * size + (size / 2 - 1))
-      cellIndices.append((size / 2 - 1) * size + (size / 2))
-      cellIndices.append((size / 2) * size + (size / 2 - 1))
-      cellIndices.append((size / 2) * size + (size / 2))
-      
+      let cellIndices = createCenterCellIndices()
       for cellID in cellIndices {
         chargeGrid[cellID] = chargeDensity
       }
@@ -652,32 +655,86 @@ final class ElectrostaticsTests: XCTestCase {
           faceCenters.append(center)
         }
         
+        // Utility function to generate flux data structures.
+        func createFlux(
+          _ closure: (SIMD2<Float>) -> SIMD2<Float>
+        ) -> SIMD4<Float> {
+          // Determine the flux from the point charge model.
+          var faceFluxes: [SIMD2<Float>] = []
+          for faceID in 0..<4 {
+            let faceCenter = faceCenters[faceID]
+            let flux = closure(faceCenter)
+            faceFluxes.append(flux)
+          }
+          
+          // Gather the flux components normal to each surface.
+          var flux: SIMD4<Float> = .zero
+          flux[0] = -faceFluxes[0].x
+          flux[1] = -faceFluxes[1].y
+          flux[2] = faceFluxes[2].x
+          flux[3] = faceFluxes[3].y
+          return flux
+        }
+        
         // Determine the flux from the point charge model.
-        var faceFluxes: [SIMD2<Float>] = []
-        for faceID in 0..<4 {
-          let faceCenter = faceCenters[faceID]
-          let nucleusPosition = SIMD2(repeating: 0.5 * Float(gridSize) * h)
+        let fluxPointCharge = createFlux { faceCenter in
+          // Place the nucleus at the midpoint of the 2D grid.
+          let nucleusPosition = 0.5 * SIMD2(repeating: Float(gridSize) * h)
+          
+          // Find the distance and direction from the nucleus.
           let rDelta = faceCenter - nucleusPosition
           let distance = (rDelta * rDelta).sum().squareRoot()
           
           // The potential is always positive, while the gradient is always
           // negative.
-          let direction = rDelta / distance
           let gradient = -1 / (distance * distance)
-          let flux = gradient * direction
-          faceFluxes.append(flux)
+          
+          // Return the flux.
+          let direction = rDelta / distance
+          return gradient * direction
         }
         
-        // Gather the flux components normal to each surface.
-        var flux: SIMD4<Float> = .zero
-        flux[0] = -faceFluxes[0].x
-        flux[1] = -faceFluxes[1].y
-        flux[2] = faceFluxes[2].x
-        flux[3] = faceFluxes[3].y
+        // Determine the flux through numerical integration.
+        let fluxIntegral = createFlux { faceCenter in
+          // Formula for potential. The gradient is derived from this formula.
+          // v(r) = Σ ρ(r') g(r, r')
+          // ij ≠ i'j' | g(r, r') = h^2 / |r - r'|
+          var accumulator: SIMD2<Float> = .zero
+          
+          // Integrate over the occupied cells.
+          let cellIndices = createCenterCellIndices()
+          for cellID in cellIndices {
+            // Determine the cells' 2D position.
+            let cellIndexX = cellID % gridSize
+            let cellIndexY = cellID / gridSize
+            let cellX = (Float(cellIndexX) + 0.5) * h
+            let cellY = (Float(cellIndexY) + 0.5) * h
+            let cellCenter = SIMD2(cellX, cellY)
+            
+            // Find the distance and direction from the cell.
+            let rDelta = faceCenter - cellCenter
+            let distance = (rDelta * rDelta).sum().squareRoot()
+            
+            // The potential is always positive, while the gradient is always
+            // negative.
+            let ρ = chargeGrid[cellID]
+            let gradient = -ρ / (distance * distance)
+            
+            // Add the flux times the microvolume.
+            let direction = rDelta / distance
+            let fluxTerm = gradient * direction
+            let drTerm = h * h
+            accumulator += fluxTerm * drTerm
+          }
+          
+          // Return the sum of the integration points.
+          return accumulator
+        }
         
         // Write to the location in the simulation grid.
         let cellID = indexY * gridSize + indexX
-        fluxPointChargeGrid[cellID] = flux
+        fluxPointChargeGrid[cellID] = fluxPointCharge
+        fluxIntegralGrid[cellID] = fluxIntegral
       }
     }
     
@@ -705,5 +762,11 @@ final class ElectrostaticsTests: XCTestCase {
     print()
     print("boundary (point charge)")
     renderBoundary(fluxGrid: fluxPointChargeGrid)
+    
+    print()
+    print("boundary (integral)")
+    renderBoundary(fluxGrid: fluxIntegralGrid)
+    
+    // Integrate the fluxes along the domain boundaries.
   }
 }
