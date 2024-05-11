@@ -571,7 +571,9 @@ final class ElectrostaticsTests: XCTestCase {
     }
   }
   
-  // Multigrid solvers must use Neumann boundaries along the simulation domain.
+  // Some simulations could require Neumann boundaries along the border of the
+  // integration grid.
+  //
   // If one sums the flux at each point along the boundary, they should find
   // that the divergence theorem has been violated. The violation comes from
   // discretization error.
@@ -623,18 +625,15 @@ final class ElectrostaticsTests: XCTestCase {
     }
     
     // Create an array that represents the boundary values in each cell.
-    // - With the point charge model.
-    // - With integration of the charge density.
     //
-    // Do either of the results satisfy the divergence theorem? If not, what
-    // is the easiest way to restore charge conservation?
-    
     // Elements of the flux data structure:
     // - [0] = lower X face
     // - [1] = lower Y face
     // - [2] = upper X face
     // - [3] = upper Y face
-    var fluxPointCharge = [SIMD4<Float>](
+    var fluxPointChargeGrid = [SIMD4<Float>](
+      repeating: .zero, count: gridSize * gridSize)
+    var fluxIntegralGrid = [SIMD4<Float>](
       repeating: .zero, count: gridSize * gridSize)
     for indexY in 0..<gridSize {
       for indexX in 0..<gridSize {
@@ -660,41 +659,51 @@ final class ElectrostaticsTests: XCTestCase {
           let nucleusPosition = SIMD2(repeating: 0.5 * Float(gridSize) * h)
           let rDelta = faceCenter - nucleusPosition
           let distance = (rDelta * rDelta).sum().squareRoot()
+          
+          // The potential is always positive, while the gradient is always
+          // negative.
+          let direction = rDelta / distance
+          let gradient = -1 / (distance * distance)
+          let flux = gradient * direction
+          faceFluxes.append(flux)
         }
+        
+        // Gather the flux components normal to each surface.
+        var flux: SIMD4<Float> = .zero
+        flux[0] = -faceFluxes[0].x
+        flux[1] = -faceFluxes[1].y
+        flux[2] = faceFluxes[2].x
+        flux[3] = faceFluxes[3].y
+        
+        // Write to the location in the simulation grid.
+        let cellID = indexY * gridSize + indexX
+        fluxPointChargeGrid[cellID] = flux
       }
     }
     
-#if false
-    // Visualize the fluxes along the boundaries.
-    do {
-      print()
-      print("boundary (X)")
+    // Visualize the domain boundaries.
+    func renderBoundary(fluxGrid: [SIMD4<Float>]) {
       for indexY in 0..<gridSize {
         for indexX in 0..<gridSize {
-          let x = (Float(indexX) + 0.5) * h
-          let y = (Float(indexY) + 0.5) * h
-          let cellID = indexY * gridSize + indexX
+          // Determine the flux to render for this cell.
+          var flux: Float = .zero
+          if indexX == 0 {
+            let cellID = indexY * gridSize + indexX
+            let faceFluxes = fluxGrid[cellID]
+            
+            // Choose the face that aligns with the boundary.
+            flux = faceFluxes[0]
+          }
           
-          let F = boundaryGridX[cellID]
-          print(F, terminator: " ")
-        }
-        print()
-      }
-      
-      print()
-      print("boundary (Y)")
-      for indexY in 0..<gridSize {
-        for indexX in 0..<gridSize {
-          let x = (Float(indexX) + 0.5) * h
-          let y = (Float(indexY) + 0.5) * h
-          let cellID = indexY * gridSize + indexX
-          
-          let F = boundaryGridY[cellID]
-          print(F, terminator: " ")
+          // Render the flux.
+          print(flux, terminator: " ")
         }
         print()
       }
     }
-#endif
+    
+    print()
+    print("boundary (point charge)")
+    renderBoundary(fluxGrid: fluxPointChargeGrid)
   }
 }

@@ -55,6 +55,7 @@ LinearSolver
   - Weighted Jacobi
   - Gauss-Seidel
 - Conjugate gradient
+- Multigrid
 
 Relativity
 - Recursive definition of kinetic energy ✅

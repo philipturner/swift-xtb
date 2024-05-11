@@ -35,8 +35,6 @@ final class LinearSolverTests: XCTestCase {
   }
   #endif
   
-  // TODO: Use Dirichlet boundaries for the solvers here.
-  
   // Implementation of the algorithm from the INQ codebase, which chooses the
   // timestep based on the results of some integrals.
   func testSteepestDescent() throws {
@@ -61,6 +59,12 @@ final class LinearSolverTests: XCTestCase {
   // Implementation of the algorithm from the INQ codebase, which chooses the
   // timestep based on the results of some integrals.
   func testConjugateGradient() throws {
+    
+  }
+  
+  // Multigrid solver. There's currently a big unknown regarding how the grid
+  // should treat domain boundaries.
+  func testMultigrid() throws {
     
   }
 }
