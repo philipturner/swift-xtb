@@ -13,24 +13,52 @@ final class LinearSolverTests: XCTestCase {
   // to observe a significant speedup from multigrid relaxations, but that is
   // okay. We only need code for a multigrid that works at all.
   func testDirectMatrixMethod() throws {
-    // 6 columns are allocated for specific boundary conditions on each cell.
-    let n: Int = (8 * 8 * 8) + 6
+    // Set up the Neumann boundaries, normalize to obey Gauss's Law.
+    let h: Float = 0.25
+    let gridSize: Int = 8
     
-    // TODO: Set up the Neumann boundaries, normalize to obey Gauss's Law.
-    var matrix = [Float](repeating: .zero, count: n * n)
-    for diagonalID in 0..<n {
-      let address = diagonalID * n + diagonalID
-      matrix[address] = 1
+    // Create an array that represents the boundary values in each cell.
+    //
+    // Elements of the flux data structure:
+    // - [0] = lower X face
+    // - [1] = upper X face
+    // - [2] = lower Y face
+    // - [3] = upper Y face
+    // - [4] = lower Z face
+    // - [5] = upper Z face
+    var fluxGrid = [SIMD8<Float>](
+      repeating: .zero, count: gridSize * gridSize * gridSize)
+    
+    // Iterate over all the boundary cells in the grid. Eventually, we will
+    // skip some internal cells to save time.
+    for indexZ in 0..<gridSize {
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          // Compute the center of the cell.
+          let cellCenterX = (Float(indexX) + 0.5) * h
+          let cellCenterY = (Float(indexY) + 0.5) * h
+          let cellCenterZ = (Float(indexZ) + 0.5) * h
+          let cellCenter = SIMD3<Float>(cellCenterX, cellCenterY, cellCenterZ)
+          
+          print()
+          print(cellCenter)
+          print("---------")
+          
+          // Compute the flux on each face.
+          var flux: SIMD8<Float> = .zero
+          for faceID in 0..<6 {
+            let coordinateID = faceID / 2
+            let signID = faceID % 2
+            
+            // Compute the center of the face.
+            var faceCenter = cellCenter
+            let coordinateDelta = (signID == 0) ? Float(-0.5) : 0.5
+            faceCenter[coordinateID] += coordinateDelta * h
+            print(faceCenter)
+          }
+        }
+      }
     }
-    
-    var vector = [Float](repeating: .zero, count: n)
-    for rowID in 0..<n {
-      vector[rowID] = 2
-    }
-    
-    let solution = LinearAlgebraUtilities
-      .solveLinearSystem(matrix: matrix, vector: vector, n: n)
-    print(solution.count)
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
