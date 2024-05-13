@@ -8,8 +8,8 @@ import Numerics
 // charge model. This would be the multipole expansion of the charge
 // distribution created by spreading the nucleus across 8 cells.
 final class LinearSolverTests: XCTestCase {
-  static let h: Float = 0.25
-  static let gridSize: Int = 8
+  static let gridSize: Int = 3
+  static let h: Float = 2.0 / 3
   
   // Set up the Neumann boundaries, normalize to obey Gauss's Law.
   //
@@ -118,6 +118,7 @@ final class LinearSolverTests: XCTestCase {
       let actual = surfaceIntegral
       let expected = -4 * Float.pi * chargeEnclosed
       let scaleFactor = expected / actual
+      
       for cellID in fluxGrid.indices {
         var faceFluxes = fluxGrid[cellID]
         faceFluxes *= scaleFactor
@@ -134,7 +135,95 @@ final class LinearSolverTests: XCTestCase {
   // to observe a significant speedup from multigrid relaxations, but that is
   // okay. We only need code for a multigrid that works at all.
   func testDirectMatrixMethod() throws {
+    // The problem size is the number of cells, plus 6 variables for boundary
+    // conditions imposed on each cell. To align the matrix rows to the CPU
+    // vector width, we pad the number 6 to 8.
+    let n = (Self.gridSize * Self.gridSize * Self.gridSize) + 8
     
+    // Allocate a matrix and two vectors.
+    var laplacian = [Float](repeating: .zero, count: n * n)
+    var potential = [Float](repeating: .zero, count: n)
+    var chargeDensity = [Float](repeating: .zero, count: n)
+    
+    // Set the eight extraneous variables to the identity. These variables
+    // adapt the boundary conditions to the functional form of a
+    // matrix operator.
+    do {
+      let constraintStart = Self.gridSize * Self.gridSize * Self.gridSize
+      let constraintEnd = constraintStart + 8
+      for constraintID in constraintStart..<constraintEnd {
+        // Fill in a diagonal of the matrix.
+        let diagonalAddress = constraintID * n + constraintID
+        laplacian[diagonalAddress] = 1
+        
+        // Fill in the tail of each vector.
+        potential[constraintID] = 1
+        chargeDensity[constraintID] = 1
+      }
+    }
+    
+    // Fetch the boundary conditions.
+    let boundaryConditions = Self.createBoundaryConditions()
+    
+    // Fill in the entries of the matrix.
+    for indexZ in 0..<Self.gridSize {
+      for indexY in 0..<Self.gridSize {
+        for indexX in 0..<Self.gridSize {
+          let indices = SIMD3<Int>(indexX, indexY, indexZ)
+          var cellID = indexZ * (Self.gridSize * Self.gridSize)
+          cellID += indexY * Self.gridSize + indexX
+          
+          // Iterate over the faces.
+          var linkedCellCount: Int = .zero
+          for faceID in 0..<6 {
+            let coordinateID = faceID / 2
+            let signID = faceID % 2
+            var coordinate = indices[coordinateID]
+            coordinate += (signID == 0) ? -1 : 1
+            
+            if coordinate >= 0, coordinate < Self.gridSize {
+              // Establish the relationship between this cell and the linked
+              // cell, with a matrix entry.
+              linkedCellCount += 1
+            } else {
+              // Impose a boundary condition, as there are no cells to fetch
+              // data from.
+            }
+          }
+          
+          // Write the value along the diagonal.
+          let diagonalEntry = -Float(linkedCellCount) / (Self.h * Self.h)
+          let diagonalAddress = cellID * n + cellID
+          laplacian[diagonalAddress] = diagonalEntry
+        }
+      }
+    }
+    
+    // TODO: Shrink the grid to something very small, visualize the matrix.
+    
+    // Visualize the matrix.
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        // Fetch the entry.
+        let address = rowID * n + columnID
+        let entry = laplacian[address]
+        
+        // Create a string representation.
+        //  X.YZ
+        // -X.YZ
+        //  XY.Z
+        // -XY.Z
+        var repr = String(format: "%.2f", entry)
+        if entry.sign == .plus {
+          repr = " " + repr
+        }
+        if repr.count > 5 {
+          repr.removeLast()
+        }
+        print(repr, terminator: " ")
+      }
+      print()
+    }
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
