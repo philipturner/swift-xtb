@@ -33,16 +33,23 @@ final class LinearSolverTests: XCTestCase {
     // skip some internal cells to save time.
     for indexZ in 0..<gridSize {
       for indexY in 0..<gridSize {
-        for indexX in 0..<gridSize {
+        // Skip some loop iterations to minimize execution time.
+        var indicesX: [Int] = []
+        if indexY == 0 || indexY == gridSize - 1 ||
+            indexZ == 0 || indexZ == gridSize - 1 {
+          for indexX in 0..<gridSize {
+            indicesX.append(indexX)
+          }
+        } else {
+          indicesX = [0, gridSize - 1]
+        }
+        
+        for indexX in indicesX {
           // Compute the center of the cell.
           let cellCenterX = (Float(indexX) + 0.5) * h
           let cellCenterY = (Float(indexY) + 0.5) * h
           let cellCenterZ = (Float(indexZ) + 0.5) * h
           let cellCenter = SIMD3<Float>(cellCenterX, cellCenterY, cellCenterZ)
-          
-          print()
-          print(cellCenter)
-          print("---------")
           
           // Determine the flux on each face.
           var faceFluxes: SIMD8<Float> = .zero
@@ -53,7 +60,7 @@ final class LinearSolverTests: XCTestCase {
             // Compute the center of the face.
             var faceCenter = cellCenter
             let coordinateDelta = (signID == 0) ? Float(-0.5) : 0.5
-            faceCenter[coordinateID] += coordinateDelta * h * 0
+            faceCenter[coordinateID] += coordinateDelta * h
             
             // Place the nucleus at the midpoint of the 2D grid.
             let nucleusPosition = 0.5 * SIMD3(repeating: Float(gridSize) * h)
@@ -69,48 +76,45 @@ final class LinearSolverTests: XCTestCase {
             // Create the flux vector.
             let direction = rDelta / distance
             let flux = gradient * direction
-            print(flux)
             
             // Select one scalar of the flux vector.
             var faceFlux = flux[coordinateID]
             faceFlux *= (signID == 0) ? -1 : 1
-            faceFluxes[faceID] = distance // faceFlux
-            
-            // MARK: - Combined Data
-            
-            // faceCenter
-//            SIMD3<Float>(1.75, 1.875, 1.875)
-//            SIMD3<Float>(1.875, 1.875, 1.875)
-//            SIMD3<Float>(2.0, 1.875, 1.875)
-            
-            // rDelta
-//            SIMD3<Float>(0.75, 0.875, 0.875)
-//            SIMD3<Float>(0.875, 0.875, 0.875)
-//            SIMD3<Float>(1.0, 0.875, 0.875)
-            
-            // distance
-//            1.4469796
-//            1.5155444
-//            1.5909903
-            
-            // gradient
-//            -0.47761193
-//            -0.4353742
-//            -0.3950617
-            
-            // direction
-//            SIMD3<Float>(0.51832104, 0.6047079, 0.6047079)
-//            SIMD3<Float>(0.57735026, 0.57735026, 0.57735026)
-//            SIMD3<Float>(0.6285393, 0.54997194, 0.54997194)
-            
-            // flux
-//            SIMD3<Float>(-0.24755631, -0.2888157, -0.2888157)
-//            SIMD3<Float>(-0.2513634, -0.2513634, -0.2513634)
-//            SIMD3<Float>(-0.24831182, -0.21727285, -0.21727285)
+            faceFluxes[faceID] = faceFlux
           }
-          print(faceFluxes)
+          
+          // Erase the fluxes on interior faces.
+          let indices = SIMD3<Int>(indexX, indexY, indexZ)
+          for coordinateID in 0..<3 {
+            let index = indices[coordinateID]
+            if index != 0 {
+              faceFluxes[coordinateID * 2 + 0] = .zero
+            }
+            if index != gridSize - 1 {
+              faceFluxes[coordinateID * 2 + 1] = .zero
+            }
+          }
+          
+          // Store the flux data structure to memory.
+          var cellID = indexZ * (gridSize * gridSize)
+          cellID += indexY * gridSize + indexX
+          fluxGrid[cellID] = faceFluxes
         }
       }
+    }
+    
+    // Integrate the fluxes along the domain boundaries.
+    do {
+      var accumulator: Double = .zero
+      for cellID in fluxGrid.indices {
+        let faceFluxes = fluxGrid[cellID]
+        let fluxTerm = faceFluxes.sum()
+        let drTerm = h * h
+        accumulator += Double(fluxTerm * drTerm)
+      }
+      
+      let surfaceIntegral = Float(accumulator)
+      print("surface integral:", surfaceIntegral)
     }
   }
   
