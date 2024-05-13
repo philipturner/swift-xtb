@@ -173,6 +173,9 @@ final class LinearSolverTests: XCTestCase {
           var cellID = indexZ * (Self.gridSize * Self.gridSize)
           cellID += indexY * Self.gridSize + indexX
           
+          // Fetch any possible boundary conditions.
+          let faceFluxes = boundaryConditions[cellID]
+          
           // Iterate over the faces.
           var linkedCellCount: Int = .zero
           for faceID in 0..<6 {
@@ -199,6 +202,13 @@ final class LinearSolverTests: XCTestCase {
             } else {
               // Impose a boundary condition, as there are no cells to fetch
               // data from.
+              let faceFlux = faceFluxes[faceID]
+              
+              // Assign F / h to the linking entry.
+              let cellCount = Self.gridSize * Self.gridSize * Self.gridSize
+              let linkAddress = (cellID * n + cellCount) + faceID
+              let linkEntry: Float = faceFlux / Self.h
+              laplacian[linkAddress] = linkEntry
             }
           }
           
@@ -210,6 +220,7 @@ final class LinearSolverTests: XCTestCase {
       }
     }
     
+    #if false
     // Visualize the matrix.
     for rowID in 0..<n {
       for columnID in 0..<n {
@@ -256,6 +267,7 @@ final class LinearSolverTests: XCTestCase {
       }
       print()
     }
+    #endif
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
