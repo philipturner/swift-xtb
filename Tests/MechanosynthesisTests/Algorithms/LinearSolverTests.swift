@@ -44,8 +44,8 @@ final class LinearSolverTests: XCTestCase {
           print(cellCenter)
           print("---------")
           
-          // Compute the flux on each face.
-          var flux: SIMD8<Float> = .zero
+          // Determine the flux on each face.
+          var faceFluxes: SIMD8<Float> = .zero
           for faceID in 0..<6 {
             let coordinateID = faceID / 2
             let signID = faceID % 2
@@ -53,9 +53,77 @@ final class LinearSolverTests: XCTestCase {
             // Compute the center of the face.
             var faceCenter = cellCenter
             let coordinateDelta = (signID == 0) ? Float(-0.5) : 0.5
-            faceCenter[coordinateID] += coordinateDelta * h
-            print(faceCenter)
+            faceCenter[coordinateID] += coordinateDelta * h * 0
+            
+            // Place the nucleus at the midpoint of the 2D grid.
+            let nucleusPosition = 0.5 * SIMD3(repeating: Float(gridSize) * h)
+            
+            // Find the distance and direction from the nucleus.
+            let rDelta = faceCenter - nucleusPosition
+            let distance = (rDelta * rDelta).sum().squareRoot()
+            
+            // The potential is always positive, while the gradient is always
+            // negative.
+            let gradient = -1 / (distance * distance)
+            
+            // Create the flux vector.
+            let direction = rDelta / distance
+            let flux = gradient * direction
+            print(flux)
+            
+            // Select one scalar of the flux vector.
+            var faceFlux = flux[coordinateID]
+            faceFlux *= (signID == 0) ? -1 : 1
+            faceFluxes[faceID] = distance // faceFlux
+            
+            // MARK: - Center
+            
+            // faceCenter
+            // SIMD3<Float>(1.875, 1.875, 1.875)
+            
+            // rDelta
+            // SIMD3<Float>(0.875, 0.875, 0.875)
+            
+            // distance
+            // 1.5155444
+            
+            // gradient
+            // -0.4353742
+            
+            // direction
+            // SIMD3<Float>(0.57735026, 0.57735026, 0.57735026)
+            
+            // flux
+            // SIMD3<Float>(-0.2513634, -0.2513634, -0.2513634)
+            
+            
+            // MARK: - Faces
+            
+            // faceCenter
+//            SIMD3<Float>(1.75, 1.875, 1.875)
+//            SIMD3<Float>(2.0, 1.875, 1.875)
+            
+            // rDelta
+//            SIMD3<Float>(0.75, 0.875, 0.875)
+//            SIMD3<Float>(1.0, 0.875, 0.875)
+            
+            // distance
+//            1.4469796
+//            1.5909903
+            
+            // gradient
+//            -0.47761193
+//            -0.3950617
+            
+            // direction
+//            SIMD3<Float>(0.51832104, 0.6047079, 0.6047079)
+//            SIMD3<Float>(0.6285393, 0.54997194, 0.54997194)
+            
+            // flux
+//            SIMD3<Float>(-0.24755631, -0.2888157, -0.2888157)
+//            SIMD3<Float>(-0.24831182, -0.21727285, -0.21727285)
           }
+          print(faceFluxes)
         }
       }
     }
