@@ -578,9 +578,16 @@ final class ElectrostaticsTests: XCTestCase {
   //
   // This test case examines how to correct for the error, restoring charge
   // conservation and solvability.
+  //
+  // Results:
+  //
+  // In two dimensions, Gauss's Law does not hold. However, this test shows a
+  // procedure for summing fluxes across boundaries. When the code is used in
+  // another application, the user should extend it to 3D and check that
+  // Gauss's Law is upheld.
   func testNeumannBoundaries() throws {
     // The nucleus appears in the center of the grid. Its charge is +1.
-    let h: Float = 0.1
+    let h: Float = 0.05
     let gridSize: Int = 20
     
     // Create an array that represents the charge density (ρ).
@@ -612,21 +619,6 @@ final class ElectrostaticsTests: XCTestCase {
       }
     }
     
-    // Visualize the contents of the charge grid.
-    print()
-    print("charge density")
-    for indexY in 0..<gridSize {
-      for indexX in 0..<gridSize {
-        let x = (Float(indexX) + 0.5) * h
-        let y = (Float(indexY) + 0.5) * h
-        let cellID = indexY * gridSize + indexX
-        
-        let ρ = chargeGrid[cellID]
-        print(ρ, terminator: " ")
-      }
-      print()
-    }
-    
     // Create an array that represents the boundary values in each cell.
     //
     // Elements of the flux data structure:
@@ -639,7 +631,17 @@ final class ElectrostaticsTests: XCTestCase {
     var fluxIntegralGrid = [SIMD4<Float>](
       repeating: .zero, count: gridSize * gridSize)
     for indexY in 0..<gridSize {
-      for indexX in 0..<gridSize {
+      // Skip some loop iterations to minimize execution time.
+      var indicesX: [Int] = []
+      if indexY == 0 || indexY == gridSize - 1 {
+        for indexX in 0..<gridSize {
+          indicesX.append(indexX)
+        }
+      } else {
+        indicesX = [0, gridSize - 1]
+      }
+      
+      for indexX in indicesX {
         // Create the coordinate offsets for each face.
         let faceOffsetsX: [Float] = [-0.5, 0.0, 0.5, 0.0]
         let faceOffsetsY: [Float] = [0.0, -0.5, 0.0, 0.5]
@@ -738,40 +740,10 @@ final class ElectrostaticsTests: XCTestCase {
       }
     }
     
-    // Visualize the domain boundaries.
-    func renderBoundary(fluxGrid: [SIMD4<Float>]) {
-      for indexY in 0..<gridSize {
-        for indexX in 0..<gridSize {
-          // Determine the flux to render for this cell.
-          var flux: Float = .zero
-          if indexX == 0 {
-            let cellID = indexY * gridSize + indexX
-            let faceFluxes = fluxGrid[cellID]
-            
-            // Choose the face that aligns with the boundary.
-            flux = faceFluxes[0]
-          }
-          
-          // Render the flux.
-          print(flux, terminator: " ")
-        }
-        print()
-      }
-    }
-    
-    print()
-    print("boundary (point charge)")
-    renderBoundary(fluxGrid: fluxPointChargeGrid)
-    
-    print()
-    print("boundary (integral)")
-    renderBoundary(fluxGrid: fluxIntegralGrid)
-    
     // Integrate the fluxes along the domain boundaries.
-    print()
     
-    // First, sum the charge density across the grid. This should be one, but
-    // the formula includes this explicitly. Plus, it will give some insight
+    // First, sum the charge density across the grid. This should be +1, but
+    // the formula integrates this explicitly. Plus, it will give some insight
     // into how to sum across a restricted subsection of the domain.
     do {
       var accumulator: Double = .zero
@@ -785,17 +757,16 @@ final class ElectrostaticsTests: XCTestCase {
       }
       
       let volumeIntegral = Float(accumulator)
-      print("volume integral:", volumeIntegral)
+      XCTAssertEqual(volumeIntegral, 1, accuracy: 1e-3)
     }
     
-    // Figure out how to sum fluxes across just one set of boundaries. Use the
-    // point charge grid to start off.
-    do {
+    // Second, sum the fluxes across each set of boundaries.
+    func createSurfaceIntegral(fluxGrid: [SIMD4<Float>]) -> Float {
       var accumulator: Double = .zero
       for indexY in 0..<gridSize {
         for indexX in 0..<gridSize {
           let cellID = indexY * gridSize + indexX
-          let faceFluxes = fluxPointChargeGrid[cellID]
+          let faceFluxes = fluxGrid[cellID]
           
           var F: Float = .zero
           if indexX == 0 {
@@ -816,8 +787,27 @@ final class ElectrostaticsTests: XCTestCase {
         }
       }
       
+      // Cast the accumulator to single precision and return the result.
       let surfaceIntegral = Float(accumulator)
-      print("surface integral (point charge):", surfaceIntegral)
+      return surfaceIntegral
+    }
+    
+    // Result of analytical integration.
+    let radius = 0.5 * Float(gridSize) * h
+    let segment = -1 / (Float(2).squareRoot() * radius)
+    let expectedIntegral = 8 * segment
+    XCTAssertEqual(expectedIntegral, -11.314, accuracy: 1e-3)
+    
+    // Results of numerical integration (point charge).
+    do {
+      let actualIntegral = createSurfaceIntegral(fluxGrid: fluxPointChargeGrid)
+      XCTAssertEqual(expectedIntegral, actualIntegral, accuracy: 1e-2)
+    }
+    
+    // Results of numerical integration (flux generated by direct evaluation).
+    do {
+      let actualIntegral = createSurfaceIntegral(fluxGrid: fluxIntegralGrid)
+      XCTAssertEqual(expectedIntegral, actualIntegral, accuracy: 1e-1)
     }
   }
 }
