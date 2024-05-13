@@ -76,51 +76,36 @@ final class LinearSolverTests: XCTestCase {
             faceFlux *= (signID == 0) ? -1 : 1
             faceFluxes[faceID] = distance // faceFlux
             
-            // MARK: - Center
-            
-            // faceCenter
-            // SIMD3<Float>(1.875, 1.875, 1.875)
-            
-            // rDelta
-            // SIMD3<Float>(0.875, 0.875, 0.875)
-            
-            // distance
-            // 1.5155444
-            
-            // gradient
-            // -0.4353742
-            
-            // direction
-            // SIMD3<Float>(0.57735026, 0.57735026, 0.57735026)
-            
-            // flux
-            // SIMD3<Float>(-0.2513634, -0.2513634, -0.2513634)
-            
-            
-            // MARK: - Faces
+            // MARK: - Combined Data
             
             // faceCenter
 //            SIMD3<Float>(1.75, 1.875, 1.875)
+//            SIMD3<Float>(1.875, 1.875, 1.875)
 //            SIMD3<Float>(2.0, 1.875, 1.875)
             
             // rDelta
 //            SIMD3<Float>(0.75, 0.875, 0.875)
+//            SIMD3<Float>(0.875, 0.875, 0.875)
 //            SIMD3<Float>(1.0, 0.875, 0.875)
             
             // distance
 //            1.4469796
+//            1.5155444
 //            1.5909903
             
             // gradient
 //            -0.47761193
+//            -0.4353742
 //            -0.3950617
             
             // direction
 //            SIMD3<Float>(0.51832104, 0.6047079, 0.6047079)
+//            SIMD3<Float>(0.57735026, 0.57735026, 0.57735026)
 //            SIMD3<Float>(0.6285393, 0.54997194, 0.54997194)
             
             // flux
 //            SIMD3<Float>(-0.24755631, -0.2888157, -0.2888157)
+//            SIMD3<Float>(-0.2513634, -0.2513634, -0.2513634)
 //            SIMD3<Float>(-0.24831182, -0.21727285, -0.21727285)
           }
           print(faceFluxes)
