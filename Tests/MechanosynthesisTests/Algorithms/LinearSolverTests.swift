@@ -8,8 +8,30 @@ import Numerics
 // charge model. This would be the multipole expansion of the charge
 // distribution created by spreading the nucleus across 8 cells.
 final class LinearSolverTests: XCTestCase {
-  // TODO: Create a function that sets up the 3D Neumann boundaries,
-  // normalizes to obey Gauss's Law.
+  // First, check the solution from the direct matrix method. Make the domain
+  // small enough that the direct method executes in ~1 ms. It may be too small
+  // to observe a significant speedup from multigrid relaxations, but that is
+  // okay. We only need code for a multigrid that works at all.
+  func testDirectMatrixMethod() throws {
+    // 6 columns are allocated for specific boundary conditions on each cell.
+    let n: Int = (8 * 8 * 8) + 6
+    
+    // TODO: Set up the Neumann boundaries, normalize to obey Gauss's Law.
+    var matrix = [Float](repeating: .zero, count: n * n)
+    for diagonalID in 0..<n {
+      let address = diagonalID * n + diagonalID
+      matrix[address] = 1
+    }
+    
+    var vector = [Float](repeating: .zero, count: n)
+    for rowID in 0..<n {
+      vector[rowID] = 2
+    }
+    
+    let solution = LinearAlgebraUtilities
+      .solveLinearSystem(matrix: matrix, vector: vector, n: n)
+    print(solution.count)
+  }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
   // timestep based on the results of some integrals.
