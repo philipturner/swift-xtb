@@ -580,8 +580,8 @@ final class ElectrostaticsTests: XCTestCase {
   // conservation and solvability.
   func testNeumannBoundaries() throws {
     // The nucleus appears in the center of the grid. Its charge is +1.
-    let h: Float = 0.1 / 2
-    let gridSize: Int = 10 * 2
+    let h: Float = 0.1
+    let gridSize: Int = 20
     
     // Create an array that represents the charge density (ρ).
     var chargeGrid = [Float](repeating: .zero, count: gridSize * gridSize)
@@ -768,5 +768,56 @@ final class ElectrostaticsTests: XCTestCase {
     renderBoundary(fluxGrid: fluxIntegralGrid)
     
     // Integrate the fluxes along the domain boundaries.
+    print()
+    
+    // First, sum the charge density across the grid. This should be one, but
+    // the formula includes this explicitly. Plus, it will give some insight
+    // into how to sum across a restricted subsection of the domain.
+    do {
+      var accumulator: Double = .zero
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          let cellID = indexY * gridSize + indexX
+          let ρ = chargeGrid[cellID]
+          let drTerm = h * h
+          accumulator += Double(ρ * drTerm)
+        }
+      }
+      
+      let volumeIntegral = Float(accumulator)
+      print("volume integral:", volumeIntegral)
+    }
+    
+    // Figure out how to sum fluxes across just one set of boundaries. Use the
+    // point charge grid to start off.
+    do {
+      var accumulator: Double = .zero
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          let cellID = indexY * gridSize + indexX
+          let faceFluxes = fluxPointChargeGrid[cellID]
+          
+          var F: Float = .zero
+          if indexX == 0 {
+            F += faceFluxes[0]
+          }
+          if indexY == 0 {
+            F += faceFluxes[1]
+          }
+          if indexX == gridSize - 1 {
+            F += faceFluxes[2]
+          }
+          if indexY == gridSize - 1 {
+            F += faceFluxes[3]
+          }
+          
+          let drTerm = h
+          accumulator += Double(F * drTerm)
+        }
+      }
+      
+      let surfaceIntegral = Float(accumulator)
+      print("surface integral (point charge):", surfaceIntegral)
+    }
   }
 }
