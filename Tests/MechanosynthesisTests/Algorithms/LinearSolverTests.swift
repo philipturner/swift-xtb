@@ -8,15 +8,13 @@ import Numerics
 // charge model. This would be the multipole expansion of the charge
 // distribution created by spreading the nucleus across 8 cells.
 final class LinearSolverTests: XCTestCase {
-  // First, check the solution from the direct matrix method. Make the domain
-  // small enough that the direct method executes in ~1 ms. It may be too small
-  // to observe a significant speedup from multigrid relaxations, but that is
-  // okay. We only need code for a multigrid that works at all.
-  func testDirectMatrixMethod() throws {
-    // Set up the Neumann boundaries, normalize to obey Gauss's Law.
-    let h: Float = 0.25
-    let gridSize: Int = 8
-    
+  static let h: Float = 0.25
+  static let gridSize: Int = 8
+  
+  // Set up the Neumann boundaries, normalize to obey Gauss's Law.
+  //
+  // Returns an array of fluxes that must be present at the boundary.
+  static func createBoundaryConditions() -> [SIMD8<Float>] {
     // Create an array that represents the boundary values in each cell.
     //
     // Elements of the flux data structure:
@@ -103,8 +101,9 @@ final class LinearSolverTests: XCTestCase {
       }
     }
     
-    // Integrate the fluxes along the domain boundaries.
+    // Correct to obey Gauss's Law.
     do {
+      // Integrate the fluxes along the domain boundaries.
       var accumulator: Double = .zero
       for cellID in fluxGrid.indices {
         let faceFluxes = fluxGrid[cellID]
@@ -112,10 +111,30 @@ final class LinearSolverTests: XCTestCase {
         let drTerm = h * h
         accumulator += Double(fluxTerm * drTerm)
       }
-      
       let surfaceIntegral = Float(accumulator)
-      print("surface integral:", surfaceIntegral)
+      
+      // Rescale to reflect the charge enclosed.
+      let chargeEnclosed: Float = 1
+      let actual = surfaceIntegral
+      let expected = -4 * Float.pi * chargeEnclosed
+      let scaleFactor = expected / actual
+      for cellID in fluxGrid.indices {
+        var faceFluxes = fluxGrid[cellID]
+        faceFluxes *= scaleFactor
+        fluxGrid[cellID] = faceFluxes
+      }
     }
+    
+    // Return the array of flux data structures.
+    return fluxGrid
+  }
+  
+  // First, check the solution from the direct matrix method. Make the domain
+  // small enough that the direct method executes in ~1 ms. It may be too small
+  // to observe a significant speedup from multigrid relaxations, but that is
+  // okay. We only need code for a multigrid that works at all.
+  func testDirectMatrixMethod() throws {
+    
   }
   
   // Implementation of the algorithm from the INQ codebase, which chooses the
