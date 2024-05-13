@@ -181,25 +181,34 @@ final class LinearSolverTests: XCTestCase {
             var coordinate = indices[coordinateID]
             coordinate += (signID == 0) ? -1 : 1
             
+            // Link this variable to another one.
             if coordinate >= 0, coordinate < Self.gridSize {
+              linkedCellCount += 1
+              
               // Establish the relationship between this cell and the linked
               // cell, with a matrix entry.
-              linkedCellCount += 1
+              var otherIndices = indices
+              otherIndices[coordinateID] = coordinate
+              var otherCellID = otherIndices.z * (Self.gridSize * Self.gridSize)
+              otherCellID += otherIndices.y * Self.gridSize + otherIndices.x
+              
+              // Assign 1 / h^2 to the linking entry.
+              let linkAddress = cellID * n + otherCellID
+              let linkEntry: Float = 1 / (Self.h * Self.h)
+              laplacian[linkAddress] = linkEntry
             } else {
               // Impose a boundary condition, as there are no cells to fetch
               // data from.
             }
           }
           
-          // Write the value along the diagonal.
+          // Write the entry along the diagonal (most often -6 / h^2).
           let diagonalEntry = -Float(linkedCellCount) / (Self.h * Self.h)
           let diagonalAddress = cellID * n + cellID
           laplacian[diagonalAddress] = diagonalEntry
         }
       }
     }
-    
-    // TODO: Shrink the grid to something very small, visualize the matrix.
     
     // Visualize the matrix.
     for rowID in 0..<n {
@@ -220,6 +229,29 @@ final class LinearSolverTests: XCTestCase {
         if repr.count > 5 {
           repr.removeLast()
         }
+        
+        // Choose a color.
+        func makeGreen<T: StringProtocol>(_ string: T) -> String {
+          "\u{1b}[0;32m\(string)\u{1b}[0m"
+        }
+        func makeYellow<T: StringProtocol>(_ string: T) -> String {
+          "\u{1b}[0;33m\(string)\u{1b}[0m"
+        }
+        func makeCyan<T: StringProtocol>(_ string: T) -> String {
+          "\u{1b}[0;36m\(string)\u{1b}[0m"
+        }
+        if entry != Float.zero {
+          let cellCount = Self.gridSize * Self.gridSize * Self.gridSize
+          if rowID >= cellCount || columnID >= cellCount {
+            // Highlight boundary conditions in yellow.
+            repr = makeYellow(repr)
+          } else {
+            // Highlight data links in green.
+            repr = makeGreen(repr)
+          }
+        }
+        
+        // Render the entry.
         print(repr, terminator: " ")
       }
       print()
