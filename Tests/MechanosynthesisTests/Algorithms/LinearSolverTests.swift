@@ -39,11 +39,10 @@ final class LinearSolverTests: XCTestCase {
     indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
   }
   
-  // Apply the 'A' matrix, which equals ∇^2.
+  // Apply the 'A' matrix (∇^2), while omitting ghost cells.
   //
-  // The Laplacian has second-order accuracy. It fills ghost cells with the
-  // multipole expansion of the charge enclosed.
-  static func applyLaplacian(_ x: [Float]) -> [Float] {
+  // The Laplacian has second-order accuracy.
+  static func applyLaplacianLinearPart(_ x: [Float]) -> [Float] {
     guard x.count == cellCount else {
       fatalError("Dimensions of 'x' did not match problem size.")
     }
@@ -74,6 +73,55 @@ final class LinearSolverTests: XCTestCase {
               let neighborAddress = createAddress(indices: neighborIndices)
               let neighborValue = x[neighborAddress]
               dotProduct += 1 / (h * h) * neighborValue
+            } else {
+              var neighborPosition = SIMD3<Float>(neighborIndices)
+              neighborPosition = h * (neighborPosition + 0.5)
+              var nucleusPosition = SIMD3(repeating: Float(gridSize))
+              nucleusPosition = h * (nucleusPosition * 0.5)
+              
+              // Generate a ghost value from the point charge approximation.
+              let r = neighborPosition - nucleusPosition
+              let distance = (r * r).sum().squareRoot()
+              let neighborValue = 1 / distance
+              // dotProduct += 1 / (h * h) * neighborValue
+            }
+          }
+          
+          // Store the dot product.
+          output[cellAddress] = dotProduct
+        }
+      }
+    }
+    
+    return output
+  }
+  
+  // The Laplacian, omitting contributions from the input 'x'.
+  //
+  // Fills ghost cells with the multipole expansion of the charge enclosed.
+  static func applyLaplacianBoundary() -> [Float] {
+    // Iterate over the cells.
+    var output = [Float](repeating: 0, count: cellCount)
+    for indexZ in 0..<gridSize {
+      for indexY in 0..<gridSize {
+        for indexX in 0..<gridSize {
+          var dotProduct: Float = .zero
+          
+          // Apply the FMA on the diagonal.
+          let cellIndices = SIMD3(indexX, indexY, indexZ)
+          let cellAddress = createAddress(indices: cellIndices)
+          
+          // Iterate over the faces.
+          for faceID in 0..<6 {
+            let coordinateID = faceID / 2
+            let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+            
+            // Locate the neighboring cell.
+            var neighborIndices = SIMD3(indexX, indexY, indexZ)
+            neighborIndices[coordinateID] += coordinateShift
+            
+            if all(neighborIndices .>= 0) && all(neighborIndices .< gridSize) {
+              let neighborAddress = createAddress(indices: neighborIndices)
             } else {
               var neighborPosition = SIMD3<Float>(neighborIndices)
               neighborPosition = h * (neighborPosition + 0.5)
@@ -124,6 +172,8 @@ final class LinearSolverTests: XCTestCase {
     return output
   }
   
+  // MARK: - Utilities
+  
   // Shift a vector by a constant times another vector.
   //
   // Returns: original + scale * correction
@@ -155,6 +205,8 @@ final class LinearSolverTests: XCTestCase {
     return Float(accumulator)
   }
   
+  // MARK: - Tests
+  
   // Jacobi method:
   //
   // Ax = b
@@ -164,22 +216,60 @@ final class LinearSolverTests: XCTestCase {
   // Dx = b - Ax + Dx
   // x = x + D^{-1} (b - Ax)
   func testJacobiMethod() throws {
-    let b = Self.createScaledChargeDensity()
-    var x = [Float](repeating: .zero, count: Self.cellCount)
-    let expectedX = Self.createReferenceSolution()
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
     
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    print()
     for _ in 0..<20 {
-      let Ax = Self.applyLaplacian(x)
-      let r = Self.shift(b, scale: -1, correction: Ax)
-      
-      do {
-        let r2 = Self.dot(r, r)
-        let resNorm = r2.squareRoot()
-        print("||r|| = \(resNorm)")
-      }
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
       
       let D = -6 / (Self.h * Self.h)
       x = Self.shift(x, scale: 1 / D, correction: r)
+    }
+  }
+  
+  // Conjugate gradient method:
+  //
+  // r = b - Ax
+  // p = r - Σ_i < p_i | A | r > / < p_i | A | p_i >
+  // a = < p | r > / < p | A | p >
+  // x = x + a p
+  func testConjugateGradientMethod() throws {
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    // Store a history of the directions.
+    var history: [[Float]] = []
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    print()
+    for _ in 0..<20 {
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+      
+      // Apply Gram-Schmidt orthogonalization to the residual.
+      var residualCorrection = [Float](repeating: .zero, count: Self.cellCount)
+      for pi in history {
+        let numerator = Self.dot(pi, Self.applyLaplacianLinearPart(r))
+        let denominator = Self.dot(pi, Self.applyLaplacianLinearPart(pi))
+        residualCorrection = Self.shift(
+          residualCorrection, scale: numerator / denominator, correction: pi)
+      }
+      
+      let p = Self.shift(r, scale: -1, correction: residualCorrection)
+      let a = Self.dot(p, r) / Self.dot(p, Self.applyLaplacianLinearPart(p))
+      
+      history.append(p)
+      x = Self.shift(x, scale: a, correction: p)
     }
   }
 }
