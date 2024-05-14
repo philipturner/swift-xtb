@@ -3,8 +3,8 @@ import Mechanosynthesis
 import Numerics
 
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 4
-  static let h: Float = 0.5
+  static let gridSize: Int = 8
+  static let h: Float = 0.25
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -222,7 +222,7 @@ final class LinearSolverTests: XCTestCase {
     
     var x = [Float](repeating: .zero, count: Self.cellCount)
     print()
-    for _ in 0..<20 {
+    for _ in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
       let r2 = Self.dot(r, r)
@@ -249,7 +249,7 @@ final class LinearSolverTests: XCTestCase {
     var history: [[Float]] = []
     var x = [Float](repeating: .zero, count: Self.cellCount)
     print()
-    for _ in 0..<20 {
+    for _ in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
       let r2 = Self.dot(r, r)
@@ -270,6 +270,52 @@ final class LinearSolverTests: XCTestCase {
       
       history.append(p)
       x = Self.shift(x, scale: a, correction: p)
+    }
+  }
+  
+  // Conjugate gradient method (efficient):
+  //
+  // r = b - Ax
+  // p = r
+  // repeat
+  //   a = < r | r > / < p | A | p >
+  //   x_new = x + a p
+  //   r_new = r - a A p
+  //
+  //   b = < r_new | r_new > / < r | r >
+  //   p_new = r_new + b p
+  func testEfficientConjugateGradientMethod() throws {
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    let L1x = Self.applyLaplacianLinearPart(x)
+    var r = Self.shift(b, scale: -1, correction: L1x)
+    var p = r
+    print()
+    do {
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+    }
+    
+    for _ in 0..<30 {
+      let a = Self.dot(r, r) / Self.dot(p, Self.applyLaplacianLinearPart(p))
+      let xNew = Self.shift(
+        x, scale: a, correction: p)
+      let rNew = Self.shift(
+        r, scale: -a, correction: Self.applyLaplacianLinearPart(p))
+      let r2 = Self.dot(rNew, rNew)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+      
+      let b = Self.dot(rNew, rNew) / Self.dot(r, r)
+      let pNew = Self.shift(rNew, scale: b, correction: p)
+      
+      x = xNew
+      r = rNew
+      p = pNew
     }
   }
 }
