@@ -7,6 +7,9 @@ import Numerics
 // Use Neumann boundary conditions for these tests. Also, use the point
 // charge model. This would be the multipole expansion of the charge
 // distribution created by spreading the nucleus across 8 cells.
+//
+// NOTE: The Laplacian times the potential does not generate the charge
+// density. Replace the right-hand side of the equation with -4πρ.
 final class LinearSolverTests: XCTestCase {
   static let gridSize: Int = 8
   static let h: Float = 0.25
@@ -143,7 +146,7 @@ final class LinearSolverTests: XCTestCase {
     // Allocate a matrix and two vectors.
     var laplacian = [Float](repeating: .zero, count: n * n)
     var potential = [Float](repeating: .zero, count: n)
-    var chargeDensity = [Float](repeating: .zero, count: n)
+    var rightHandSide = [Float](repeating: .zero, count: n)
     
     // Set the eight extraneous variables to the identity. These variables
     // adapt the boundary conditions to the functional form of a
@@ -158,7 +161,7 @@ final class LinearSolverTests: XCTestCase {
         
         // Fill in the tail of each vector.
         potential[constraintID] = 1
-        chargeDensity[constraintID] = 1
+        rightHandSide[constraintID] = 1
       }
     }
     
@@ -249,6 +252,42 @@ final class LinearSolverTests: XCTestCase {
           potential[cellID] = φ
         }
       }
+    }
+    
+    // Multiply the Laplacian by the potential, creating the charge density.
+    for rowID in 0..<n {
+      var accumulator: Float = .zero
+      for columnID in 0..<n {
+        // Fetch a value from the Laplacian.
+        let lhs = laplacian[rowID * n + columnID]
+        
+        // Fetch a value from the potential.
+        let rhs = potential[columnID]
+        
+        // Multiply and accumulate in FP32.
+        accumulator += lhs * rhs
+      }
+      
+      // Write the dot product to the right-hand side.
+      rightHandSide[rowID] = accumulator
+    }
+    
+    for cellID in potential.indices {
+      print(potential[cellID], rightHandSide[cellID] / (-4 * Float.pi))
+    }
+    
+    // Sum the charge predicted by the matrix solution.
+    do {
+      var accumulator: Double = .zero
+      let cellCount = Self.gridSize * Self.gridSize * Self.gridSize
+      for cellID in 0..<cellCount {
+        let ρ = rightHandSide[cellID] / (-4 * Float.pi)
+        let drTerm = Self.h * Self.h * Self.h
+        accumulator += Double(ρ * drTerm)
+      }
+      
+      let charge = Float(accumulator)
+      print("net charge:", charge)
     }
   }
   
