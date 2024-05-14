@@ -222,6 +222,7 @@ final class LinearSolverTests: XCTestCase {
     
     var x = [Float](repeating: .zero, count: Self.cellCount)
     print()
+    print("Jacobi")
     for _ in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
@@ -249,6 +250,7 @@ final class LinearSolverTests: XCTestCase {
     var history: [[Float]] = []
     var x = [Float](repeating: .zero, count: Self.cellCount)
     print()
+    print("Conjugate Gradient")
     for _ in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
@@ -289,16 +291,21 @@ final class LinearSolverTests: XCTestCase {
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
+    func logNormRes() {
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+    }
+    
     var x = [Float](repeating: .zero, count: Self.cellCount)
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
     var p = r
     print()
-    do {
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
-    }
+    print("Efficient Conjugate Gradient")
+    logNormRes()
     
     for _ in 0..<30 {
       let a = Self.dot(r, r) / Self.dot(p, Self.applyLaplacianLinearPart(p))
@@ -306,9 +313,6 @@ final class LinearSolverTests: XCTestCase {
         x, scale: a, correction: p)
       let rNew = Self.shift(
         r, scale: -a, correction: Self.applyLaplacianLinearPart(p))
-      let r2 = Self.dot(rNew, rNew)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
       
       let b = Self.dot(rNew, rNew) / Self.dot(r, r)
       let pNew = Self.shift(rNew, scale: b, correction: p)
@@ -316,6 +320,94 @@ final class LinearSolverTests: XCTestCase {
       x = xNew
       r = rNew
       p = pNew
+      
+      logNormRes()
+    }
+  }
+  
+  // Gauss-Seidel method:
+  //
+  // x_i = (1 / a_ii) (b_i - Σ_(j ≠ i) a_ij x_j)
+  //
+  // Red-black scheme:
+  //
+  // iterate over all the red cells in parallel
+  // iterate over all the black cells in parallel
+  // only works with 2nd order FD
+  func testGaussSeidelMethod() {
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    print()
+    print("Gauss-Seidel")
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    func logNormRes() {
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+    }
+    
+    // Updates all of the selected cells in-place.
+    func executeSweep(red: Bool, black: Bool) {
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            var dotProduct: Float = .zero
+            
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            switch parity & 1 {
+            case 0:
+              guard red else {
+                continue
+              }
+            case 1:
+              guard black else {
+                continue
+              }
+            default:
+              fatalError("This should never happen.")
+            }
+            
+            // Iterate over the faces.
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< Self.gridSize) {
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = x[neighborAddress]
+                dotProduct += 1 / (Self.h * Self.h) * neighborValue
+              }
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            
+            // Overwrite the current value.
+            let rhsValue = b[cellAddress]
+            let diagonalValue: Float = -6 / (Self.h * Self.h)
+            let newValue = (rhsValue - dotProduct) / diagonalValue
+            x[cellAddress] = newValue
+          }
+        }
+      }
+    }
+    
+    for iterationID in 0..<30 {
+      logNormRes()
+      
+      executeSweep(red: true, black: false)
+      executeSweep(red: false, black: true)
     }
   }
 }

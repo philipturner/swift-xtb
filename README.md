@@ -51,6 +51,7 @@ FiniteDifferencing
 
 LinearSolver
 - Jacobi
+- Gauss-Seidel
 - Conjugate gradient
 - Multigrid
 
