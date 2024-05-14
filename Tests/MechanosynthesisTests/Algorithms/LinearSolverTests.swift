@@ -241,41 +241,8 @@ final class LinearSolverTests: XCTestCase {
   // p = r - Σ_i < p_i | A | r > / < p_i | A | p_i >
   // a = < p | r > / < p | A | p >
   // x = x + a p
-  func testConjugateGradientMethod() throws {
-    var b = Self.createScaledChargeDensity()
-    let L2x = Self.applyLaplacianBoundary()
-    b = Self.shift(b, scale: -1, correction: L2x)
-    
-    // Store a history of the directions.
-    var history: [[Float]] = []
-    var x = [Float](repeating: .zero, count: Self.cellCount)
-    print()
-    print("Conjugate Gradient")
-    for _ in 0..<30 {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let r = Self.shift(b, scale: -1, correction: L1x)
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
-      
-      // Apply Gram-Schmidt orthogonalization to the residual.
-      var residualCorrection = [Float](repeating: .zero, count: Self.cellCount)
-      for pi in history {
-        let numerator = Self.dot(pi, Self.applyLaplacianLinearPart(r))
-        let denominator = Self.dot(pi, Self.applyLaplacianLinearPart(pi))
-        residualCorrection = Self.shift(
-          residualCorrection, scale: numerator / denominator, correction: pi)
-      }
-      
-      let p = Self.shift(r, scale: -1, correction: residualCorrection)
-      let a = Self.dot(p, r) / Self.dot(p, Self.applyLaplacianLinearPart(p))
-      
-      history.append(p)
-      x = Self.shift(x, scale: a, correction: p)
-    }
-  }
-  
-  // Conjugate gradient method (efficient):
+  //
+  // Efficient version:
   //
   // r = b - Ax
   // p = r
@@ -286,7 +253,7 @@ final class LinearSolverTests: XCTestCase {
   //
   //   b = < r_new | r_new > / < r | r >
   //   p_new = r_new + b p
-  func testEfficientConjugateGradientMethod() throws {
+  func testConjugateGradientMethod() throws {
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
@@ -303,23 +270,26 @@ final class LinearSolverTests: XCTestCase {
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
     var p = r
+    var rr = Self.dot(r, r)
     print()
-    print("Efficient Conjugate Gradient")
+    print("Conjugate Gradient")
     logNormRes()
     
     for _ in 0..<30 {
-      let a = Self.dot(r, r) / Self.dot(p, Self.applyLaplacianLinearPart(p))
-      let xNew = Self.shift(
-        x, scale: a, correction: p)
-      let rNew = Self.shift(
-        r, scale: -a, correction: Self.applyLaplacianLinearPart(p))
+      let Ap = Self.applyLaplacianLinearPart(p)
       
-      let b = Self.dot(rNew, rNew) / Self.dot(r, r)
+      let a = rr / Self.dot(p, Ap)
+      let xNew = Self.shift(x, scale: a, correction: p)
+      let rNew = Self.shift(r, scale: -a, correction: Ap)
+      let rrNew = Self.dot(rNew, rNew)
+      
+      let b = rrNew / rr
       let pNew = Self.shift(rNew, scale: b, correction: p)
       
       x = xNew
       r = rNew
       p = pNew
+      rr = rrNew
       
       logNormRes()
     }
@@ -342,13 +312,6 @@ final class LinearSolverTests: XCTestCase {
     print()
     print("Gauss-Seidel")
     var x = [Float](repeating: .zero, count: Self.cellCount)
-    func logNormRes() {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let r = Self.shift(b, scale: -1, correction: L1x)
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
-    }
     
     // Updates all of the selected cells in-place.
     func executeSweep(red: Bool, black: Bool) {
@@ -404,10 +367,88 @@ final class LinearSolverTests: XCTestCase {
     }
     
     for iterationID in 0..<30 {
-      logNormRes()
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
       
       executeSweep(red: true, black: false)
       executeSweep(red: false, black: true)
+    }
+  }
+  
+  func testMultigridMethod() {
+    // There is a regular Laplacian and a "no-fine" Laplacian. The latter uses
+    // a different diagonal to smooth the error vector at boundaries?
+    //
+    // No, that is a completely incorrect interpretation.
+    var b = Self.createScaledChargeDensity()
+    
+    print()
+    print("Multigrid")
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    
+    // Run one sweep of serial Gauss-Seidel.
+    func executeSweep() {
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            var dotProduct: Float = .zero
+            
+            // Iterate over the faces.
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< Self.gridSize) {
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = x[neighborAddress]
+                dotProduct += 1 / (Self.h * Self.h) * neighborValue
+              } else {
+                var neighborPosition = SIMD3<Float>(neighborIndices)
+                neighborPosition = Self.h * (neighborPosition + 0.5)
+                var nucleusPosition = SIMD3(repeating: Float(Self.gridSize))
+                nucleusPosition = Self.h * (nucleusPosition * 0.5)
+                
+                // Generate a ghost value from the point charge approximation.
+                let r = neighborPosition - nucleusPosition
+                let distance = (r * r).sum().squareRoot()
+                let neighborValue = 1 / distance
+                dotProduct += 1 / (Self.h * Self.h) * neighborValue
+              }
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            
+            // Overwrite the current value.
+            let rhsValue = b[cellAddress]
+            let diagonalValue: Float = -6 / (Self.h * Self.h)
+            let newValue = (rhsValue - dotProduct) / diagonalValue
+            x[cellAddress] = newValue
+          }
+        }
+      }
+    }
+    
+    for iterationID in 0..<30 {
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let L2x = Self.applyLaplacianBoundary()
+      let Ax = Self.shift(L1x, scale: 1, correction: L2x)
+      let r = Self.shift(b, scale: -1, correction: Ax)
+      
+      let r2 = Self.dot(r, r)
+      let resNorm = r2.squareRoot()
+      print("||r|| = \(resNorm)")
+      
+      executeSweep()
     }
   }
 }

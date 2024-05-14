@@ -50,9 +50,9 @@ FiniteDifferencing
 - Coarsening operator
 
 LinearSolver
-- Jacobi
-- Gauss-Seidel
-- Conjugate gradient
+- Jacobi ✅
+- Gauss-Seidel ✅
+- Conjugate gradient ✅
 - Multigrid
 
 Relativity
