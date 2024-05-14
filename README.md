@@ -50,10 +50,7 @@ FiniteDifferencing
 - Coarsening operator
 
 LinearSolver
-- Steepest descent
-  - INQ
-  - Weighted Jacobi
-  - Gauss-Seidel
+- Jacobi
 - Conjugate gradient
 - Multigrid
 

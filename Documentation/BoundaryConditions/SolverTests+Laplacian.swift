@@ -155,6 +155,12 @@ extension SolverTests {
     return conditionGrid
   }
   
+  // TODO: Refactor this function into a data structure.
+  // Properties:
+  // - Explicitly materialized matrix
+  // - Function to efficiently pull entries from the matrix band
+  // - Equation for average potential
+  // - Expected average potential
   static func createLaplacianMatrix() -> [Float] {
     // Allocate a matrix.
     var matrix = [Float](repeating: .zero, count: n * n)
