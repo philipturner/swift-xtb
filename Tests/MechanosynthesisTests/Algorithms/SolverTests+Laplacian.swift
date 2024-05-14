@@ -12,8 +12,8 @@
 // NOTE: The Laplacian times the potential does not generate the charge
 // density. Replace the right-hand side of the equation with -4πρ.
 extension SolverTests {
-  static let gridSize: Int = 4
-  static let h: Float = 0.5
+  static let gridSize: Int = 8
+  static let h: Float = 0.25
   
   // The problem size is the number of cells, plus 6 variables for boundary
   // conditions imposed on each cell. To align the matrix rows to the CPU
@@ -89,8 +89,8 @@ extension SolverTests {
             
             if boundaryType == .dirichlet {
               // The potential is always positive.
-              let φ = 1 / distance
-              faceConditions[faceID] = φ
+              let potential = 1 / distance
+              faceConditions[faceID] = potential
             } else {
               // The gradient is always negative.
               let gradient = -1 / (distance * distance)
@@ -162,60 +162,90 @@ extension SolverTests {
     // Set the eight extraneous variables to the identity. These variables
     // adapt the boundary conditions to the functional form of a
     // matrix operator.
-    do {
-      for constraintID in cellCount..<cellCount + 8 {
-        // Fill in a diagonal of the matrix.
-        let diagonalAddress = constraintID * n + constraintID
-        matrix[diagonalAddress] = 1
-      }
+    for constraintID in cellCount..<cellCount + 8 {
+      // Fill in a diagonal of the matrix.
+      let diagonalAddress = constraintID * n + constraintID
+      matrix[diagonalAddress] = 1
     }
     
     // Fetch the boundary conditions.
-    let boundaryConditions = createBoundaryConditions(type: .neumann)
+    let dirichletConditions = createBoundaryConditions(type: .dirichlet)
+    let neumannConditions = createBoundaryConditions(type: .neumann)
+    
+    // Extra equation to determine the shift in V:
+    //
+    // Σ w_i * (φ_{extrapolated} - φ_{dirichlet}) = V shift
+    var constraintLHS = [Float](repeating: .zero, count: cellCount)
+    var constraintFluxSum: Double = .zero
+    var constraintDirichletSum: Double = .zero
+    var constraintWeightSum: Double = .zero
     
     // Fill in the entries of the matrix.
     for indexZ in 0..<gridSize {
       for indexY in 0..<gridSize {
         for indexX in 0..<gridSize {
-          let indices = SIMD3<Int>(indexX, indexY, indexZ)
-          var cellID = indexZ * (gridSize * gridSize)
-          cellID += indexY * gridSize + indexX
+          let cellIndices = SIMD3<Int>(indexX, indexY, indexZ)
+          var cellID = cellIndices[2] * (gridSize * gridSize)
+          cellID += cellIndices[1] * gridSize + cellIndices[0]
           
           // Fetch any possible boundary conditions.
-          let faceFluxes = boundaryConditions[cellID]
+          let facePotentials = dirichletConditions[cellID]
+          let faceFluxes = neumannConditions[cellID]
           
           // Iterate over the faces.
           var linkedCellCount: Int = .zero
           for faceID in 0..<6 {
             let coordinateID = faceID / 2
             let signID = faceID % 2
-            var coordinate = indices[coordinateID]
-            coordinate += (signID == 0) ? -1 : 1
             
-            // Link this variable to another one.
-            if coordinate >= 0, coordinate < gridSize {
+            // Locate the neighboring cell.
+            var neighborIndices = cellIndices
+            neighborIndices[coordinateID] += (signID == 0) ? -1 : 1
+            if neighborIndices[coordinateID] >= 0,
+                neighborIndices[coordinateID] < gridSize {
+              var neighborID = neighborIndices.z * (gridSize * gridSize)
+              neighborID += neighborIndices.y * gridSize + neighborIndices.x
+              
+              // Link this variable to the neighbor.
               linkedCellCount += 1
               
-              // Establish the relationship between this cell and the linked
-              // cell, with a matrix entry.
-              var otherIndices = indices
-              otherIndices[coordinateID] = coordinate
-              var otherCellID = otherIndices.z * (gridSize * gridSize)
-              otherCellID += otherIndices.y * gridSize + otherIndices.x
-              
               // Assign 1 / h^2 to the linking entry.
-              let linkAddress = cellID * n + otherCellID
+              let linkAddress = cellID * n + neighborID
               let linkEntry: Float = 1 / (h * h)
               matrix[linkAddress] = linkEntry
             } else {
-              // Impose a boundary condition, as there are no cells to fetch
-              // data from.
+              let facePotential = facePotentials[faceID]
               let faceFlux = faceFluxes[faceID]
               
-              // Assign F / h to the linking entry.
-              let linkAddress = (cellID * n + cellCount) + faceID
-              let linkEntry: Float = faceFlux / h
-              matrix[linkAddress] = linkEntry
+              // Impose a Neumann boundary condition, as there are no cells to
+              // fetch data from.
+              let neumannConditionAddress = (cellID * n + cellCount) + faceID
+              let neumannConditionEntry: Float = faceFlux / h
+              matrix[neumannConditionAddress] = neumannConditionEntry
+              
+              // Check that there's a neighbor on the other side, to include in
+              // the quadratic interpolation.
+              var neighborIndices = cellIndices
+              neighborIndices[coordinateID] += (signID == 0) ? 1 : -1
+              guard neighborIndices[coordinateID] >= 0,
+                    neighborIndices[coordinateID] < gridSize else {
+                fatalError(
+                  "Could not extrapolate potential to Dirichlet boundary.")
+              }
+              var neighborID = neighborIndices.z * (gridSize * gridSize)
+              neighborID += neighborIndices.y * gridSize + neighborIndices.x
+              
+              // Write to the constraint equation.
+              let weight = h * h
+              constraintLHS[neighborID] += Float(-1.0 / 8) * weight
+              constraintLHS[cellID] += Float(9.0 / 8) * weight
+              
+              
+              let fluxTerm = 3.0 / 8 * faceFlux
+              let dirichletTerm = -facePotential
+              constraintFluxSum += Double(fluxTerm * weight)
+              constraintDirichletSum += Double(dirichletTerm * weight)
+              constraintWeightSum += Double(weight)
             }
           }
           
@@ -225,6 +255,36 @@ extension SolverTests {
           matrix[diagonalAddress] = diagonalEntry
         }
       }
+    }
+    
+    // Collect the FP32 and FP64 values into one array.
+    var constraintEquation = [Float](repeating: .zero, count: n)
+    
+    // Normalize the coefficients with a weight attached to them.
+    do {
+      let normalizationFactor = 1 / Float(constraintWeightSum)
+      for cellID in 0..<cellCount {
+        var cellTerm = constraintLHS[cellID]
+        cellTerm *= normalizationFactor
+        constraintEquation[cellID] = cellTerm
+      }
+      
+      var fluxTerm = Float(constraintFluxSum)
+      var dirichletTerm = Float(constraintDirichletSum)
+      fluxTerm *= normalizationFactor
+      dirichletTerm *= normalizationFactor
+      constraintEquation[cellCount + 0] = fluxTerm
+      constraintEquation[cellCount + 1] = dirichletTerm
+    }
+    
+    // Set the last term to -1, so it can be occupied by the potential shift.
+    constraintEquation[cellCount + 7] = -1
+    
+    // Write the constraint equation to the last row.
+    for columnID in 0..<n {
+      let rowID = n - 1
+      let address = rowID * n + columnID
+      matrix[address] = constraintEquation[columnID]
     }
     
     // Render the Laplacian.
@@ -268,10 +328,30 @@ extension SolverTests {
       print()
     }
     
+    // Render the constraint equation.
+    print()
+    print("constraint equation:")
+    for columnID in 0..<n {
+      let entry = Float(constraintEquation[columnID])
+      var repr = String(format: "%.2f", entry)
+      
+      // Format the text to fit a constant spacing.
+      if entry.sign == .plus {
+        repr = " " + repr
+      }
+      if entry.magnitude >= 10 {
+        repr.removeLast()
+      }
+      print(repr, terminator: " ")
+    }
+    print()
+    
     return matrix
   }
   
   // Might need a separate function because the matrix with the constraint
   // equation(s) might not be diagonally dominant.
+  // - You could also just truncate the output, ignoring the constraint
+  //   variables.
 }
 

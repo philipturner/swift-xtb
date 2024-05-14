@@ -18,16 +18,18 @@ final class SolverTests: XCTestCase {
     var potential = [Float](repeating: .zero, count: n)
     var rightHandSide = [Float](repeating: .zero, count: n)
     
-    // Set the eight extraneous variables to the identity. These variables
+    // Set the 7 extraneous variables to the identity. These variables
     // adapt the boundary conditions to the functional form of a
     // matrix operator.
-    do {
-      for constraintID in Self.cellCount..<Self.cellCount + 8 {
-        // Fill in the tail of each vector.
-        potential[constraintID] = 1
-        rightHandSide[constraintID] = 1
-      }
+    for constraintID in Self.cellCount..<Self.cellCount + 7 {
+      potential[constraintID] = 1
+      rightHandSide[constraintID] = 1
     }
+    
+    // The left-hand side must be fixed at 1 to impose the constraint.
+    // The right-hand side must reflect the RHS of the constraint equation.
+    potential[n - 1] = 1
+    rightHandSide[n - 1] = 0
     
     let laplacian = Self.createLaplacianMatrix()
     
@@ -108,6 +110,7 @@ final class SolverTests: XCTestCase {
     for cellID in 0..<Self.cellCount {
       rightHandSide[cellID] = .zero
     }
+    rightHandSide[n - 1] = .zero
     for permutationZ in -1...0 {
       for permutationY in -1...0 {
         for permutationX in -1...0 {
@@ -142,12 +145,40 @@ final class SolverTests: XCTestCase {
     let numericalPotential = LinearAlgebraUtilities.solveLinearSystem(
       matrix: laplacian, vector: rightHandSide, n: n)
     
-    for cellID in potential.indices {
+    let dirichletConditions = Self.createBoundaryConditions(type: .dirichlet)
+    let neumannConditions = Self.createBoundaryConditions(type: .neumann)
+    
+    for cellID in 0..<Self.cellCount {
       print(
         analyticalPotential[cellID],
         numericalPotential[cellID],
         numericalPotential[cellID] - analyticalPotential[cellID],
-        rightHandSide[cellID] / (-4 * Float.pi))
+        rightHandSide[cellID] / (-4 * Float.pi),
+        terminator: " ")
+      
+      let facePotentials = dirichletConditions[cellID]
+      print("| φ =", terminator: " ")
+      for faceID in 0..<6 {
+        let potential = facePotentials[faceID]
+        if potential != .zero {
+          print(potential, terminator: " ")
+        }
+      }
+      
+      let faceFluxes = neumannConditions[cellID]
+      print("| F =", terminator: " ")
+      for faceID in 0..<6 {
+        let flux = faceFluxes[faceID]
+        if flux != .zero {
+          print(flux, terminator: " ")
+        }
+      }
+      
+      print()
+    }
+    
+    for cellID in Self.cellCount..<Self.cellCount + 8 {
+      print(analyticalPotential[cellID], numericalPotential[cellID], rightHandSide[cellID])
     }
   }
   
