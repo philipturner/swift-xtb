@@ -510,8 +510,67 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Performs a power-2 shift to a coarser level.
-      func average(rFine: [Float], fineLevelCoarseness: Int) -> [Float] {
-        return rFine
+      func shiftResolution(
+        fineGrid: inout [Float], coarseGrid: inout [Float],
+        fineLevelCoarseness: Int, shiftingUp: Bool
+      ) {
+        let fineGridSize = Self.gridSize / fineLevelCoarseness
+        let coarseGridSize = fineGridSize / 2
+        let coarseCellCount = coarseGridSize * coarseGridSize * coarseGridSize
+        
+        func createCoarseAddress(indices: SIMD3<Int>) -> Int {
+          indices.z * (coarseGridSize * coarseGridSize) +
+          indices.y * coarseGridSize + indices.x
+        }
+        func createFineAddress(indices: SIMD3<Int>) -> Int {
+          indices.z * (fineGridSize * fineGridSize) +
+          indices.y * fineGridSize + indices.x
+        }
+        
+        // Create the coarse grid.
+        if shiftingUp {
+          coarseGrid = [Float](repeating: .zero, count: coarseCellCount)
+        }
+        
+        // Iterate over the coarse grid.
+        for indexZ in 0..<coarseGridSize {
+          for indexY in 0..<coarseGridSize {
+            for indexX in 0..<coarseGridSize {
+              // Read from the coarse grid.
+              let coarseIndices = SIMD3<Int>(indexX, indexY, indexZ)
+              let coarseAddress = createCoarseAddress(indices: coarseIndices)
+              let coarseValue = coarseGrid[coarseAddress]
+              
+              // Iterate over the footprint on the finer grid.
+              var accumulator: Float = .zero
+              for permutationZ in 0..<2 {
+                for permutationY in 0..<2 {
+                  for permutationX in 0..<2 {
+                    var fineIndices = 2 &* coarseIndices
+                    fineIndices[0] += permutationX
+                    fineIndices[1] += permutationY
+                    fineIndices[2] += permutationZ
+                    let fineAddress = createFineAddress(indices: fineIndices)
+                    
+                    if shiftingUp {
+                      // Read from the fine grid.
+                      let fineValue = fineGrid[fineAddress]
+                      accumulator += (1.0 / 8) * fineValue
+                    } else {
+                      // Update the fine grid.
+                      fineGrid[fineAddress] += coarseValue
+                    }
+                  }
+                }
+              }
+              
+              // Update the coarse grid.
+              if shiftingUp {
+                coarseGrid[coarseAddress] = accumulator
+              }
+            }
+          }
+        }
       }
       
       // Performs a power-2 shift to a finer level.
@@ -539,7 +598,9 @@ final class LinearSolverTests: XCTestCase {
       // Restrict from fine to coarse.
       var rCoarse = rFine
       correctResidual(e: eFine, r: &rCoarse, coarseness: 1)
-      rCoarse = average(rFine: rCoarse, fineLevelCoarseness: 1)
+      shiftResolution(
+        fineGrid: &rFine, coarseGrid: &rCoarse,
+        fineLevelCoarseness: 1, shiftingUp: true)
       
       // Smoothing iterations on the coarse level.
       var eCoarse = [Float](repeating: .zero, count: Self.cellCount)
@@ -547,17 +608,16 @@ final class LinearSolverTests: XCTestCase {
       GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: false)
       
       // Prolong from coarse to fine.
-      eCoarse = interpolate(eCoarse: eCoarse, fineLevelCoarseness: 1)
-      for cellID in 0..<Self.cellCount {
-        eFine[cellID] += eCoarse[cellID]
-      }
+      shiftResolution(
+        fineGrid: &eFine, coarseGrid: &eCoarse,
+        fineLevelCoarseness: 1, shiftingUp: false)
       correctResidual(e: eFine, r: &rFine, coarseness: 1)
       
       // Smoothing iterations on the fine level.
       var δeFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: false)
-      for cellID in 0..<Self.cellCount {
+      for cellID in eFine.indices {
         eFine[cellID] += δeFine[cellID]
       }
       
