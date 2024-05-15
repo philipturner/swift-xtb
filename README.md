@@ -53,7 +53,7 @@ LinearSolver
 - Jacobi ✅
 - Gauss-Seidel ✅
 - Conjugate gradient ✅
-- Multigrid
+- Multigrid ✅
 
 Relativity
 - Recursive definition of kinetic energy ✅
