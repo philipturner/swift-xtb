@@ -443,7 +443,6 @@ final class ElectrostaticsTests: XCTestCase {
     diagonalizationDesc.matrix = laplacian
     diagonalizationDesc.problemSize = 10
     let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
-    print(diagonalization.eigenvalues)
     
     // Materialize the eigenvalues into a square matrix, then invert it.
     var inverseΛ = [Float](repeating: .zero, count: 100)
@@ -459,30 +458,11 @@ final class ElectrostaticsTests: XCTestCase {
     laplacianInverse = multiply10x10(Σ, laplacianInverse)
     
     // Visualize the exact inverse.
-    print()
-    print("exact inverse:")
-    for rowID in 0..<10 {
-      for columnID in 0..<10 {
-        let entry = laplacianInverse[rowID * 10 + columnID]
-        var repr = String(format: "%.3f", entry)
-        if entry.sign == .plus {
-          repr = " " + repr
-        }
-        if repr.count > 6 {
-          repr.removeLast()
-        }
-        print(repr, terminator: " ")
-      }
-      print()
-    }
-    print(laplacianInverse)
     XCTAssertEqual(laplacianInverse[0], -0.082, accuracy: 1e-3)
     XCTAssertEqual(laplacianInverse[1], -0.074, accuracy: 1e-3)
     XCTAssertEqual(laplacianInverse[2], -0.065, accuracy: 1e-3)
     
     // Visualize the expensive approximation to the inverse.
-    print()
-    print("approximate inverse:")
     var approximateInverse: [Float] = []
     for rowID in 0..<10 {
       let ri = (Float(rowID) + 0.5) * h
@@ -493,27 +473,14 @@ final class ElectrostaticsTests: XCTestCase {
         
         let diagonal = -2 / (h * h)
         let entry = (1 / diagonal) * K
-        var repr = String(format: "%.3f", entry)
-        if entry.sign == .plus {
-          repr = " " + repr
-        }
-        if repr.count > 6 {
-          repr.removeLast()
-        }
-        print(repr, terminator: " ")
-        
         approximateInverse.append(entry)
       }
-      print()
     }
-    print(approximateInverse)
     XCTAssertEqual(approximateInverse[0], -0.150, accuracy: 1e-3)
     XCTAssertEqual(approximateInverse[1], -0.150, accuracy: 1e-3)
     XCTAssertEqual(approximateInverse[2], -0.075, accuracy: 1e-3)
     
     // Visualize the efficient approximation to the inverse.
-    print()
-    print("approximate inverse (efficient):")
     var efficientInverse: [Float] = []
     for rowID in 0..<10 {
       let ri = (Float(rowID) + 0.5) * h
@@ -529,27 +496,14 @@ final class ElectrostaticsTests: XCTestCase {
         
         // Scale by (h * h) to visualize in comparison to the other matrices,
         // such as the exact inverse. Real-world usage will not modify the
-        // diagonal, making the preconditioner close to the identity.
+        // diagonal, leaving the preconditioner close to the identity.
         let entry = (-h * h) * K
-        var repr = String(format: "%.3f", entry)
-        if entry.sign == .plus {
-          repr = " " + repr
-        }
-        if repr.count > 6 {
-          repr.removeLast()
-        }
-        print(repr, terminator: " ")
-        
         efficientInverse.append(entry)
       }
-      print()
     }
-    print(efficientInverse)
     XCTAssertEqual(efficientInverse[0], -0.090, accuracy: 1e-3)
     XCTAssertEqual(efficientInverse[1], -0.023, accuracy: 1e-3)
     XCTAssertEqual(efficientInverse[2], -0.002, accuracy: 1e-3)
-    
-    // TODO: Convert this into a good unit test.
   }
   
   // Analyze the case where a cell overlaps itself, and the explicit integral

@@ -40,7 +40,7 @@ Electrostatics
 - Self-repulsion integral ✅
 - Neumann boundaries ✅
 - Fuzzy cell decomposition
-- Laplacian preconditioner
+- Laplacian preconditioner ✅
 
 FiniteDifferencing
 - Quadratic interpolation ✅
