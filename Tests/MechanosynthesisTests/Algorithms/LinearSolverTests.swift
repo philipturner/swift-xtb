@@ -262,7 +262,17 @@ final class LinearSolverTests: XCTestCase {
     var p = r
     var rr = Self.dot(r, r)
     
+    print()
+    print("Conjugate Gradient")
     for _ in 0..<30 {
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
+        let r2 = Self.dot(r, r)
+        let normres = r2.squareRoot()
+        print("||r|| = \(normres)")
+      }
+      
       let Ap = Self.applyLaplacianLinearPart(p)
       
       let a = rr / Self.dot(p, Ap)
@@ -277,6 +287,45 @@ final class LinearSolverTests: XCTestCase {
       r = rNew
       p = pNew
       rr = rrNew
+    }
+  }
+  
+  // Preconditioned conjugate gradient method:
+  //
+  // r = b - Ax
+  // p = K r
+  // repeat
+  //   a = < r | K | r > / < p | A | p >
+  //   x_new = x + a p
+  //   r_new = r - a A p
+  //
+  //   b = < r_new | K | r_new > / < r | K | r >
+  //   p_new = K r_new + b p
+  func testPreconditionedConjugateGradient() {
+    // First, testing steepest descent as described in the real-space DFT
+    // textbook. This seems slightly different than Jacobi iteration, which
+    // explicitly fetches the diagonal entries and inverts them.
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    
+    
+    print()
+    print("Preconditioned Conjugate Gradient")
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    for _ in 0..<30 {
+      let L1x = Self.applyLaplacianLinearPart(x)
+      let r = Self.shift(b, scale: -1, correction: L1x)
+      do {
+        let r2 = Self.dot(r, r)
+        let normres = r2.squareRoot()
+        print("||r|| = \(normres)")
+      }
+      
+      let Ar = Self.applyLaplacianLinearPart(r)
+      let a = Self.dot(r, r) / Self.dot(r, Ar)
+      x = Self.shift(x, scale: a, correction: r)
     }
   }
   
