@@ -379,100 +379,124 @@ final class LinearSolverTests: XCTestCase {
   }
   
   func testMultigridMethod() {
-    // There is a regular Laplacian and a "no-fine" Laplacian. The latter uses
-    // a different diagonal to smooth the error vector at boundaries?
-    //
-    // No, that is a completely incorrect interpretation.
-    var b = Self.createScaledChargeDensity()
-    
     print()
     print("Multigrid")
+    var b = Self.createScaledChargeDensity()
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
-    for iterationID in 0..<30 {
+    func logNormRes() {
       let L1x = Self.applyLaplacianLinearPart(x)
       let L2x = Self.applyLaplacianBoundary()
       let Ax = Self.shift(L1x, scale: 1, correction: L2x)
       var r = Self.shift(b, scale: -1, correction: Ax)
+      do {
+        let r2 = Self.dot(r, r)
+        let resNorm = r2.squareRoot()
+        print("||r|| = \(resNorm)")
+      }
+    }
+    
+    for iterationID in 0..<30 {
+      logNormRes()
       
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
       
-      var e = [Float](repeating: .zero, count: Self.cellCount)
-      for _ in 0..<4 {
-        #if false
-        // Jacobi
-        var correction = Self.applyLaplacianLinearPart(e)
-        correction = Self.shift(correction, scale: -1, correction: r)
-        
-        // Not adjusting λ on the boundary cells.
-        let λ = Self.h * Self.h / 6
-        e = Self.shift(e, scale: λ, correction: correction)
-        
-        #else
-        // Gauss-Seidel red-black
-        func executeSweep(red: Bool, black: Bool) {
-          for indexZ in 0..<Self.gridSize {
-            for indexY in 0..<Self.gridSize {
-              for indexX in 0..<Self.gridSize {
-                // Mask out either the red or black cells.
-                let parity = indexX ^ indexY ^ indexZ
-                switch parity & 1 {
-                case 0:
-                  guard red else {
-                    continue
-                  }
-                case 1:
-                  guard black else {
-                    continue
-                  }
-                default:
-                  fatalError("This should never happen.")
+      // Gauss-Seidel red-black
+      func GSRB_LEVEL(
+        e: inout [Float], r: [Float], red: Bool
+      ) {
+        for indexZ in 0..<Self.gridSize {
+          for indexY in 0..<Self.gridSize {
+            for indexX in 0..<Self.gridSize {
+              // Mask out either the red or black cells.
+              let parity = indexX ^ indexY ^ indexZ
+              switch parity & 1 {
+              case 0:
+                guard red else {
+                  continue
                 }
-                
-                let cellIndices = SIMD3(indexX, indexY, indexZ)
-                let cellAddress = Self.createAddress(indices: cellIndices)
-                
-                // Iterate over the faces.
-                var faceAccumulator: Float = .zero
-                for faceID in 0..<6 {
-                  let coordinateID = faceID / 2
-                  let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-                  
-                  // Locate the neighboring cell.
-                  var neighborIndices = SIMD3(indexX, indexY, indexZ)
-                  neighborIndices[coordinateID] += coordinateShift
-                  guard all(neighborIndices .>= 0),
-                        all(neighborIndices .< Self.gridSize) else {
-                    // Add 'zero' to the accumulator.
-                    continue
-                  }
-                  
-                  // Add the neighbor's value to the accumulator.
-                  let neighborAddress = Self
-                    .createAddress(indices: neighborIndices)
-                  let neighborValue = e[neighborAddress]
-                  faceAccumulator += 1 / (Self.h * Self.h) * neighborValue
+              case 1:
+                guard !red else {
+                  continue
                 }
-                
-                // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
-                let rValue = r[cellAddress]
-                var eValue = e[cellAddress]
-                
-                // Update the error in-place.
-                var λ = Self.h * Self.h / 6
-                e[cellAddress] = λ * (faceAccumulator - rValue)
+              default:
+                fatalError("This should never happen.")
               }
+              
+              let cellIndices = SIMD3(indexX, indexY, indexZ)
+              let cellAddress = Self.createAddress(indices: cellIndices)
+              
+              // Iterate over the faces.
+              var faceAccumulator: Float = .zero
+              for faceID in 0..<6 {
+                let coordinateID = faceID / 2
+                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+                
+                // Locate the neighboring cell.
+                var neighborIndices = SIMD3(indexX, indexY, indexZ)
+                neighborIndices[coordinateID] += coordinateShift
+                guard all(neighborIndices .>= 0),
+                      all(neighborIndices .< Self.gridSize) else {
+                  // Add 'zero' to the accumulator.
+                  continue
+                }
+                
+                // Add the neighbor's value to the accumulator.
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = e[neighborAddress]
+                faceAccumulator += 1 / (Self.h * Self.h) * neighborValue
+              }
+              
+              // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
+              let rValue = r[cellAddress]
+              var eValue = e[cellAddress]
+              
+              // Update the error in-place.
+              var λ = Self.h * Self.h / 6
+              e[cellAddress] = λ * (faceAccumulator - rValue)
             }
           }
         }
-        executeSweep(red: true, black: false)
-        executeSweep(red: false, black: true)
-        
-        #endif
       }
-      x = Self.shift(x, scale: 1, correction: e)
+      
+      // Emulate a multigrid V-cycle, except the "coarse" levels are actually
+      // as fine as the "fine" levels.
+      var rFine: [Float]
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let L2x = Self.applyLaplacianBoundary()
+        let Ax = Self.shift(L1x, scale: 1, correction: L2x)
+        rFine = Self.shift(b, scale: -1, correction: Ax)
+      }
+      
+      // Smoothing iterations on the fine level.
+      var eFine = [Float](repeating: .zero, count: Self.cellCount)
+      GSRB_LEVEL(e: &eFine, r: rFine, red: true)
+      GSRB_LEVEL(e: &eFine, r: rFine, red: false)
+      
+      // Emulate the averaging from fine -> coarse.
+      var rCoarse = Self.shift(
+        rFine, scale: -1, correction: Self.applyLaplacianLinearPart(eFine))
+      
+      // Smoothing iterations on the coarse level.
+      var eCoarse = [Float](repeating: .zero, count: Self.cellCount)
+//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: true)
+//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: false)
+//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: true)
+//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: false)
+      
+      // Emulate the correction from coarse -> fine.
+      eFine = Self.shift(eFine, scale: 1, correction: eCoarse)
+      rFine = Self.shift(rFine, scale: -1, correction: Self.applyLaplacianLinearPart(eFine))
+      
+      // Smoothing iterations on the fine level.
+      var δeFine = [Float](repeating: .zero, count: Self.cellCount)
+      GSRB_LEVEL(e: &δeFine, r: rFine, red: true)
+      GSRB_LEVEL(e: &δeFine, r: rFine, red: false)
+      
+      // Add the error vector to the solution.
+      eFine = Self.shift(eFine, scale: 1, correction: δeFine)
+      x = Self.shift(x, scale: 1, correction: eFine)
     }
   }
 }
