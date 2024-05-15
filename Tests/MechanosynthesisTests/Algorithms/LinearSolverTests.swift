@@ -49,10 +49,9 @@ import Numerics
 // Preconditioned CG    60 iters  ||r|| = 0.7311449  5.874 seconds
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
-
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 32
-  static let h: Float = 0.0625
+  static let gridSize: Int = 32 * 2
+  static let h: Float = 0.0625 / 2
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -582,10 +581,17 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Smoothing iterations on the fine level.
+      print()
+      print("V-cycle")
+      print("> 1")
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
+//      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
+//      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
+      multigridCoarseLevel(eFine: &eFine, rFine: &rFine, fineLevelCoarseness: 1)
       
+      #if false
       // Encapsulate the coarse level.
       if Self.gridSize >= 4 {
         // Restrict from fine to coarse.
@@ -616,35 +622,6 @@ final class LinearSolverTests: XCTestCase {
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
           
-          // Encapsulate the nano level.
-//          if Self.gridSize >= 16 {
-//            var rTinyCorrected = rTiny
-//            var rNano: [Float] = []
-//            correctResidual(e: eTiny, r: &rTinyCorrected, coarseness: 4)
-//            shiftResolution(
-//              fineGrid: &rTinyCorrected, coarseGrid: &rNano,
-//              fineLevelCoarseness: 4, shiftingUp: true)
-//            
-//            // Smoothing iterations on the nano level.
-//            var eNano = [Float](repeating: .zero, count: Self.cellCount / 512)
-//            GSRB_LEVEL(e: &eNano, r: rNano, coarseness: 8, red: true)
-//            GSRB_LEVEL(e: &eNano, r: rNano, coarseness: 8, red: false)
-//            
-//            // Prolong from nano to tiny.
-//            shiftResolution(
-//              fineGrid: &eTiny, coarseGrid: &eNano,
-//              fineLevelCoarseness: 4, shiftingUp: false)
-//            correctResidual(e: eTiny, r: &rTiny, coarseness: 4)
-//            
-//            // Smoothing iterations on the tiny level.
-//            var δeTiny = [Float](repeating: .zero, count: Self.cellCount / 64)
-//            GSRB_LEVEL(e: &δeTiny, r: rTiny, coarseness: 4, red: true)
-//            GSRB_LEVEL(e: &δeTiny, r: rTiny, coarseness: 4, red: false)
-//            for cellID in 0..<Self.cellCount / 64 {
-//              eTiny[cellID] += δeTiny[cellID]
-//            }
-//          }
-          
           // Prolong from tiny to coarse.
           shiftResolution(
             fineGrid: &eCoarse, coarseGrid: &eTiny,
@@ -674,9 +651,108 @@ final class LinearSolverTests: XCTestCase {
           eFine[cellID] += δeFine[cellID]
         }
       }
+      #endif
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
+    }
+    
+    func multigridCoarseLevel(
+      eFine: inout [Float], rFine: inout [Float], fineLevelCoarseness: Int
+    ) {
+      // Determine the array lengths.
+      var fineArrayLength = Self.cellCount
+      fineArrayLength /= fineLevelCoarseness
+      fineArrayLength /= fineLevelCoarseness
+      fineArrayLength /= fineLevelCoarseness
+      
+      // Restrict from fine to coarse.
+      var rFineCorrected = rFine
+      var rCoarse: [Float] = []
+      correctResidual(
+        e: eFine, 
+        r: &rFineCorrected,
+        coarseness: fineLevelCoarseness)
+      shiftResolution(
+        fineGrid: &rFineCorrected,
+        coarseGrid: &rCoarse,
+        fineLevelCoarseness: fineLevelCoarseness, 
+        shiftingUp: true)
+      
+      // Smoothing iterations on the coarse level.
+      let coarseLevelCoarseness = 2 * fineLevelCoarseness
+      print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
+      var eCoarse = [Float](repeating: .zero, count: fineArrayLength / 8)
+      GSRB_LEVEL(
+        e: &eCoarse, 
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: true)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: false)
+      
+      // Shift to a higher level.
+      if coarseLevelCoarseness < 8 {
+        print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
+        GSRB_LEVEL(
+          e: &eCoarse,
+          r: rCoarse,
+          coarseness: coarseLevelCoarseness,
+          red: true)
+        GSRB_LEVEL(
+          e: &eCoarse,
+          r: rCoarse,
+          coarseness: coarseLevelCoarseness,
+          red: false)
+        multigridCoarseLevel(
+          eFine: &eCoarse,
+          rFine: &rCoarse,
+          fineLevelCoarseness: coarseLevelCoarseness)
+      }
+      
+      // Prolong from coarse to fine.
+      shiftResolution(
+        fineGrid: &eFine, 
+        coarseGrid: &eCoarse,
+        fineLevelCoarseness: fineLevelCoarseness, 
+        shiftingUp: false)
+      correctResidual(
+        e: eFine,
+        r: &rFine,
+        coarseness: fineLevelCoarseness)
+      
+      // Smoothing iterations on the fine level.
+      print(String(repeating: "-", count: fineLevelCoarseness.trailingZeroBitCount) + ">", fineLevelCoarseness)
+      var δeFine = [Float](repeating: .zero, count: fineArrayLength)
+      GSRB_LEVEL(
+        e: &δeFine, 
+        r: rFine,
+        coarseness: fineLevelCoarseness,
+        red: true)
+      GSRB_LEVEL(
+        e: &δeFine,
+        r: rFine,
+        coarseness: fineLevelCoarseness, 
+        red: false)
+      if fineLevelCoarseness > 1 {
+        print(String(repeating: "-", count: fineLevelCoarseness.trailingZeroBitCount) + ">", fineLevelCoarseness)
+        GSRB_LEVEL(
+          e: &δeFine,
+          r: rFine,
+          coarseness: fineLevelCoarseness,
+          red: true)
+        GSRB_LEVEL(
+          e: &δeFine,
+          r: rFine,
+          coarseness: fineLevelCoarseness,
+          red: false)
+      }
+      for cellID in 0..<fineArrayLength {
+        eFine[cellID] += δeFine[cellID]
+      }
     }
     
     // Gauss-Seidel red-black
