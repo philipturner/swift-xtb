@@ -463,10 +463,49 @@ final class LinearSolverTests: XCTestCase {
         }
       }
       
-      func correctResidual(e: [Float], r: inout [Float]) {
-        let L2eFine = Self.applyLaplacianLinearPart(e)
-        for cellID in 0..<Self.cellCount {
-          r[cellID] = r[cellID] - L2eFine[cellID]
+      func correctResidual(e: [Float], r: inout [Float], coarseness: Int) {
+        let h = Self.h * Float(coarseness)
+        let gridSize = Self.gridSize / coarseness
+        func createAddress(indices: SIMD3<Int>) -> Int {
+          indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+        }
+        
+        // Iterate over the cells.
+        for indexZ in 0..<gridSize {
+          for indexY in 0..<gridSize {
+            for indexX in 0..<gridSize {
+              var dotProduct: Float = .zero
+              
+              // Apply the FMA on the diagonal.
+              let cellIndices = SIMD3(indexX, indexY, indexZ)
+              let cellAddress = createAddress(indices: cellIndices)
+              let cellValue = e[cellAddress]
+              dotProduct += -6 / (h * h) * cellValue
+              
+              // Iterate over the faces.
+              for faceID in 0..<6 {
+                let coordinateID = faceID / 2
+                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+                
+                // Locate the neighboring cell.
+                var neighborIndices = SIMD3(indexX, indexY, indexZ)
+                neighborIndices[coordinateID] += coordinateShift
+                guard all(neighborIndices .>= 0),
+                      all(neighborIndices .< gridSize) else {
+                  // Add 'zero' to the dot product.
+                  continue
+                }
+                
+                let neighborAddress = createAddress(indices: neighborIndices)
+                let neighborValue = e[neighborAddress]
+                dotProduct += 1 / (h * h) * neighborValue
+              }
+              
+              // Update the residual.
+              let L2e = dotProduct
+              r[cellAddress] -= L2e
+            }
+          }
         }
       }
       
@@ -484,23 +523,25 @@ final class LinearSolverTests: XCTestCase {
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
-      correctResidual(e: eFine, r: &rFine)
+      x = Self.shift(x, scale: 1, correction: eFine)
+      
+      // Restrict from fine to coarse.
+      correctResidual(e: eFine, r: &rFine, coarseness: 1)
       
       // Smoothing iterations on the coarse level.
       var rCoarse = rFine
       var eCoarse = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: false)
+      x = Self.shift(x, scale: 1, correction: eCoarse)
+      
+      // Prolong from coarse to fine.
+      correctResidual(e: eCoarse, r: &rFine, coarseness: 1)
       
       // Smoothing iterations on the fine level.
-      correctResidual(e: eCoarse, r: &rFine)
       var δeFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: false)
-      
-      // Add the error vector to the solution.
-      x = Self.shift(x, scale: 1, correction: eFine)
-      x = Self.shift(x, scale: 1, correction: eCoarse)
       x = Self.shift(x, scale: 1, correction: δeFine)
     }
   }
