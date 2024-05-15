@@ -316,7 +316,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<30 {
+    for _ in 0..<15 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -341,23 +341,36 @@ final class LinearSolverTests: XCTestCase {
       let h = Self.h
       let gridSize = Self.gridSize
       let cellCount = Self.cellCount
-      func createAddress(indices: SIMD3<Int>) -> Int {
-        indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+      
+      @_transparent
+      func createAddress(indices: SIMD3<Int16>) -> Int {
+        Int(indices.z) * (gridSize * gridSize) +
+        Int(indices.y) * gridSize +
+        Int(indices.x)
       }
       
       // Pre-compile a list of neighbor offsets.
-      var neighborOffsets: [SIMD3<Int16>] = []
+      var neighborData: [SIMD4<Int16>] = []
       for offsetZ in -2...2 {
         for offsetY in -2...2 {
           for offsetX in -2...2 {
             var indices = SIMD3(Int16(offsetX), Int16(offsetY), Int16(offsetZ))
             let integerDistanceSquared = (indices &* indices).wrappedSum()
             
-            // This tolerance creates a 57-point convolution kernel.
-            guard integerDistanceSquared <= 5 else {
+            // This tolerance creates a 33-point convolution kernel.
+            guard integerDistanceSquared <= 4 else {
               continue
             }
-            neighborOffsets.append(indices)
+            
+            // Execute the formula for matrix elements.
+            var K: Float = .zero
+            K += 0.6 * Float.exp(-2.25 * Float(integerDistanceSquared))
+            K += 0.4 * Float.exp(-0.72 * Float(integerDistanceSquared))
+            let quantized = Int16(K * 32767)
+            
+            // Pack the data into a compact 64-bit word.
+            let vector = SIMD4(indices, quantized)
+            neighborData.append(vector)
           }
         }
       }
@@ -369,58 +382,27 @@ final class LinearSolverTests: XCTestCase {
           for indexX in 0..<gridSize {
             // Iterate over the convolution points.
             var accumulator: Float = .zero
-            for offset in neighborOffsets {
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices &+= SIMD3(truncatingIfNeeded: offset)
+            
+            // The test took 0.015 seconds before.
+            // 0.013 seconds
+            let cellIndices64 = SIMD3(indexX, indexY, indexZ)
+            let cellIndices = SIMD3<Int16>(truncatingIfNeeded: cellIndices64)
+            for vector in neighborData {
+              let offset = unsafeBitCast(vector, to: SIMD3<Int16>.self)
+              let neighborIndices = cellIndices &+ offset
               guard all(neighborIndices .>= 0),
-                    all(neighborIndices .< gridSize) else {
+                    all(neighborIndices .< Int16(gridSize)) else {
                 continue
               }
               
               // Read the neighbor data point from memory.
               let neighborAddress = createAddress(indices: neighborIndices)
               let neighborValue = x[neighborAddress]
-              let integerDistanceSquared = (offset &* offset).wrappedSum()
-              
-              // 0.8, 30, 0.2, 10 -> 0.8, 2.70, 0.2, 0.90
-              // 0.6, 25, 0.4,  8 -> 0.6, 2.25, 0.4, 0.72
-              var K: Float = .zero
-              K += 0.6 * Float.exp(-2.25 * Float(integerDistanceSquared))
-              K += 0.4 * Float.exp(-0.72 * Float(integerDistanceSquared))
+              let K = Float(vector[3]) / 32767
               accumulator += neighborValue * K
-              
-              /*
-               ||r|| = 394.27557
-               ||r|| = 230.14984
-               ||r|| = 204.93619
-               ||r|| = 233.53235
-               ||r|| = 164.13765
-               ||r|| = 58.074017
-               ||r|| = 34.972748
-               ||r|| = 15.42438
-               
-               ||r|| = 394.27557
-               ||r|| = 175.9524
-               ||r|| = 173.73183
-               ||r|| = 28.865715
-               ||r|| = 7.0485644
-               ||r|| = 2.0234828
-               ||r|| = 0.4951219
-               ||r|| = 0.06745599
-               
-               ||r|| = 394.27557
-               ||r|| = 149.43454
-               ||r|| = 44.84753
-               ||r|| = 5.4780407
-               ||r|| = 0.43980443
-               ||r|| = 0.04256695
-               ||r|| = 0.006807029
-               ||r|| = 0.0006537797
-               */
             }
             
             // Write the convolution result to memory.
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = createAddress(indices: cellIndices)
             output[cellAddress] = accumulator
           }
