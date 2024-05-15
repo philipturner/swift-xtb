@@ -509,6 +509,18 @@ final class LinearSolverTests: XCTestCase {
         }
       }
       
+      // Performs a power-2 shift to a coarser level.
+      func average(rFine: [Float], fineLevelCoarseness: Int) -> [Float] {
+        return rFine
+      }
+      
+      // Performs a power-2 shift to a finer level.
+      func interpolate(
+        eCoarse: [Float], fineLevelCoarseness: Int
+      ) -> [Float] {
+        return eCoarse
+      }
+      
       // Emulate a multigrid V-cycle, except the "coarse" levels are actually
       // as fine as the "fine" levels.
       var rFine: [Float]
@@ -523,26 +535,34 @@ final class LinearSolverTests: XCTestCase {
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
-      x = Self.shift(x, scale: 1, correction: eFine)
       
       // Restrict from fine to coarse.
-      correctResidual(e: eFine, r: &rFine, coarseness: 1)
+      var rCoarse = rFine
+      correctResidual(e: eFine, r: &rCoarse, coarseness: 1)
+      rCoarse = average(rFine: rCoarse, fineLevelCoarseness: 1)
       
       // Smoothing iterations on the coarse level.
-      var rCoarse = rFine
       var eCoarse = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: false)
-      x = Self.shift(x, scale: 1, correction: eCoarse)
       
       // Prolong from coarse to fine.
-      correctResidual(e: eCoarse, r: &rFine, coarseness: 1)
+      eCoarse = interpolate(eCoarse: eCoarse, fineLevelCoarseness: 1)
+      for cellID in 0..<Self.cellCount {
+        eFine[cellID] += eCoarse[cellID]
+      }
+      correctResidual(e: eFine, r: &rFine, coarseness: 1)
       
       // Smoothing iterations on the fine level.
       var δeFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: false)
-      x = Self.shift(x, scale: 1, correction: δeFine)
+      for cellID in 0..<Self.cellCount {
+        eFine[cellID] += δeFine[cellID]
+      }
+      
+      // Update the solution.
+      x = Self.shift(x, scale: 1, correction: eFine)
     }
   }
 }
