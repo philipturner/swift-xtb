@@ -401,7 +401,135 @@ final class ElectrostaticsTests: XCTestCase {
   }
   
   func testLaplacianPreconditioner() throws {
+    let h: Float = 0.3
     
+    // The matrices are in row-major order.
+    func multiply10x10(_ A: [Float], _ B: [Float]) -> [Float] {
+      LinearAlgebraUtilities.matrixMultiply(matrixA: A, matrixB: B, n: 10)
+    }
+    func transpose10x10(_ A: [Float]) -> [Float] {
+      var output = [Float](repeating: 0, count: 100)
+      for m in 0..<10 {
+        for n in 0..<10 {
+          let value = A[n * 10 + m]
+          output[m * 10 + n] = value
+        }
+      }
+      return output
+    }
+    
+    // Create a 10x10 matrix that represents an aperiodic Laplacian.
+    var laplacian: [Float] = []
+    laplacian += [-2, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+    laplacian += [1, -2, 1, 0, 0, 0, 0, 0, 0, 0]
+    laplacian += [0, 1, -2, 1, 0, 0, 0, 0, 0, 0]
+    laplacian += [0, 0, 1, -2, 1, 0, 0, 0, 0, 0]
+    laplacian += [0, 0, 0, 1, -2, 1, 0, 0, 0, 0]
+    laplacian += [0, 0, 0, 0, 1, -2, 1, 0, 0, 0]
+    laplacian += [0, 0, 0, 0, 0, 1, -2, 1, 0, 0]
+    laplacian += [0, 0, 0, 0, 0, 0, 1, -2, 1, 0]
+    laplacian += [0, 0, 0, 0, 0, 0, 0, 1, -2, 1]
+    laplacian += [0, 0, 0, 0, 0, 0, 0, 0, 1, -2]
+    
+    // Adjust to match the 0.3 a.u. spacing.
+    for entryID in laplacian.indices {
+      var entry = laplacian[entryID]
+      entry /= Float(h * h)
+      laplacian[entryID] = entry
+    }
+    
+    // Invert the 10x10 matrix with Diagonalization.
+    var diagonalizationDesc = DiagonalizationDescriptor()
+    diagonalizationDesc.matrix = laplacian
+    diagonalizationDesc.problemSize = 10
+    let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    print(diagonalization.eigenvalues)
+    
+    // Materialize the eigenvalues into a square matrix, then invert it.
+    var inverseΛ = [Float](repeating: .zero, count: 100)
+    for diagonalID in 0..<10 {
+      let eigenvalue = diagonalization.eigenvalues[diagonalID]
+      let address = diagonalID * 10 + diagonalID
+      inverseΛ[address] = 1 / eigenvalue
+    }
+    
+    // The eigenvectors are returned in column-major order.
+    let Σ = transpose10x10(diagonalization.eigenvectors)
+    var laplacianInverse = multiply10x10(inverseΛ, transpose10x10(Σ))
+    laplacianInverse = multiply10x10(Σ, laplacianInverse)
+    
+    // Visualize the exact inverse.
+    print()
+    print("exact inverse:")
+    for rowID in 0..<10 {
+      for columnID in 0..<10 {
+        let entry = laplacianInverse[rowID * 10 + columnID]
+        var repr = String(format: "%.3f", entry)
+        if entry.sign == .plus {
+          repr = " " + repr
+        }
+        if repr.count > 6 {
+          repr.removeLast()
+        }
+        print(repr, terminator: " ")
+      }
+      print()
+    }
+    
+    // Visualize the expensive approximation to the inverse.
+    print()
+    print("approximate inverse:")
+    
+    for rowID in 0..<10 {
+      let ri = (Float(rowID) + 0.5) * h
+      for columnID in 0..<10 {
+        let rj = (Float(columnID) + 0.5) * h
+        let r = (ri - rj).magnitude
+        let K = 1 / max(r, h)
+        
+        let diagonal = -2 / (h * h)
+        let entry = (1 / diagonal) * K
+        var repr = String(format: "%.3f", entry)
+        if entry.sign == .plus {
+          repr = " " + repr
+        }
+        if repr.count > 6 {
+          repr.removeLast()
+        }
+        print(repr, terminator: " ")
+      }
+      print()
+    }
+    
+    // Visualize the efficient approximation to the inverse.
+    print()
+    print("approximate inverse (efficient):")
+    for rowID in 0..<10 {
+      let ri = (Float(rowID) + 0.5) * h
+      for columnID in 0..<10 {
+        let rj = (Float(columnID) + 0.5) * h
+        let r = (ri - rj).magnitude
+        
+        // 0.8, 30, 0.2, 10
+        // 0.6, 25, 0.4, 8
+        var K: Float = .zero
+        K += 0.6 * Float.exp(-25 * r * r)
+        K += 0.4 * Float.exp(-8 * r * r)
+        
+        let entry = K
+        var repr = String(format: "%.3f", entry)
+        if entry.sign == .plus {
+          repr = " " + repr
+        }
+        if repr.count > 6 {
+          repr.removeLast()
+        }
+        print(repr, terminator: " ")
+      }
+      print()
+    }
+    
+    // TODO: Convert this into a good unit test.
   }
   
   // Analyze the case where a cell overlaps itself, and the explicit integral
