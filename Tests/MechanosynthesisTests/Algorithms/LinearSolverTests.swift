@@ -389,66 +389,90 @@ final class LinearSolverTests: XCTestCase {
     print("Multigrid")
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
-    // Run one sweep of serial Gauss-Seidel.
-    func executeSweep() {
-      for indexZ in 0..<Self.gridSize {
-        for indexY in 0..<Self.gridSize {
-          for indexX in 0..<Self.gridSize {
-            var dotProduct: Float = .zero
-            
-            // Iterate over the faces.
-            for faceID in 0..<6 {
-              let coordinateID = faceID / 2
-              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-              
-              // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += coordinateShift
-              
-              if all(neighborIndices .>= 0),
-                 all(neighborIndices .< Self.gridSize) {
-                let neighborAddress = Self
-                  .createAddress(indices: neighborIndices)
-                let neighborValue = x[neighborAddress]
-                dotProduct += 1 / (Self.h * Self.h) * neighborValue
-              } else {
-                var neighborPosition = SIMD3<Float>(neighborIndices)
-                neighborPosition = Self.h * (neighborPosition + 0.5)
-                var nucleusPosition = SIMD3(repeating: Float(Self.gridSize))
-                nucleusPosition = Self.h * (nucleusPosition * 0.5)
-                
-                // Generate a ghost value from the point charge approximation.
-                let r = neighborPosition - nucleusPosition
-                let distance = (r * r).sum().squareRoot()
-                let neighborValue = 1 / distance
-                dotProduct += 1 / (Self.h * Self.h) * neighborValue
-              }
-            }
-            
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
-            
-            // Overwrite the current value.
-            let rhsValue = b[cellAddress]
-            let diagonalValue: Float = -6 / (Self.h * Self.h)
-            let newValue = (rhsValue - dotProduct) / diagonalValue
-            x[cellAddress] = newValue
-          }
-        }
-      }
-    }
-    
     for iterationID in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let L2x = Self.applyLaplacianBoundary()
       let Ax = Self.shift(L1x, scale: 1, correction: L2x)
-      let r = Self.shift(b, scale: -1, correction: Ax)
+      var r = Self.shift(b, scale: -1, correction: Ax)
       
       let r2 = Self.dot(r, r)
       let resNorm = r2.squareRoot()
       print("||r|| = \(resNorm)")
       
-      executeSweep()
+      var e = [Float](repeating: .zero, count: Self.cellCount)
+      for _ in 0..<4 {
+        #if false
+        // Jacobi
+        var correction = Self.applyLaplacianLinearPart(e)
+        correction = Self.shift(correction, scale: -1, correction: r)
+        
+        // Not adjusting λ on the boundary cells.
+        let λ = Self.h * Self.h / 6
+        e = Self.shift(e, scale: λ, correction: correction)
+        
+        #else
+        // Gauss-Seidel red-black
+        func executeSweep(red: Bool, black: Bool) {
+          for indexZ in 0..<Self.gridSize {
+            for indexY in 0..<Self.gridSize {
+              for indexX in 0..<Self.gridSize {
+                // Mask out either the red or black cells.
+                let parity = indexX ^ indexY ^ indexZ
+                switch parity & 1 {
+                case 0:
+                  guard red else {
+                    continue
+                  }
+                case 1:
+                  guard black else {
+                    continue
+                  }
+                default:
+                  fatalError("This should never happen.")
+                }
+                
+                let cellIndices = SIMD3(indexX, indexY, indexZ)
+                let cellAddress = Self.createAddress(indices: cellIndices)
+                
+                // Iterate over the faces.
+                var faceAccumulator: Float = .zero
+                for faceID in 0..<6 {
+                  let coordinateID = faceID / 2
+                  let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+                  
+                  // Locate the neighboring cell.
+                  var neighborIndices = SIMD3(indexX, indexY, indexZ)
+                  neighborIndices[coordinateID] += coordinateShift
+                  guard all(neighborIndices .>= 0),
+                        all(neighborIndices .< Self.gridSize) else {
+                    // Add 'zero' to the accumulator.
+                    continue
+                  }
+                  
+                  // Add the neighbor's value to the accumulator.
+                  let neighborAddress = Self
+                    .createAddress(indices: neighborIndices)
+                  let neighborValue = e[neighborAddress]
+                  faceAccumulator += 1 / (Self.h * Self.h) * neighborValue
+                }
+                
+                // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
+                let rValue = r[cellAddress]
+                var eValue = e[cellAddress]
+                
+                // Update the error in-place.
+                var λ = Self.h * Self.h / 6
+                e[cellAddress] = λ * (faceAccumulator - rValue)
+              }
+            }
+          }
+        }
+        executeSweep(red: true, black: false)
+        executeSweep(red: false, black: true)
+        
+        #endif
+      }
+      x = Self.shift(x, scale: 1, correction: e)
     }
   }
 }
