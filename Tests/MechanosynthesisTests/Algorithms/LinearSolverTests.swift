@@ -14,13 +14,13 @@ import Numerics
 //   ---> C GSRB (4x)
 //   -> D GSRB (2x)
 //   E GSRB (1x)
+//   update solution
 //
 // ========================================================================== //
 // Raw data
 // ========================================================================== //
 //
 // h = 0.25, gridSize = 8, cellCount = 512
-//
 //                       0 iters  ||r|| = 394.27557
 // Gauss-Seidel         30 iters  ||r|| = 6.5650797      0.002 seconds
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
@@ -36,12 +36,20 @@ import Numerics
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
 //                       0 iters  ||r|| = 24494.229
-// Gauss-Seidel         60 iters
-// Multigrid 1-2-2-2-1  30 iters
-// Conjugate Gradient   60 iters
-// Preconditioned CG    30 iters
+// Gauss-Seidel         60 iters  ||r|| = 1308.8044    0.250 seconds
+// Multigrid 1-2-2-2-1  30 iters  ||r|| = 0.035719506  0.542 seconds
+// Conjugate Gradient   60 iters  ||r|| = 0.49065304   0.258 seconds
+// Preconditioned CG    30 iters  ||r|| = 0.048568394  0.364 seconds
 //
-// h = 0.03125, gridSize = 64, cellCount = 262,144
+// h = 0.0313, gridSize = 64, cellCount = 262,144
+//                       0 iters  ||r|| = 195015.61
+// Gauss-Seidel         99 iters  ||r|| = 5887.104   3.311 seconds
+// Multigrid 1-2-4-2-1  60 iters  ||r|| = 0.3711439  8.855 seconds
+// Conjugate Gradient   99 iters  ||r|| = 53.441914  3.375 seconds
+// Preconditioned CG    60 iters  ||r|| = 0.7311449  5.874 seconds
+//
+// h = 0.0156, gridSize = 128, cellCount = 2,097,152
+
 final class LinearSolverTests: XCTestCase {
   static let gridSize: Int = 32
   static let h: Float = 0.0625
@@ -289,9 +297,6 @@ final class LinearSolverTests: XCTestCase {
   //   b = < r_new | r_new > / < r | r >
   //   p_new = r_new + b p
   func testConjugateGradientMethod() throws {
-    // TODO: Compare CG to MG again, once the preconditioner is working. How
-    // does it perform when the grid expands from 8x8x8 to 32x32x32?
-    
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
@@ -304,7 +309,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Conjugate Gradient")
-    for _ in 0..<60 {
+    for _ in 0..<99 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -358,7 +363,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<30 {
+    for _ in 0..<60 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -535,7 +540,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Gauss-Seidel")
-    for iterationID in 0..<60 {
+    for iterationID in 0..<99 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -556,7 +561,7 @@ final class LinearSolverTests: XCTestCase {
     // One V-cycle should be treated as two SD or CG iterations.
     print()
     print("Multigrid")
-    for iterationID in 0..<30 {
+    for iterationID in 0..<60 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let L2x = Self.applyLaplacianBoundary()
@@ -582,7 +587,7 @@ final class LinearSolverTests: XCTestCase {
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
       
       // Encapsulate the coarse level.
-      if true {
+      if Self.gridSize >= 4 {
         // Restrict from fine to coarse.
         var rFineCorrected = rFine
         var rCoarse: [Float] = []
@@ -595,11 +600,9 @@ final class LinearSolverTests: XCTestCase {
         var eCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
         GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: true)
         GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: false)
-        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: true)
-        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: false)
         
         // Encapsulate the tiny level.
-        if true {
+        if Self.gridSize >= 8 {
           // Restrict from coarse to tiny.
           var rCoarseCorrected = rCoarse
           var rTiny: [Float] = []
@@ -609,16 +612,38 @@ final class LinearSolverTests: XCTestCase {
             fineLevelCoarseness: 2, shiftingUp: true)
           
           // Smoothing iterations on the tiny level.
-          //
-          // NOTE: When the tiny grid is 2x2x2, smoothing iterations on this
-          // level actually harm convergence. It only helps when the tiny grid
-          // is 4x4x4 or larger. However, the test covers this level as a proof
-          // of concept.
           var eTiny = [Float](repeating: .zero, count: Self.cellCount / 64)
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
-          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
-          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
+          
+          // Encapsulate the nano level.
+//          if Self.gridSize >= 16 {
+//            var rTinyCorrected = rTiny
+//            var rNano: [Float] = []
+//            correctResidual(e: eTiny, r: &rTinyCorrected, coarseness: 4)
+//            shiftResolution(
+//              fineGrid: &rTinyCorrected, coarseGrid: &rNano,
+//              fineLevelCoarseness: 4, shiftingUp: true)
+//            
+//            // Smoothing iterations on the nano level.
+//            var eNano = [Float](repeating: .zero, count: Self.cellCount / 512)
+//            GSRB_LEVEL(e: &eNano, r: rNano, coarseness: 8, red: true)
+//            GSRB_LEVEL(e: &eNano, r: rNano, coarseness: 8, red: false)
+//            
+//            // Prolong from nano to tiny.
+//            shiftResolution(
+//              fineGrid: &eTiny, coarseGrid: &eNano,
+//              fineLevelCoarseness: 4, shiftingUp: false)
+//            correctResidual(e: eTiny, r: &rTiny, coarseness: 4)
+//            
+//            // Smoothing iterations on the tiny level.
+//            var δeTiny = [Float](repeating: .zero, count: Self.cellCount / 64)
+//            GSRB_LEVEL(e: &δeTiny, r: rTiny, coarseness: 4, red: true)
+//            GSRB_LEVEL(e: &δeTiny, r: rTiny, coarseness: 4, red: false)
+//            for cellID in 0..<Self.cellCount / 64 {
+//              eTiny[cellID] += δeTiny[cellID]
+//            }
+//          }
           
           // Prolong from tiny to coarse.
           shiftResolution(
@@ -628,8 +653,6 @@ final class LinearSolverTests: XCTestCase {
           
           // Smoothing iterations on the coarse level.
           var δeCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
-          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: true)
-          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: false)
           GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: true)
           GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: false)
           for cellID in 0..<Self.cellCount / 8 {
