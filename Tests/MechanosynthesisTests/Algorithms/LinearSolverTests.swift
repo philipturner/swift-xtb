@@ -87,8 +87,8 @@ import Numerics
 // could start a PCG loop within the lower resolution level, which lasts for
 // around 8 iterations.
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 32 * 4
-  static let h: Float = 0.0625 / 4
+  static let gridSize: Int = 8
+  static let h: Float = 0.25
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -666,40 +666,9 @@ final class LinearSolverTests: XCTestCase {
         r: rCoarse,
         coarseness: coarseLevelCoarseness,
         red: false)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: true)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: false)
-      
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: true)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: false)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: true)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        red: false)
       
       // Shift to a higher level.
-      if coarseLevelCoarseness < 8 {
+      if coarseLevelCoarseness < 4 {
         print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
         multigridCoarseLevel(
           eFine: &eCoarse,
@@ -731,19 +700,6 @@ final class LinearSolverTests: XCTestCase {
         r: rFine,
         coarseness: fineLevelCoarseness, 
         red: false)
-      if fineLevelCoarseness > 1 {
-        print(String(repeating: "-", count: fineLevelCoarseness.trailingZeroBitCount) + ">", fineLevelCoarseness)
-        GSRB_LEVEL(
-          e: &δeFine,
-          r: rFine,
-          coarseness: fineLevelCoarseness,
-          red: true)
-        GSRB_LEVEL(
-          e: &δeFine,
-          r: rFine,
-          coarseness: fineLevelCoarseness,
-          red: false)
-      }
       for cellID in 0..<fineArrayLength {
         eFine[cellID] += δeFine[cellID]
       }
@@ -924,7 +880,9 @@ final class LinearSolverTests: XCTestCase {
     }
   }
   
-  // A hybrid between multigrid and (preconditioned) conjugate gradient.
+  // A hybrid between multigrid and conjugate gradient.
+  // - Using 2 x Jacobi instead of 1 x GSRB for MG.
+  // - Omitting the preconditioner from CG.
   func testHybridMethod() throws {
     
   }
