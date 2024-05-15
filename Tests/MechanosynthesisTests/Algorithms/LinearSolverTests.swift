@@ -221,14 +221,9 @@ final class LinearSolverTests: XCTestCase {
     b = Self.shift(b, scale: -1, correction: L2x)
     
     var x = [Float](repeating: .zero, count: Self.cellCount)
-    print()
-    print("Jacobi")
     for _ in 0..<30 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
       
       let D = -6 / (Self.h * Self.h)
       x = Self.shift(x, scale: 1 / D, correction: r)
@@ -261,22 +256,11 @@ final class LinearSolverTests: XCTestCase {
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
-    func logNormRes() {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let r = Self.shift(b, scale: -1, correction: L1x)
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
-    }
-    
     var x = [Float](repeating: .zero, count: Self.cellCount)
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
     var p = r
     var rr = Self.dot(r, r)
-    print()
-    print("Conjugate Gradient")
-    logNormRes()
     
     for _ in 0..<30 {
       let Ap = Self.applyLaplacianLinearPart(p)
@@ -293,8 +277,6 @@ final class LinearSolverTests: XCTestCase {
       r = rNew
       p = pNew
       rr = rrNew
-      
-      logNormRes()
     }
   }
   
@@ -312,8 +294,6 @@ final class LinearSolverTests: XCTestCase {
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
-    print()
-    print("Gauss-Seidel")
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Updates all of the selected cells in-place.
@@ -370,39 +350,17 @@ final class LinearSolverTests: XCTestCase {
     }
     
     for iterationID in 0..<30 {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let r = Self.shift(b, scale: -1, correction: L1x)
-      let r2 = Self.dot(r, r)
-      let resNorm = r2.squareRoot()
-      print("||r|| = \(resNorm)")
-      
       executeSweep(red: true, black: false)
       executeSweep(red: false, black: true)
     }
   }
   
   func testMultigridMethod() {
-    print()
-    print("Multigrid")
     var b = Self.createScaledChargeDensity()
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
-    func logNormRes() {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let L2x = Self.applyLaplacianBoundary()
-      let Ax = Self.shift(L1x, scale: 1, correction: L2x)
-      var r = Self.shift(b, scale: -1, correction: Ax)
-      do {
-        let r2 = Self.dot(r, r)
-        let resNorm = r2.squareRoot()
-        print("||r|| = \(resNorm)")
-      }
-    }
-    
     // One V-cycle should be treated as two SD or CG iterations.
     for iterationID in 0..<15 {
-      logNormRes()
-      
       // Gauss-Seidel red-black
       func GSRB_LEVEL(
         e: inout [Float], r: [Float], coarseness: Int, red: Bool

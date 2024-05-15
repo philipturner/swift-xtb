@@ -400,6 +400,10 @@ final class ElectrostaticsTests: XCTestCase {
     }
   }
   
+  func testLaplacianPreconditioner() throws {
+    
+  }
+  
   // Analyze the case where a cell overlaps itself, and the explicit integral
   // for Hartree potential evaluates to infinity.
   //
