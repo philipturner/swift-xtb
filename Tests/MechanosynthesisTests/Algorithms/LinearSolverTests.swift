@@ -2,9 +2,49 @@ import XCTest
 import Mechanosynthesis
 import Numerics
 
+// ========================================================================== //
+// Performance of different algorithms
+// ========================================================================== //
+//
+// Specification of multigrid V-cycle:
+//   A-B-C-D-E
+//
+//   A GSRB (1x)
+//   -> B GSRB (2x)
+//   ---> C GSRB (4x)
+//   -> D GSRB (2x)
+//   E GSRB (1x)
+//
+// ========================================================================== //
+// Raw data
+// ========================================================================== //
+//
+// h = 0.25, gridSize = 8, cellCount = 512
+//
+//                       0 iters  ||r|| = 394.27557
+// Gauss-Seidel         30 iters  ||r|| = 6.5650797      0.002 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
+// Conjugate Gradient   30 iters  ||r|| = 0.00030688613  0.003 seconds
+// Preconditioned CG    15 iters  ||r|| = 0.00023875975  0.003 seconds
+//
+// h = 0.125, gridSize = 16, cellCount = 4096
+//                       0 iters  ||r|| = 3091.9424
+// Gauss-Seidel         30 iters  ||r|| = 277.43747     0.016 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.075272486   0.033 seconds
+// Conjugate Gradient   30 iters  ||r|| = 0.09551496    0.017 seconds
+// Preconditioned CG    15 iters  ||r|| = 0.0032440922  0.024 seconds
+//
+// h = 0.0625, gridSize = 32, cellCount = 32,768
+//                       0 iters  ||r|| = 24494.229
+// Gauss-Seidel         60 iters
+// Multigrid 1-2-2-2-1  30 iters
+// Conjugate Gradient   60 iters
+// Preconditioned CG    30 iters
+//
+// h = 0.03125, gridSize = 64, cellCount = 262,144
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8
-  static let h: Float = 0.25
+  static let gridSize: Int = 32
+  static let h: Float = 0.0625
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -221,7 +261,7 @@ final class LinearSolverTests: XCTestCase {
     b = Self.shift(b, scale: -1, correction: L2x)
     
     var x = [Float](repeating: .zero, count: Self.cellCount)
-    for _ in 0..<30 {
+    for _ in 0..<60 {
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
       
@@ -264,7 +304,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Conjugate Gradient")
-    for _ in 0..<30 {
+    for _ in 0..<60 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -312,11 +352,13 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
-    var p = applyLaplacianPreconditioner(r)
+    var Kr = applyLaplacianPreconditioner(r)
+    var rKr = Self.dot(r, Kr)
+    var p = Kr
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<15 {
+    for _ in 0..<30 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -325,15 +367,21 @@ final class LinearSolverTests: XCTestCase {
         print("||r|| = \(normres)")
       }
       
-      let a = Self.dot(r, applyLaplacianPreconditioner(r)) / Self.dot(p, Self.applyLaplacianLinearPart(p))
-      let xNew = Self.shift(x, scale: a, correction: p)
-      let rNew = Self.shift(r, scale: -a, correction: Self.applyLaplacianLinearPart(p))
+      let Ap = Self.applyLaplacianLinearPart(p)
       
-      let b = Self.dot(rNew, applyLaplacianPreconditioner(rNew)) / Self.dot(r, applyLaplacianPreconditioner(r))
-      let pNew = Self.shift(applyLaplacianPreconditioner(rNew), scale: b, correction: p)
+      let a = rKr / Self.dot(p, Ap)
+      let xNew = Self.shift(x, scale: a, correction: p)
+      let rNew = Self.shift(r, scale: -a, correction: Ap)
+      let KrNew = applyLaplacianPreconditioner(rNew)
+      let rKrNew = Self.dot(rNew, KrNew)
+      
+      let b = rKrNew / rKr
+      let pNew = Self.shift(KrNew, scale: b, correction: p)
       
       x = xNew
       r = rNew
+      Kr = KrNew
+      rKr = rKrNew
       p = pNew
     }
     
@@ -422,6 +470,9 @@ final class LinearSolverTests: XCTestCase {
   // iterate over all the red cells in parallel
   // iterate over all the black cells in parallel
   // only works with 2nd order FD
+  //
+  // a four-color scheme would work with Mehrstellen, provided we process the
+  // multigrid one level at a time
   func testGaussSeidelMethod() {
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
@@ -482,7 +533,17 @@ final class LinearSolverTests: XCTestCase {
       }
     }
     
-    for iterationID in 0..<30 {
+    print()
+    print("Gauss-Seidel")
+    for iterationID in 0..<60 {
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
+        let r2 = Self.dot(r, r)
+        let normres = r2.squareRoot()
+        print("||r|| = \(normres)")
+      }
+      
       executeSweep(red: true, black: false)
       executeSweep(red: false, black: true)
     }
@@ -493,7 +554,19 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // One V-cycle should be treated as two SD or CG iterations.
-    for iterationID in 0..<15 {
+    print()
+    print("Multigrid")
+    for iterationID in 0..<30 {
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let L2x = Self.applyLaplacianBoundary()
+        let Ax = Self.shift(L1x, scale: 1, correction: L2x)
+        let r = Self.shift(b, scale: -1, correction: Ax)
+        let r2 = Self.dot(r, r)
+        let normres = r2.squareRoot()
+        print("||r|| = \(normres)")
+      }
+      
       // Initialize the residual.
       var rFine: [Float]
       do {
@@ -522,6 +595,8 @@ final class LinearSolverTests: XCTestCase {
         var eCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
         GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: true)
         GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: false)
+        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: true)
+        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: false)
         
         // Encapsulate the tiny level.
         if true {
@@ -542,6 +617,8 @@ final class LinearSolverTests: XCTestCase {
           var eTiny = [Float](repeating: .zero, count: Self.cellCount / 64)
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
           GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
+          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
+          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
           
           // Prolong from tiny to coarse.
           shiftResolution(
@@ -551,6 +628,8 @@ final class LinearSolverTests: XCTestCase {
           
           // Smoothing iterations on the coarse level.
           var δeCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
+          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: true)
+          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: false)
           GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: true)
           GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: false)
           for cellID in 0..<Self.cellCount / 8 {

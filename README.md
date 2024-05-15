@@ -53,6 +53,7 @@ LinearSolver
 - Jacobi ✅
 - Gauss-Seidel ✅
 - Conjugate gradient ✅
+  - Preconditioned variant ✅
 - Multigrid ✅
 
 Relativity
