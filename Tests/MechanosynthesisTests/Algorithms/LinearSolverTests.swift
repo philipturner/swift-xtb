@@ -309,23 +309,125 @@ final class LinearSolverTests: XCTestCase {
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
-    
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    let L1x = Self.applyLaplacianLinearPart(x)
+    var r = Self.shift(b, scale: -1, correction: L1x)
+    var p = applyLaplacianPreconditioner(r)
     
     print()
     print("Preconditioned Conjugate Gradient")
-    var x = [Float](repeating: .zero, count: Self.cellCount)
     for _ in 0..<30 {
-      let L1x = Self.applyLaplacianLinearPart(x)
-      let r = Self.shift(b, scale: -1, correction: L1x)
       do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
         let r2 = Self.dot(r, r)
         let normres = r2.squareRoot()
         print("||r|| = \(normres)")
       }
       
-      let Ar = Self.applyLaplacianLinearPart(r)
-      let a = Self.dot(r, r) / Self.dot(r, Ar)
-      x = Self.shift(x, scale: a, correction: r)
+      let a = Self.dot(r, applyLaplacianPreconditioner(r)) / Self.dot(p, Self.applyLaplacianLinearPart(p))
+      let xNew = Self.shift(x, scale: a, correction: p)
+      let rNew = Self.shift(r, scale: -a, correction: Self.applyLaplacianLinearPart(p))
+      
+      let b = Self.dot(rNew, applyLaplacianPreconditioner(rNew)) / Self.dot(r, applyLaplacianPreconditioner(r))
+      let pNew = Self.shift(applyLaplacianPreconditioner(rNew), scale: b, correction: p)
+      
+      x = xNew
+      r = rNew
+      p = pNew
+    }
+    
+    func applyLaplacianPreconditioner(_ x: [Float]) -> [Float] {
+      let h = Self.h
+      let gridSize = Self.gridSize
+      let cellCount = Self.cellCount
+      func createAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+      }
+      
+      // Pre-compile a list of neighbor offsets.
+      var neighborOffsets: [SIMD3<Int16>] = []
+      for offsetZ in -2...2 {
+        for offsetY in -2...2 {
+          for offsetX in -2...2 {
+            var indices = SIMD3(Int16(offsetX), Int16(offsetY), Int16(offsetZ))
+            let integerDistanceSquared = (indices &* indices).wrappedSum()
+            
+            // This tolerance creates a 57-point convolution kernel.
+            guard integerDistanceSquared <= 5 else {
+              continue
+            }
+            neighborOffsets.append(indices)
+          }
+        }
+      }
+      
+      // Iterate over the cells.
+      var output = [Float](repeating: 0, count: cellCount)
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Iterate over the convolution points.
+            var accumulator: Float = .zero
+            for offset in neighborOffsets {
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices &+= SIMD3(truncatingIfNeeded: offset)
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< gridSize) else {
+                continue
+              }
+              
+              // Read the neighbor data point from memory.
+              let neighborAddress = createAddress(indices: neighborIndices)
+              let neighborValue = x[neighborAddress]
+              let integerDistanceSquared = (offset &* offset).wrappedSum()
+              
+              // 0.8, 30, 0.2, 10 -> 0.8, 2.70, 0.2, 0.90
+              // 0.6, 25, 0.4,  8 -> 0.6, 2.25, 0.4, 0.72
+              var K: Float = .zero
+              K += 0.6 * Float.exp(-2.25 * Float(integerDistanceSquared))
+              K += 0.4 * Float.exp(-0.72 * Float(integerDistanceSquared))
+              accumulator += neighborValue * K
+              
+              /*
+               ||r|| = 394.27557
+               ||r|| = 230.14984
+               ||r|| = 204.93619
+               ||r|| = 233.53235
+               ||r|| = 164.13765
+               ||r|| = 58.074017
+               ||r|| = 34.972748
+               ||r|| = 15.42438
+               
+               ||r|| = 394.27557
+               ||r|| = 175.9524
+               ||r|| = 173.73183
+               ||r|| = 28.865715
+               ||r|| = 7.0485644
+               ||r|| = 2.0234828
+               ||r|| = 0.4951219
+               ||r|| = 0.06745599
+               
+               ||r|| = 394.27557
+               ||r|| = 149.43454
+               ||r|| = 44.84753
+               ||r|| = 5.4780407
+               ||r|| = 0.43980443
+               ||r|| = 0.04256695
+               ||r|| = 0.006807029
+               ||r|| = 0.0006537797
+               */
+            }
+            
+            // Write the convolution result to memory.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(indices: cellIndices)
+            output[cellAddress] = accumulator
+          }
+        }
+      }
+      
+      return output
     }
   }
   
@@ -410,180 +512,6 @@ final class LinearSolverTests: XCTestCase {
     
     // One V-cycle should be treated as two SD or CG iterations.
     for iterationID in 0..<15 {
-      // Gauss-Seidel red-black
-      func GSRB_LEVEL(
-        e: inout [Float], r: [Float], coarseness: Int, red: Bool
-      ) {
-        let h = Self.h * Float(coarseness)
-        let gridSize = Self.gridSize / coarseness
-        func createAddress(indices: SIMD3<Int>) -> Int {
-          indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
-        }
-        
-        for indexZ in 0..<gridSize {
-          for indexY in 0..<gridSize {
-            for indexX in 0..<gridSize {
-              // Mask out either the red or black cells.
-              let parity = indexX ^ indexY ^ indexZ
-              switch parity & 1 {
-              case 0:
-                guard red else {
-                  continue
-                }
-              case 1:
-                guard !red else {
-                  continue
-                }
-              default:
-                fatalError("This should never happen.")
-              }
-              
-              let cellIndices = SIMD3(indexX, indexY, indexZ)
-              let cellAddress = createAddress(indices: cellIndices)
-              
-              // Iterate over the faces.
-              var faceAccumulator: Float = .zero
-              for faceID in 0..<6 {
-                let coordinateID = faceID / 2
-                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-                
-                // Locate the neighboring cell.
-                var neighborIndices = SIMD3(indexX, indexY, indexZ)
-                neighborIndices[coordinateID] += coordinateShift
-                guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< gridSize) else {
-                  // Add 'zero' to the accumulator.
-                  continue
-                }
-                
-                // Add the neighbor's value to the accumulator.
-                let neighborAddress = createAddress(indices: neighborIndices)
-                let neighborValue = e[neighborAddress]
-                faceAccumulator += 1 / (h * h) * neighborValue
-              }
-              
-              // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
-              let rValue = r[cellAddress]
-              var eValue = e[cellAddress]
-              
-              // Update the error in-place.
-              var λ = h * h / 6
-              e[cellAddress] = λ * (faceAccumulator - rValue)
-            }
-          }
-        }
-      }
-      
-      func correctResidual(e: [Float], r: inout [Float], coarseness: Int) {
-        let h = Self.h * Float(coarseness)
-        let gridSize = Self.gridSize / coarseness
-        func createAddress(indices: SIMD3<Int>) -> Int {
-          indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
-        }
-        
-        // Iterate over the cells.
-        for indexZ in 0..<gridSize {
-          for indexY in 0..<gridSize {
-            for indexX in 0..<gridSize {
-              var dotProduct: Float = .zero
-              
-              // Apply the FMA on the diagonal.
-              let cellIndices = SIMD3(indexX, indexY, indexZ)
-              let cellAddress = createAddress(indices: cellIndices)
-              let cellValue = e[cellAddress]
-              dotProduct += -6 / (h * h) * cellValue
-              
-              // Iterate over the faces.
-              for faceID in 0..<6 {
-                let coordinateID = faceID / 2
-                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-                
-                // Locate the neighboring cell.
-                var neighborIndices = SIMD3(indexX, indexY, indexZ)
-                neighborIndices[coordinateID] += coordinateShift
-                guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< gridSize) else {
-                  // Add 'zero' to the dot product.
-                  continue
-                }
-                
-                let neighborAddress = createAddress(indices: neighborIndices)
-                let neighborValue = e[neighborAddress]
-                dotProduct += 1 / (h * h) * neighborValue
-              }
-              
-              // Update the residual.
-              let L2e = dotProduct
-              r[cellAddress] -= L2e
-            }
-          }
-        }
-      }
-      
-      // Performs a power-2 shift to a coarser level.
-      func shiftResolution(
-        fineGrid: inout [Float], coarseGrid: inout [Float],
-        fineLevelCoarseness: Int, shiftingUp: Bool
-      ) {
-        let fineGridSize = Self.gridSize / fineLevelCoarseness
-        let coarseGridSize = fineGridSize / 2
-        let coarseCellCount = coarseGridSize * coarseGridSize * coarseGridSize
-        
-        func createCoarseAddress(indices: SIMD3<Int>) -> Int {
-          indices.z * (coarseGridSize * coarseGridSize) +
-          indices.y * coarseGridSize + indices.x
-        }
-        func createFineAddress(indices: SIMD3<Int>) -> Int {
-          indices.z * (fineGridSize * fineGridSize) +
-          indices.y * fineGridSize + indices.x
-        }
-        
-        // Create the coarse grid.
-        if shiftingUp {
-          coarseGrid = [Float](repeating: .zero, count: coarseCellCount)
-        }
-        
-        // Iterate over the coarse grid.
-        for indexZ in 0..<coarseGridSize {
-          for indexY in 0..<coarseGridSize {
-            for indexX in 0..<coarseGridSize {
-              // Read from the coarse grid.
-              let coarseIndices = SIMD3<Int>(indexX, indexY, indexZ)
-              let coarseAddress = createCoarseAddress(indices: coarseIndices)
-              let coarseValue = coarseGrid[coarseAddress]
-              
-              // Iterate over the footprint on the finer grid.
-              var accumulator: Float = .zero
-              for permutationZ in 0..<2 {
-                for permutationY in 0..<2 {
-                  for permutationX in 0..<2 {
-                    var fineIndices = 2 &* coarseIndices
-                    fineIndices[0] += permutationX
-                    fineIndices[1] += permutationY
-                    fineIndices[2] += permutationZ
-                    let fineAddress = createFineAddress(indices: fineIndices)
-                    
-                    if shiftingUp {
-                      // Read from the fine grid.
-                      let fineValue = fineGrid[fineAddress]
-                      accumulator += (1.0 / 8) * fineValue
-                    } else {
-                      // Update the fine grid.
-                      fineGrid[fineAddress] += coarseValue
-                    }
-                  }
-                }
-              }
-              
-              // Update the coarse grid.
-              if shiftingUp {
-                coarseGrid[coarseAddress] = accumulator
-              }
-            }
-          }
-        }
-      }
-      
       // Initialize the residual.
       var rFine: [Float]
       do {
@@ -665,6 +593,180 @@ final class LinearSolverTests: XCTestCase {
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
+    }
+    
+    // Gauss-Seidel red-black
+    func GSRB_LEVEL(
+      e: inout [Float], r: [Float], coarseness: Int, red: Bool
+    ) {
+      let h = Self.h * Float(coarseness)
+      let gridSize = Self.gridSize / coarseness
+      func createAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+      }
+      
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            switch parity & 1 {
+            case 0:
+              guard red else {
+                continue
+              }
+            case 1:
+              guard !red else {
+                continue
+              }
+            default:
+              fatalError("This should never happen.")
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(indices: cellIndices)
+            
+            // Iterate over the faces.
+            var faceAccumulator: Float = .zero
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< gridSize) else {
+                // Add 'zero' to the accumulator.
+                continue
+              }
+              
+              // Add the neighbor's value to the accumulator.
+              let neighborAddress = createAddress(indices: neighborIndices)
+              let neighborValue = e[neighborAddress]
+              faceAccumulator += 1 / (h * h) * neighborValue
+            }
+            
+            // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
+            let rValue = r[cellAddress]
+            var eValue = e[cellAddress]
+            
+            // Update the error in-place.
+            var λ = h * h / 6
+            e[cellAddress] = λ * (faceAccumulator - rValue)
+          }
+        }
+      }
+    }
+    
+    func correctResidual(e: [Float], r: inout [Float], coarseness: Int) {
+      let h = Self.h * Float(coarseness)
+      let gridSize = Self.gridSize / coarseness
+      func createAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+      }
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            var dotProduct: Float = .zero
+            
+            // Apply the FMA on the diagonal.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(indices: cellIndices)
+            let cellValue = e[cellAddress]
+            dotProduct += -6 / (h * h) * cellValue
+            
+            // Iterate over the faces.
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< gridSize) else {
+                // Add 'zero' to the dot product.
+                continue
+              }
+              
+              let neighborAddress = createAddress(indices: neighborIndices)
+              let neighborValue = e[neighborAddress]
+              dotProduct += 1 / (h * h) * neighborValue
+            }
+            
+            // Update the residual.
+            let L2e = dotProduct
+            r[cellAddress] -= L2e
+          }
+        }
+      }
+    }
+    
+    // Performs a power-2 shift to a coarser level.
+    func shiftResolution(
+      fineGrid: inout [Float], coarseGrid: inout [Float],
+      fineLevelCoarseness: Int, shiftingUp: Bool
+    ) {
+      let fineGridSize = Self.gridSize / fineLevelCoarseness
+      let coarseGridSize = fineGridSize / 2
+      let coarseCellCount = coarseGridSize * coarseGridSize * coarseGridSize
+      
+      func createCoarseAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (coarseGridSize * coarseGridSize) +
+        indices.y * coarseGridSize + indices.x
+      }
+      func createFineAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (fineGridSize * fineGridSize) +
+        indices.y * fineGridSize + indices.x
+      }
+      
+      // Create the coarse grid.
+      if shiftingUp {
+        coarseGrid = [Float](repeating: .zero, count: coarseCellCount)
+      }
+      
+      // Iterate over the coarse grid.
+      for indexZ in 0..<coarseGridSize {
+        for indexY in 0..<coarseGridSize {
+          for indexX in 0..<coarseGridSize {
+            // Read from the coarse grid.
+            let coarseIndices = SIMD3<Int>(indexX, indexY, indexZ)
+            let coarseAddress = createCoarseAddress(indices: coarseIndices)
+            let coarseValue = coarseGrid[coarseAddress]
+            
+            // Iterate over the footprint on the finer grid.
+            var accumulator: Float = .zero
+            for permutationZ in 0..<2 {
+              for permutationY in 0..<2 {
+                for permutationX in 0..<2 {
+                  var fineIndices = 2 &* coarseIndices
+                  fineIndices[0] += permutationX
+                  fineIndices[1] += permutationY
+                  fineIndices[2] += permutationZ
+                  let fineAddress = createFineAddress(indices: fineIndices)
+                  
+                  if shiftingUp {
+                    // Read from the fine grid.
+                    let fineValue = fineGrid[fineAddress]
+                    accumulator += (1.0 / 8) * fineValue
+                  } else {
+                    // Update the fine grid.
+                    fineGrid[fineAddress] += coarseValue
+                  }
+                }
+              }
+            }
+            
+            // Update the coarse grid.
+            if shiftingUp {
+              coarseGrid[coarseAddress] = accumulator
+            }
+          }
+        }
+      }
     }
   }
 }
