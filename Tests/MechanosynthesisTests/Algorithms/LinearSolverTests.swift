@@ -399,14 +399,19 @@ final class LinearSolverTests: XCTestCase {
     for iterationID in 0..<30 {
       logNormRes()
       
-      
       // Gauss-Seidel red-black
       func GSRB_LEVEL(
-        e: inout [Float], r: [Float], red: Bool
+        e: inout [Float], r: [Float], coarseness: Int, red: Bool
       ) {
-        for indexZ in 0..<Self.gridSize {
-          for indexY in 0..<Self.gridSize {
-            for indexX in 0..<Self.gridSize {
+        let h = Self.h * Float(coarseness)
+        let gridSize = Self.gridSize / coarseness
+        func createAddress(indices: SIMD3<Int>) -> Int {
+          indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
+        }
+        
+        for indexZ in 0..<gridSize {
+          for indexY in 0..<gridSize {
+            for indexX in 0..<gridSize {
               // Mask out either the red or black cells.
               let parity = indexX ^ indexY ^ indexZ
               switch parity & 1 {
@@ -423,7 +428,7 @@ final class LinearSolverTests: XCTestCase {
               }
               
               let cellIndices = SIMD3(indexX, indexY, indexZ)
-              let cellAddress = Self.createAddress(indices: cellIndices)
+              let cellAddress = createAddress(indices: cellIndices)
               
               // Iterate over the faces.
               var faceAccumulator: Float = .zero
@@ -435,16 +440,15 @@ final class LinearSolverTests: XCTestCase {
                 var neighborIndices = SIMD3(indexX, indexY, indexZ)
                 neighborIndices[coordinateID] += coordinateShift
                 guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< Self.gridSize) else {
+                      all(neighborIndices .< gridSize) else {
                   // Add 'zero' to the accumulator.
                   continue
                 }
                 
                 // Add the neighbor's value to the accumulator.
-                let neighborAddress = Self
-                  .createAddress(indices: neighborIndices)
+                let neighborAddress = createAddress(indices: neighborIndices)
                 let neighborValue = e[neighborAddress]
-                faceAccumulator += 1 / (Self.h * Self.h) * neighborValue
+                faceAccumulator += 1 / (h * h) * neighborValue
               }
               
               // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
@@ -452,10 +456,17 @@ final class LinearSolverTests: XCTestCase {
               var eValue = e[cellAddress]
               
               // Update the error in-place.
-              var λ = Self.h * Self.h / 6
+              var λ = h * h / 6
               e[cellAddress] = λ * (faceAccumulator - rValue)
             }
           }
+        }
+      }
+      
+      func correctResidual(e: [Float], r: inout [Float]) {
+        let L2eFine = Self.applyLaplacianLinearPart(e)
+        for cellID in 0..<Self.cellCount {
+          r[cellID] = r[cellID] - L2eFine[cellID]
         }
       }
       
@@ -471,32 +482,26 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the fine level.
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
-      GSRB_LEVEL(e: &eFine, r: rFine, red: true)
-      GSRB_LEVEL(e: &eFine, r: rFine, red: false)
-      
-      // Emulate the averaging from fine -> coarse.
-      var rCoarse = Self.shift(
-        rFine, scale: -1, correction: Self.applyLaplacianLinearPart(eFine))
+      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
+      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
+      correctResidual(e: eFine, r: &rFine)
       
       // Smoothing iterations on the coarse level.
+      var rCoarse = rFine
       var eCoarse = [Float](repeating: .zero, count: Self.cellCount)
-//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: true)
-//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: false)
-//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: true)
-//      GSRB_LEVEL(e: &eCoarse, r: rCoarse, red: false)
-      
-      // Emulate the correction from coarse -> fine.
-      eFine = Self.shift(eFine, scale: 1, correction: eCoarse)
-      rFine = Self.shift(rFine, scale: -1, correction: Self.applyLaplacianLinearPart(eFine))
+      GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: true)
+      GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 1, red: false)
       
       // Smoothing iterations on the fine level.
+      correctResidual(e: eCoarse, r: &rFine)
       var δeFine = [Float](repeating: .zero, count: Self.cellCount)
-      GSRB_LEVEL(e: &δeFine, r: rFine, red: true)
-      GSRB_LEVEL(e: &δeFine, r: rFine, red: false)
+      GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: true)
+      GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: false)
       
       // Add the error vector to the solution.
-      eFine = Self.shift(eFine, scale: 1, correction: δeFine)
       x = Self.shift(x, scale: 1, correction: eFine)
+      x = Self.shift(x, scale: 1, correction: eCoarse)
+      x = Self.shift(x, scale: 1, correction: δeFine)
     }
   }
 }
