@@ -475,11 +475,15 @@ final class ElectrostaticsTests: XCTestCase {
       }
       print()
     }
+    print(laplacianInverse)
+    XCTAssertEqual(laplacianInverse[0], -0.082, accuracy: 1e-3)
+    XCTAssertEqual(laplacianInverse[1], -0.074, accuracy: 1e-3)
+    XCTAssertEqual(laplacianInverse[2], -0.065, accuracy: 1e-3)
     
     // Visualize the expensive approximation to the inverse.
     print()
     print("approximate inverse:")
-    
+    var approximateInverse: [Float] = []
     for rowID in 0..<10 {
       let ri = (Float(rowID) + 0.5) * h
       for columnID in 0..<10 {
@@ -497,26 +501,36 @@ final class ElectrostaticsTests: XCTestCase {
           repr.removeLast()
         }
         print(repr, terminator: " ")
+        
+        approximateInverse.append(entry)
       }
       print()
     }
+    print(approximateInverse)
+    XCTAssertEqual(approximateInverse[0], -0.150, accuracy: 1e-3)
+    XCTAssertEqual(approximateInverse[1], -0.150, accuracy: 1e-3)
+    XCTAssertEqual(approximateInverse[2], -0.075, accuracy: 1e-3)
     
     // Visualize the efficient approximation to the inverse.
     print()
     print("approximate inverse (efficient):")
+    var efficientInverse: [Float] = []
     for rowID in 0..<10 {
       let ri = (Float(rowID) + 0.5) * h
       for columnID in 0..<10 {
         let rj = (Float(columnID) + 0.5) * h
         let r = (ri - rj).magnitude
         
-        // 0.8, 30, 0.2, 10
-        // 0.6, 25, 0.4, 8
+        // 0.8, 30, 0.2, 10 -> 0.8, 2.70, 0.2, 0.90
+        // 0.6, 25, 0.4,  8 -> 0.6, 2.25, 0.4, 0.72
         var K: Float = .zero
-        K += 0.6 * Float.exp(-25 * r * r)
-        K += 0.4 * Float.exp(-8 * r * r)
+        K += 0.6 * Float.exp(-2.25 * (r * r) / (h * h))
+        K += 0.4 * Float.exp(-0.72 * (r * r) / (h * h))
         
-        let entry = K
+        // Scale by (h * h) to visualize in comparison to the other matrices,
+        // such as the exact inverse. Real-world usage will not modify the
+        // diagonal, making the preconditioner close to the identity.
+        let entry = (-h * h) * K
         var repr = String(format: "%.3f", entry)
         if entry.sign == .plus {
           repr = " " + repr
@@ -525,9 +539,15 @@ final class ElectrostaticsTests: XCTestCase {
           repr.removeLast()
         }
         print(repr, terminator: " ")
+        
+        efficientInverse.append(entry)
       }
       print()
     }
+    print(efficientInverse)
+    XCTAssertEqual(efficientInverse[0], -0.090, accuracy: 1e-3)
+    XCTAssertEqual(efficientInverse[1], -0.023, accuracy: 1e-3)
+    XCTAssertEqual(efficientInverse[2], -0.002, accuracy: 1e-3)
     
     // TODO: Convert this into a good unit test.
   }
