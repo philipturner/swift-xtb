@@ -16,6 +16,9 @@ import Numerics
 //   E GSRB (1x)
 //   update solution
 //
+//   One V-cycle counts as one iteration. It is effectively the compute cost
+//   of two Gauss-Seidel iterations.
+//
 // ========================================================================== //
 // Raw data
 // ========================================================================== //
@@ -23,35 +26,69 @@ import Numerics
 // h = 0.25, gridSize = 8, cellCount = 512
 //                       0 iters  ||r|| = 394.27557
 // Gauss-Seidel         30 iters  ||r|| = 6.5650797      0.002 seconds
-// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
 // Conjugate Gradient   30 iters  ||r|| = 0.00030688613  0.003 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.00023875975  0.003 seconds
 //
 // h = 0.125, gridSize = 16, cellCount = 4096
 //                       0 iters  ||r|| = 3091.9424
 // Gauss-Seidel         30 iters  ||r|| = 277.43747     0.016 seconds
-// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.075272486   0.033 seconds
 // Conjugate Gradient   30 iters  ||r|| = 0.09551496    0.017 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.075272486   0.033 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.0032440922  0.024 seconds
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
 //                       0 iters  ||r|| = 24494.229
 // Gauss-Seidel         60 iters  ||r|| = 1308.8044    0.250 seconds
-// Multigrid 1-2-2-2-1  30 iters  ||r|| = 0.035719506  0.542 seconds
 // Conjugate Gradient   60 iters  ||r|| = 0.49065304   0.258 seconds
+// Multigrid 1-2-2-2-1  30 iters  ||r|| = 0.035719506  0.542 seconds
 // Preconditioned CG    30 iters  ||r|| = 0.048568394  0.364 seconds
 //
 // h = 0.0313, gridSize = 64, cellCount = 262,144
 //                       0 iters  ||r|| = 195015.61
 // Gauss-Seidel         99 iters  ||r|| = 5887.104   3.311 seconds
-// Multigrid 1-2-4-2-1  60 iters  ||r|| = 0.3711439  8.855 seconds
 // Conjugate Gradient   99 iters  ||r|| = 53.441914  3.375 seconds
+// Multigrid 1-2-4-2-1  60 iters  ||r|| = 0.3711439  8.855 seconds
 // Preconditioned CG    60 iters  ||r|| = 0.7311449  5.874 seconds
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
+// Multigrid 1-2-2-1-2-2-1  60 iters  ||r|| = 294.65112  70.652 seconds
+// Multigrid 1-2-2-2-2-2-1  60 iters  ||r|| = 38.89426   71.247 seconds
+// Multigrid 1-2-2-4-2-2-1  60 iters  ||r|| = 3.4102564  72.914 seconds
+// Preconditioned CG        60 iters  ||r|| = 1209.9086  46.300 seconds
+// Preconditioned CG        99 iters  ||r|| = 11.659912  75.554 seconds
+//
+// ========================================================================== //
+// Conclusions
+// ========================================================================== //
+//
+// Ranked in order of ease of implementation:
+// 1) Jacobi
+// 2) Gauss-Seidel
+// 3) Conjugate gradient
+// 4) Preconditioned conjugate gradient
+// 5) Multigrid
+//
+// Preconditioned CG seems like the best tradeoff between complexity and speed.
+// It converges consistently in every situation. Multigrid requires careful
+// tuning of the tree depth and often fails to converge with the wrong V-cycle
+// scheme. However, it has the potential to be more efficient, especially with
+// BMR FAS-FMG.
+//
+// I'm also unsure how adaptive mesh refinement will affect the performance of
+// these algorithms. The path length to jump between levels would increase
+// significantly. Multigrid would coalesce the overhead of interpolation
+// and coarsening operations. However, the CG preconditioner could be modified
+// with higher / anisotropic sample count at the nuclear singularity.
+//
+// The idea of multigrid F-cycles could be transferred over to CG. In addition,
+// I'd like to consider a hybrid between multigrid and preconditioned CG.
+// Multigrid performs robustly whenever there's only 2 levels. Perhaps one
+// could start a PCG loop within the lower resolution level, which lasts for
+// around 8 iterations.
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 32 * 2
-  static let h: Float = 0.0625 / 2
+  static let gridSize: Int = 32 * 4
+  static let h: Float = 0.0625 / 4
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -362,7 +399,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<60 {
+    for _ in 0..<99 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -587,71 +624,7 @@ final class LinearSolverTests: XCTestCase {
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
       GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
-//      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
-//      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
       multigridCoarseLevel(eFine: &eFine, rFine: &rFine, fineLevelCoarseness: 1)
-      
-      #if false
-      // Encapsulate the coarse level.
-      if Self.gridSize >= 4 {
-        // Restrict from fine to coarse.
-        var rFineCorrected = rFine
-        var rCoarse: [Float] = []
-        correctResidual(e: eFine, r: &rFineCorrected, coarseness: 1)
-        shiftResolution(
-          fineGrid: &rFineCorrected, coarseGrid: &rCoarse,
-          fineLevelCoarseness: 1, shiftingUp: true)
-        
-        // Smoothing iterations on the coarse level.
-        var eCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
-        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: true)
-        GSRB_LEVEL(e: &eCoarse, r: rCoarse, coarseness: 2, red: false)
-        
-        // Encapsulate the tiny level.
-        if Self.gridSize >= 8 {
-          // Restrict from coarse to tiny.
-          var rCoarseCorrected = rCoarse
-          var rTiny: [Float] = []
-          correctResidual(e: eCoarse, r: &rCoarseCorrected, coarseness: 2)
-          shiftResolution(
-            fineGrid: &rCoarseCorrected, coarseGrid: &rTiny,
-            fineLevelCoarseness: 2, shiftingUp: true)
-          
-          // Smoothing iterations on the tiny level.
-          var eTiny = [Float](repeating: .zero, count: Self.cellCount / 64)
-          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: true)
-          GSRB_LEVEL(e: &eTiny, r: rTiny, coarseness: 4, red: false)
-          
-          // Prolong from tiny to coarse.
-          shiftResolution(
-            fineGrid: &eCoarse, coarseGrid: &eTiny,
-            fineLevelCoarseness: 2, shiftingUp: false)
-          correctResidual(e: eCoarse, r: &rCoarse, coarseness: 2)
-          
-          // Smoothing iterations on the coarse level.
-          var δeCoarse = [Float](repeating: .zero, count: Self.cellCount / 8)
-          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: true)
-          GSRB_LEVEL(e: &δeCoarse, r: rCoarse, coarseness: 2, red: false)
-          for cellID in 0..<Self.cellCount / 8 {
-            eCoarse[cellID] += δeCoarse[cellID]
-          }
-        }
-        
-        // Prolong from coarse to fine.
-        shiftResolution(
-          fineGrid: &eFine, coarseGrid: &eCoarse,
-          fineLevelCoarseness: 1, shiftingUp: false)
-        correctResidual(e: eFine, r: &rFine, coarseness: 1)
-        
-        // Smoothing iterations on the fine level.
-        var δeFine = [Float](repeating: .zero, count: Self.cellCount)
-        GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: true)
-        GSRB_LEVEL(e: &δeFine, r: rFine, coarseness: 1, red: false)
-        for cellID in 0..<Self.cellCount {
-          eFine[cellID] += δeFine[cellID]
-        }
-      }
-      #endif
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
@@ -693,20 +666,41 @@ final class LinearSolverTests: XCTestCase {
         r: rCoarse,
         coarseness: coarseLevelCoarseness,
         red: false)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: true)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: false)
+      
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: true)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: false)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: true)
+      GSRB_LEVEL(
+        e: &eCoarse,
+        r: rCoarse,
+        coarseness: coarseLevelCoarseness,
+        red: false)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 8 {
         print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
-        GSRB_LEVEL(
-          e: &eCoarse,
-          r: rCoarse,
-          coarseness: coarseLevelCoarseness,
-          red: true)
-        GSRB_LEVEL(
-          e: &eCoarse,
-          r: rCoarse,
-          coarseness: coarseLevelCoarseness,
-          red: false)
         multigridCoarseLevel(
           eFine: &eCoarse,
           rFine: &rCoarse,
@@ -928,5 +922,10 @@ final class LinearSolverTests: XCTestCase {
         }
       }
     }
+  }
+  
+  // A hybrid between multigrid and (preconditioned) conjugate gradient.
+  func testHybridMethod() throws {
+    
   }
 }
