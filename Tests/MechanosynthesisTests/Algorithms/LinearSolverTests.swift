@@ -883,7 +883,18 @@ final class LinearSolverTests: XCTestCase {
   // A hybrid between multigrid and conjugate gradient.
   // - Using 2 x Jacobi instead of 1 x GSRB for MG.
   // - Omitting the preconditioner from CG.
-  func testHybridMethod() throws {
+  //
+  // Here, CG iterations are nested inside of an MG V-cycle.
+  func testHybridMethod1() throws {
+    
+  }
+  
+  // A hybrid between multigrid and conjugate gradient.
+  // - Using 2-level MG as the preconditioner for CG.
+  // - Using 1 x GSRB for MG.
+  //
+  // Here, an MG V-cycle is nested inside of CG.
+  func testHybridMethod2() throws {
     
   }
 }
