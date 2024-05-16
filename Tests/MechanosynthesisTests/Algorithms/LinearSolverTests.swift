@@ -88,7 +88,7 @@ import Numerics
 // implementation. Now, multigrid performs much better. It is consistently
 // faster than conjugate gradient.
 //
-// Ranked in order of ease of implementation:
+// Ranked by ease of implementation:
 // 1) Jacobi
 // 2) Gauss-Seidel
 // 3) Conjugate gradient
@@ -127,6 +127,8 @@ final class LinearSolverTests: XCTestCase {
   static let gridSize: Int = 8
   static let h: Float = 0.25
   static var cellCount: Int { gridSize * gridSize * gridSize }
+  
+  // MARK: - Utilities
   
   // Create the 'b' vector, which equals -4πρ.
   static func createScaledChargeDensity() -> [Float] {
@@ -281,7 +283,22 @@ final class LinearSolverTests: XCTestCase {
     return output
   }
   
-  // MARK: - Utilities
+  // Returns the 2-norm of the residual vector.
+  static func createResidualNorm(solution: [Float]) -> Float {
+    guard solution.count == Self.cellCount else {
+      fatalError("Solution had incorrect size.")
+    }
+    
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    let L1x = Self.applyLaplacianLinearPart(solution)
+    let r = Self.shift(b, scale: -1, correction: L1x)
+    let r2 = Self.dot(r, r)
+    
+    return r2.squareRoot()
+  }
   
   // Shift a vector by a constant times another vector.
   //
@@ -325,27 +342,125 @@ final class LinearSolverTests: XCTestCase {
   // Dx = b - Ax + Dx
   // x = x + D^{-1} (b - Ax)
   func testJacobiMethod() throws {
+    print()
+    print("Jacobi")
+    
+    // Prepare the right-hand side.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
-    print()
-    print("Jacobi")
+    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
+    
+    // Check the residual norm at the start of iterations.
+    do {
+      let residualNorm = Self.createResidualNorm(solution: x)
+      print("||r|| =", residualNorm)
+    }
+    
+    // Execute the iterations.
     for _ in 0..<20 {
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
-        let r2 = Self.dot(r, r)
-        let normres = r2.squareRoot()
-        print("||r|| = \(normres)")
-      }
-      
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
       
       let D = -6 / (Self.h * Self.h)
       x = Self.shift(x, scale: 1 / D, correction: r)
+    }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    print("||r|| =", residualNorm)
+  }
+  
+  // Gauss-Seidel method:
+  //
+  // x_i = (1 / a_ii) (b_i - Σ_(j ≠ i) a_ij x_j)
+  //
+  // Red-black scheme:
+  //
+  // iterate over all the red cells in parallel
+  // iterate over all the black cells in parallel
+  // only works with 2nd order FD
+  //
+  // a four-color scheme would work with Mehrstellen, provided we process the
+  // multigrid one level at a time
+  func testGaussSeidelMethod() {
+    print()
+    print("Gauss-Seidel")
+    
+    // Prepare the right-hand side.
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    // Prepare the solution vector.
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    
+    // Execute the iterations.
+    for _ in 0..<20 {
+      executeSweep(red: true, black: false)
+      executeSweep(red: false, black: true)
+    }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    print("||r|| =", residualNorm)
+    
+    // Updates all of the selected cells in-place.
+    //
+    // NOTE: This function references the variables 'x' and 'b', declared in
+    // the outer scope.
+    func executeSweep(red: Bool, black: Bool) {
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            var dotProduct: Float = .zero
+            
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            switch parity & 1 {
+            case 0:
+              guard red else {
+                continue
+              }
+            case 1:
+              guard black else {
+                continue
+              }
+            default:
+              fatalError("This should never happen.")
+            }
+            
+            // Iterate over the faces.
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< Self.gridSize) {
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = x[neighborAddress]
+                dotProduct += 1 / (Self.h * Self.h) * neighborValue
+              }
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            
+            // Overwrite the current value.
+            let rhsValue = b[cellAddress]
+            let diagonalValue: Float = -6 / (Self.h * Self.h)
+            let newValue = (rhsValue - dotProduct) / diagonalValue
+            x[cellAddress] = newValue
+          }
+        }
+      }
     }
   }
   
@@ -368,27 +483,23 @@ final class LinearSolverTests: XCTestCase {
   //   b = < r_new | r_new > / < r | r >
   //   p_new = r_new + b p
   func testConjugateGradientMethod() throws {
+    print()
+    print("Conjugate Gradient")
+    
+    // Prepare the right-hand side.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
+    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
     var p = r
     var rr = Self.dot(r, r)
     
-    print()
-    print("Conjugate Gradient")
+    // Execute the iterations.
     for _ in 0..<20 {
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
-        let r2 = Self.dot(r, r)
-        let normres = r2.squareRoot()
-        print("||r|| = \(normres)")
-      }
-      
       let Ap = Self.applyLaplacianLinearPart(p)
       
       let a = rr / Self.dot(p, Ap)
@@ -404,6 +515,10 @@ final class LinearSolverTests: XCTestCase {
       p = pNew
       rr = rrNew
     }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    print("||r|| =", residualNorm)
   }
   
   // Preconditioned conjugate gradient method:
@@ -418,13 +533,15 @@ final class LinearSolverTests: XCTestCase {
   //   b = < r_new | K | r_new > / < r | K | r >
   //   p_new = K r_new + b p
   func testPreconditionedConjugateGradient() {
-    // First, testing steepest descent as described in the real-space DFT
-    // textbook. This seems slightly different than Jacobi iteration, which
-    // explicitly fetches the diagonal entries and inverts them.
+    print()
+    print("Preconditioned Conjugate Gradient")
+    
+    // Prepare the right-hand side.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
+    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
     let L1x = Self.applyLaplacianLinearPart(x)
     var r = Self.shift(b, scale: -1, correction: L1x)
@@ -432,17 +549,8 @@ final class LinearSolverTests: XCTestCase {
     var rKr = Self.dot(r, Kr)
     var p = Kr
     
-    print()
-    print("Preconditioned Conjugate Gradient")
+    // Execute the iterations.
     for _ in 0..<10 {
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
-        let r2 = Self.dot(r, r)
-        let normres = r2.squareRoot()
-        print("||r|| = \(normres)")
-      }
-      
       let Ap = Self.applyLaplacianLinearPart(p)
       
       let a = rKr / Self.dot(p, Ap)
@@ -461,6 +569,11 @@ final class LinearSolverTests: XCTestCase {
       p = pNew
     }
     
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    print("||r|| =", residualNorm)
+    
+    // Applies the 33-point convolution preconditioner.
     func applyLaplacianPreconditioner(_ x: [Float]) -> [Float] {
       let gridSize = Self.gridSize
       let cellCount = Self.cellCount
@@ -536,112 +649,20 @@ final class LinearSolverTests: XCTestCase {
     }
   }
   
-  // Gauss-Seidel method:
-  //
-  // x_i = (1 / a_ii) (b_i - Σ_(j ≠ i) a_ij x_j)
-  //
-  // Red-black scheme:
-  //
-  // iterate over all the red cells in parallel
-  // iterate over all the black cells in parallel
-  // only works with 2nd order FD
-  //
-  // a four-color scheme would work with Mehrstellen, provided we process the
-  // multigrid one level at a time
-  func testGaussSeidelMethod() {
-    var b = Self.createScaledChargeDensity()
-    let L2x = Self.applyLaplacianBoundary()
-    b = Self.shift(b, scale: -1, correction: L2x)
-    
-    var x = [Float](repeating: .zero, count: Self.cellCount)
-    
-    // Updates all of the selected cells in-place.
-    func executeSweep(red: Bool, black: Bool) {
-      for indexZ in 0..<Self.gridSize {
-        for indexY in 0..<Self.gridSize {
-          for indexX in 0..<Self.gridSize {
-            var dotProduct: Float = .zero
-            
-            // Mask out either the red or black cells.
-            let parity = indexX ^ indexY ^ indexZ
-            switch parity & 1 {
-            case 0:
-              guard red else {
-                continue
-              }
-            case 1:
-              guard black else {
-                continue
-              }
-            default:
-              fatalError("This should never happen.")
-            }
-            
-            // Iterate over the faces.
-            for faceID in 0..<6 {
-              let coordinateID = faceID / 2
-              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-              
-              // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += coordinateShift
-              
-              if all(neighborIndices .>= 0),
-                 all(neighborIndices .< Self.gridSize) {
-                let neighborAddress = Self
-                  .createAddress(indices: neighborIndices)
-                let neighborValue = x[neighborAddress]
-                dotProduct += 1 / (Self.h * Self.h) * neighborValue
-              }
-            }
-            
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
-            
-            // Overwrite the current value.
-            let rhsValue = b[cellAddress]
-            let diagonalValue: Float = -6 / (Self.h * Self.h)
-            let newValue = (rhsValue - dotProduct) / diagonalValue
-            x[cellAddress] = newValue
-          }
-        }
-      }
-    }
-    
-    print()
-    print("Gauss-Seidel")
-    for _ in 0..<20 {
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
-        let r2 = Self.dot(r, r)
-        let normres = r2.squareRoot()
-        print("||r|| = \(normres)")
-      }
-      
-      executeSweep(red: true, black: false)
-      executeSweep(red: false, black: true)
-    }
-  }
-  
   func testMultigridMethod() {
-    var b = Self.createScaledChargeDensity()
-    let L2x = Self.applyLaplacianBoundary()
-    b = Self.shift(b, scale: -1, correction: L2x)
-    var x = [Float](repeating: .zero, count: Self.cellCount)
-    
-    // One V-cycle should be treated as two SD or CG iterations.
     print()
     print("Multigrid")
+    
+    // Prepare the right-hand side.
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    
+    // Prepare the solution vector.
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    
+    // Execute the iterations.
     for _ in 0..<10 {
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
-        let r2 = Self.dot(r, r)
-        let normres = r2.squareRoot()
-        print("||r|| = \(normres)")
-      }
-      
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
       let rFine = Self.shift(b, scale: -1, correction: L1x)
@@ -654,6 +675,11 @@ final class LinearSolverTests: XCTestCase {
       x = Self.shift(x, scale: 1, correction: eFine)
     }
     
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    print("||r|| =", residualNorm)
+    
+    // A recursive function call within the multigrid V-cycle.
     func multigridCoarseLevel(
       e: [Float], r: [Float], fineLevelCoarseness: Int
     ) -> [Float] {
@@ -730,7 +756,7 @@ final class LinearSolverTests: XCTestCase {
       return e
     }
     
-    // Gauss-Seidel red-black
+    // Gauss-Seidel with red-black ordering.
     func gaussSeidelIteration(
       e: inout [Float], r: [Float], coarseness: Int, iteration: Int
     ) {
@@ -790,6 +816,7 @@ final class LinearSolverTests: XCTestCase {
       }
     }
     
+    // Merges the error vector with the residual.
     func correctResidual(
       e: [Float], r: [Float], coarseness: Int
     ) -> [Float] {
