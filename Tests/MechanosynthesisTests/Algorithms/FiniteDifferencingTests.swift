@@ -394,4 +394,108 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
     }
   }
+  
+  func testWorkspace() throws {
+    typealias Real = Float
+    
+    func φ(_ r: SIMD3<Real>) -> Real {
+      1 / (r * r).sum().squareRoot()
+    }
+    
+    // Line FD
+    // O(h^2) 1, -2, 1
+    // O(h^4) -1/12, 4/3, -5/2, 4/3, -1/12
+    // O(h^6) 1/90, -3/20, 3/2, -49/18, 3/2, -3/20, 1/90
+    // O(h^8) -1/560, 8/315, -1/5, 8/5, -205/72, 8/5, -1/5, 8/315, -1/560
+    let coefficients2: [Real] = [
+      1.0,
+      -2.0,
+      1.0
+    ]
+    let coefficients4: [Real] = [
+      -1.0 / 12, 4.0 / 3,
+       -5.0 / 2,
+       4.0 / 3, -1.0 / 12
+    ]
+    let coefficients6: [Real] = [
+      1.0 / 90, -3.0 / 20, 3.0 / 2,
+      -49.0 / 18,
+      3.0 / 2, -3.0 / 20, 1.0 / 90
+    ]
+    let coefficients8: [Real] = [
+      -1.0 / 560, 8.0 / 315, -1.0 / 5, 8.0 / 5,
+       -205.0 / 72,
+       8.0 / 5, -1.0 / 5, 8.0 / 315, -1.0 / 560
+    ]
+    let coefficientsMehr: [Real] = [
+      -24.0 / 6, 2.0 / 6, 1.0 / 6, 0
+    ]
+    
+    let coordinateJump: Real = 2
+    let h: Real = 0.25
+    
+    // Second order estimate.
+    do {
+      var accumulator: Real = .zero
+      for coefficientID in 0...2 {
+        let coordinate = Real(coefficientID - 1)
+        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        accumulator += coefficients2[coefficientID] * value
+      }
+      print("O(h^2):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
+    }
+    
+    // Mehrstellen estimate.
+    do {
+      var accumulator: Real = .zero
+      for deltaX in -1...1 {
+        for deltaY in -1...1 {
+          for deltaZ in -1...1 {
+            let delta = SIMD3(deltaX, deltaY, deltaZ)
+            let deltaMagnitude = delta
+              .replacing(with: delta &* -1, where: delta .< 0)
+            let coefficientID = deltaMagnitude.wrappedSum()
+            
+            let coordinate = SIMD3<Real>(delta)
+            let value = φ(SIMD3(5 + coordinateJump * coordinate) / 8)
+            accumulator += coefficientsMehr[coefficientID] * value
+          }
+        }
+      }
+      print("Mehr:  ", accumulator)
+    }
+    
+    // Fourth order estimate.
+    do {
+      var accumulator: Real = .zero
+      for coefficientID in 0...4 {
+        let coordinate = Real(coefficientID - 2)
+        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        accumulator += coefficients4[coefficientID] * value
+      }
+      print("O(h^4):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
+    }
+    
+    // Sixth order estimate.
+    do {
+      var accumulator: Real = .zero
+      for coefficientID in 0...6 {
+        let coordinate = Real(coefficientID - 3)
+        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        accumulator += coefficients6[coefficientID] * value
+      }
+      print("O(h^6):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
+    }
+    
+    // Eighth order estimate.
+    do {
+      var accumulator: Real = .zero
+      for coefficientID in 0...8 {
+        let coordinate = Real(coefficientID - 4)
+        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        accumulator += coefficients8[coefficientID] * value
+      }
+      print("O(h^8):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
+    }
+  }
 }
