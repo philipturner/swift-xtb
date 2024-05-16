@@ -592,6 +592,8 @@ final class LinearSolverTests: XCTestCase {
   
   func testMultigridMethod() {
     var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // One V-cycle should be treated as two SD or CG iterations.
@@ -600,107 +602,87 @@ final class LinearSolverTests: XCTestCase {
     for iterationID in 0..<15 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
-        let L2x = Self.applyLaplacianBoundary()
-        let Ax = Self.shift(L1x, scale: 1, correction: L2x)
-        let r = Self.shift(b, scale: -1, correction: Ax)
+        let r = Self.shift(b, scale: -1, correction: L1x)
         let r2 = Self.dot(r, r)
         let normres = r2.squareRoot()
         print("||r|| = \(normres)")
       }
       
       // Initialize the residual.
-      var rFine: [Float]
-      do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let L2x = Self.applyLaplacianBoundary()
-        let Ax = Self.shift(L1x, scale: 1, correction: L2x)
-        rFine = Self.shift(b, scale: -1, correction: Ax)
-      }
+      let L1x = Self.applyLaplacianLinearPart(x)
+      var rFine = Self.shift(b, scale: -1, correction: L1x)
       
-      // Smoothing iterations on the fine level.
-      var eFine = [Float](repeating: .zero, count: Self.cellCount)
-      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, iteration: 0)
-      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, iteration: 1)
-      multigridCoarseLevel(eFine: &eFine, rFine: &rFine, fineLevelCoarseness: 1)
+      // Smoothing iterations on the first level.
+      var eFine = gaussSeidelSolve(r: rFine, coarseness: 1)
+      eFine = multigridCoarseLevel(e: eFine, r: rFine, fineLevelCoarseness: 1)
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
     }
     
     func multigridCoarseLevel(
-      eFine: inout [Float], rFine: inout [Float], fineLevelCoarseness: Int
-    ) {
-      // Determine the array lengths.
-      var fineArrayLength = Self.cellCount
-      fineArrayLength /= fineLevelCoarseness
-      fineArrayLength /= fineLevelCoarseness
-      fineArrayLength /= fineLevelCoarseness
+      e: [Float], r: [Float], fineLevelCoarseness: Int
+    ) -> [Float] {
+      var eFine = e
+      var rFine = r
       
       // Restrict from fine to coarse.
-      var rFineCorrected = rFine
-      var rCoarse: [Float] = []
-      correctResidual(
-        e: eFine, 
-        r: &rFineCorrected,
+      let rFineCorrected = correctResidual(
+        e: eFine,
+        r: rFine,
         coarseness: fineLevelCoarseness)
-      shiftResolution(
-        fineGrid: &rFineCorrected,
-        coarseGrid: &rCoarse,
-        fineLevelCoarseness: fineLevelCoarseness, 
+      var rCoarse = shiftResolution(
+        fineGrid: rFineCorrected,
+        coarseGrid: [],
+        fineLevelCoarseness: fineLevelCoarseness,
         shiftingUp: true)
       
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
-      var eCoarse = [Float](repeating: .zero, count: fineArrayLength / 8)
-      GSRB_LEVEL(
-        e: &eCoarse, 
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        iteration: 0)
-      GSRB_LEVEL(
-        e: &eCoarse,
-        r: rCoarse,
-        coarseness: coarseLevelCoarseness,
-        iteration: 1)
+      var eCoarse = gaussSeidelSolve(
+        r: rCoarse, coarseness: coarseLevelCoarseness)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 4 {
-        multigridCoarseLevel(
-          eFine: &eCoarse,
-          rFine: &rCoarse,
+        eCoarse = multigridCoarseLevel(
+          e: eCoarse,
+          r: rCoarse,
           fineLevelCoarseness: coarseLevelCoarseness)
       }
       
       // Prolong from coarse to fine.
-      shiftResolution(
-        fineGrid: &eFine, 
-        coarseGrid: &eCoarse,
+      eFine = shiftResolution(
+        fineGrid: eFine,
+        coarseGrid: eCoarse,
         fineLevelCoarseness: fineLevelCoarseness, 
         shiftingUp: false)
-      correctResidual(
+      rFine = correctResidual(
         e: eFine,
-        r: &rFine,
+        r: rFine,
         coarseness: fineLevelCoarseness)
       
       // Smoothing iterations on the fine level.
-      var δeFine = [Float](repeating: .zero, count: fineArrayLength)
-      GSRB_LEVEL(
-        e: &δeFine, 
-        r: rFine,
-        coarseness: fineLevelCoarseness,
-        iteration: 0)
-      GSRB_LEVEL(
-        e: &δeFine,
-        r: rFine,
-        coarseness: fineLevelCoarseness, 
-        iteration: 1)
-      for cellID in 0..<fineArrayLength {
+      let δeFine = gaussSeidelSolve(r: rFine, coarseness: fineLevelCoarseness)
+      for cellID in eFine.indices {
         eFine[cellID] += δeFine[cellID]
       }
+      return eFine
+    }
+    
+    // Solves the equation ∇^2 e = r, then returns e.
+    func gaussSeidelSolve(
+      r: [Float], coarseness: Int
+    ) -> [Float] {
+      // Allocate an array for the solution vector.
+      let arrayLength = Self.cellCount / (coarseness * coarseness * coarseness)
+      var e = [Float](repeating: .zero, count: arrayLength)
+      gaussSeidelIteration(e: &e, r: r, coarseness: coarseness, iteration: 0)
+      gaussSeidelIteration(e: &e, r: r, coarseness: coarseness, iteration: 1)
+      return e
     }
     
     // Gauss-Seidel red-black
-    func GSRB_LEVEL(
+    func gaussSeidelIteration(
       e: inout [Float], r: [Float], coarseness: Int, iteration: Int
     ) {
       let h = Self.h * Float(coarseness)
@@ -760,12 +742,18 @@ final class LinearSolverTests: XCTestCase {
       }
     }
     
-    func correctResidual(e: [Float], r: inout [Float], coarseness: Int) {
+    func correctResidual(
+      e: [Float], r: [Float], coarseness: Int
+    ) -> [Float] {
       let h = Self.h * Float(coarseness)
       let gridSize = Self.gridSize / coarseness
       func createAddress(indices: SIMD3<Int>) -> Int {
         indices.z * (gridSize * gridSize) + indices.y * gridSize + indices.x
       }
+      
+      // Allocate an array for the output.
+      let cellCount = gridSize * gridSize * gridSize
+      var output = [Float](repeating: .zero, count: cellCount)
       
       // Iterate over the cells.
       for indexZ in 0..<gridSize {
@@ -800,33 +788,36 @@ final class LinearSolverTests: XCTestCase {
             
             // Update the residual.
             let L2e = dotProduct
-            r[cellAddress] -= L2e
+            output[cellAddress] = r[cellAddress] - L2e
           }
         }
       }
+      return output
     }
     
     // Performs a power-2 shift to a coarser level.
     func shiftResolution(
-      fineGrid: inout [Float], coarseGrid: inout [Float],
+      fineGrid: [Float], coarseGrid: [Float],
       fineLevelCoarseness: Int, shiftingUp: Bool
-    ) {
+    ) -> [Float] {
       let fineGridSize = Self.gridSize / fineLevelCoarseness
       let coarseGridSize = fineGridSize / 2
-      let coarseCellCount = coarseGridSize * coarseGridSize * coarseGridSize
-      
-      func createCoarseAddress(indices: SIMD3<Int>) -> Int {
-        indices.z * (coarseGridSize * coarseGridSize) +
-        indices.y * coarseGridSize + indices.x
-      }
       func createFineAddress(indices: SIMD3<Int>) -> Int {
         indices.z * (fineGridSize * fineGridSize) +
         indices.y * fineGridSize + indices.x
       }
+      func createCoarseAddress(indices: SIMD3<Int>) -> Int {
+        indices.z * (coarseGridSize * coarseGridSize) +
+        indices.y * coarseGridSize + indices.x
+      }
       
-      // Create the coarse grid.
+      // Create the output grid.
+      var output: [Float]
       if shiftingUp {
-        coarseGrid = [Float](repeating: .zero, count: coarseCellCount)
+        let coarseCellCount = coarseGridSize * coarseGridSize * coarseGridSize
+        output = [Float](repeating: .zero, count: coarseCellCount)
+      } else {
+        output = fineGrid
       }
       
       // Iterate over the coarse grid.
@@ -855,7 +846,7 @@ final class LinearSolverTests: XCTestCase {
                     accumulator += (1.0 / 8) * fineValue
                   } else {
                     // Update the fine grid.
-                    fineGrid[fineAddress] += coarseValue
+                    output[fineAddress] += coarseValue
                   }
                 }
               }
@@ -863,11 +854,12 @@ final class LinearSolverTests: XCTestCase {
             
             // Update the coarse grid.
             if shiftingUp {
-              coarseGrid[coarseAddress] = accumulator
+              output[coarseAddress] = accumulator
             }
           }
         }
       }
+      return output
     }
   }
   
