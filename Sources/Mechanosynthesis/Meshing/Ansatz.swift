@@ -32,13 +32,6 @@ public struct AnsatzDescriptor {
 
 /// An initial guess to the electronic structure.
 public struct Ansatz {
-  // Treat the electrons with ROHF. Orthogonalize all of the wavefunctions
-  // against each other, except omit the "orthogonalization force" between
-  // spin-down and spin-up electrons. When spin-polarized wavefunctions act on
-  // spin-neutral ones, halve the "orthogonalization force".
-  //
-  // Do something similar when iteratively diagonalizing the subspace. Repeat a
-  // loop of matrix multiplications and screened orthogonalizations.
   public var spinDownWaveFunctions: [WaveFunction] = []
   public var spinNeutralWaveFunctions: [WaveFunction] = []
   public var spinUpWaveFunctions: [WaveFunction] = []
