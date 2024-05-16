@@ -39,7 +39,6 @@ libxc
 Electrostatics
 - Self-repulsion integral ✅
 - Neumann boundaries ✅
-- Fuzzy cell decomposition
 - Laplacian preconditioner ✅
 
 FiniteDifferencing
