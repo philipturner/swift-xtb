@@ -345,7 +345,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Conjugate Gradient")
-    for _ in 0..<99 {
+    for _ in 0..<30 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -399,7 +399,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<99 {
+    for _ in 0..<15 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -576,7 +576,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Gauss-Seidel")
-    for iterationID in 0..<99 {
+    for iterationID in 0..<30 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -597,7 +597,7 @@ final class LinearSolverTests: XCTestCase {
     // One V-cycle should be treated as two SD or CG iterations.
     print()
     print("Multigrid")
-    for iterationID in 0..<60 {
+    for iterationID in 0..<15 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let L2x = Self.applyLaplacianBoundary()
@@ -618,12 +618,9 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Smoothing iterations on the fine level.
-      print()
-      print("V-cycle")
-      print("> 1")
       var eFine = [Float](repeating: .zero, count: Self.cellCount)
-      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: true)
-      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, red: false)
+      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, iteration: 0)
+      GSRB_LEVEL(e: &eFine, r: rFine, coarseness: 1, iteration: 1)
       multigridCoarseLevel(eFine: &eFine, rFine: &rFine, fineLevelCoarseness: 1)
       
       // Update the solution.
@@ -654,22 +651,20 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
-      print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
       var eCoarse = [Float](repeating: .zero, count: fineArrayLength / 8)
       GSRB_LEVEL(
         e: &eCoarse, 
         r: rCoarse,
         coarseness: coarseLevelCoarseness,
-        red: true)
+        iteration: 0)
       GSRB_LEVEL(
         e: &eCoarse,
         r: rCoarse,
         coarseness: coarseLevelCoarseness,
-        red: false)
+        iteration: 1)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 4 {
-        print(String(repeating: "-", count: coarseLevelCoarseness.trailingZeroBitCount) + ">", coarseLevelCoarseness)
         multigridCoarseLevel(
           eFine: &eCoarse,
           rFine: &rCoarse,
@@ -688,18 +683,17 @@ final class LinearSolverTests: XCTestCase {
         coarseness: fineLevelCoarseness)
       
       // Smoothing iterations on the fine level.
-      print(String(repeating: "-", count: fineLevelCoarseness.trailingZeroBitCount) + ">", fineLevelCoarseness)
       var δeFine = [Float](repeating: .zero, count: fineArrayLength)
       GSRB_LEVEL(
         e: &δeFine, 
         r: rFine,
         coarseness: fineLevelCoarseness,
-        red: true)
+        iteration: 0)
       GSRB_LEVEL(
         e: &δeFine,
         r: rFine,
         coarseness: fineLevelCoarseness, 
-        red: false)
+        iteration: 1)
       for cellID in 0..<fineArrayLength {
         eFine[cellID] += δeFine[cellID]
       }
@@ -707,7 +701,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Gauss-Seidel red-black
     func GSRB_LEVEL(
-      e: inout [Float], r: [Float], coarseness: Int, red: Bool
+      e: inout [Float], r: [Float], coarseness: Int, iteration: Int
     ) {
       let h = Self.h * Float(coarseness)
       let gridSize = Self.gridSize / coarseness
@@ -720,17 +714,8 @@ final class LinearSolverTests: XCTestCase {
           for indexX in 0..<gridSize {
             // Mask out either the red or black cells.
             let parity = indexX ^ indexY ^ indexZ
-            switch parity & 1 {
-            case 0:
-              guard red else {
-                continue
-              }
-            case 1:
-              guard !red else {
-                continue
-              }
-            default:
-              fatalError("This should never happen.")
+            guard (iteration & 1) == (parity & 1) else {
+              continue
             }
             
             let cellIndices = SIMD3(indexX, indexY, indexZ)
@@ -753,8 +738,14 @@ final class LinearSolverTests: XCTestCase {
               
               // Add the neighbor's value to the accumulator.
               let neighborAddress = createAddress(indices: neighborIndices)
-              let neighborValue = e[neighborAddress]
-              faceAccumulator += 1 / (h * h) * neighborValue
+              if iteration == 0 {
+                let neighborValue = r[neighborAddress]
+                let λ = h * h / 6
+                faceAccumulator += 1 / (h * h) * (-λ * neighborValue)
+              } else {
+                let neighborValue = e[neighborAddress]
+                faceAccumulator += 1 / (h * h) * neighborValue
+              }
             }
             
             // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
@@ -881,20 +872,12 @@ final class LinearSolverTests: XCTestCase {
   }
   
   // A hybrid between multigrid and conjugate gradient.
-  // - Using 2 x Jacobi instead of 1 x GSRB for MG.
-  // - Omitting the preconditioner from CG.
-  //
-  // Here, CG iterations are nested inside of an MG V-cycle.
-  func testHybridMethod1() throws {
-    
-  }
-  
-  // A hybrid between multigrid and conjugate gradient.
-  // - Using 2-level MG as the preconditioner for CG.
-  // - Using 1 x GSRB for MG.
-  //
-  // Here, an MG V-cycle is nested inside of CG.
-  func testHybridMethod2() throws {
-    
+  // - CG nested inside of MG.
+  // - MG only spans 2 levels.
+  // - Using the 33-point convolution to precondition CG.
+  func testHybridMethod() throws {
+    // TODO: Optimize the multigrid method before creating the hybrid kernel.
+    // It may have been implemented incorrectly, explaining some of the
+    // instability.
   }
 }
