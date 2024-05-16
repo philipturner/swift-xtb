@@ -287,21 +287,62 @@ final class ElectrostaticsTests: XCTestCase {
       var ansatzDesc = AnsatzDescriptor()
       ansatzDesc.atomicNumbers = [8, 1, 1]
       ansatzDesc.positions = positions
-      ansatzDesc.sizeExponent = 2
+      ansatzDesc.sizeExponent = 3
       
       // Set the quality to 1000 fragments/electron.
-      ansatzDesc.fragmentCount = 1000
+      ansatzDesc.fragmentCount = 2000
       
       // Specify the net sharges and spins.
       ansatzDesc.netCharges = [0, 0, 0]
       ansatzDesc.netSpinPolarizations = [0, 1, -1]
       return Ansatz(descriptor: ansatzDesc)
     }
-    
-    // Create the charge distribution.
     let ansatz = createWaterAnsatz()
     
-    // Is each wave function normalized?
+    // Inspect each of the wavefunctions.
+    
+    // Is the wave function normalized?
+    func queryTotalCharge(waveFunction: WaveFunction) -> Float {
+      var sum: Double = .zero
+      let octree = waveFunction.octree
+      for nodeID in octree.nodes.indices {
+        let node = octree.nodes[nodeID]
+        for branchID in 0..<8
+        where node.branchesMask[branchID] == UInt8.max {
+          let Ψ = waveFunction.cellValues[8 * nodeID + branchID]
+          let d3r = node.spacing * node.spacing * node.spacing / 64
+          let ΨΨ = Ψ * Ψ * d3r
+          sum += Double(ΨΨ.sum())
+        }
+      }
+      return Float(sum)
+    }
+    
+    // What is the bounding box of each hierarchy level?
+    
+    print()
+    print("O:")
+    for spinNeutralOrbitalID in 0..<4 {
+      let waveFunction = ansatz.spinNeutralWaveFunctions[spinNeutralOrbitalID]
+      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
+      print("- orbitals[\(spinNeutralOrbitalID)]:", totalCharge)
+    }
+    
+    print()
+    print("H(↑):")
+    do {
+      let waveFunction = ansatz.spinUpWaveFunctions[0]
+      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
+      print("- orbitals[0]:", totalCharge)
+    }
+    
+    print()
+    print("H(↓):")
+    do {
+      let waveFunction = ansatz.spinDownWaveFunctions[0]
+      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
+      print("- orbitals[0]:", totalCharge)
+    }
   }
   
   // Directly invert the Laplacian for a 4-cell domain.
