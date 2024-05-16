@@ -342,21 +342,16 @@ final class LinearSolverTests: XCTestCase {
   // Dx = b - Ax + Dx
   // x = x + D^{-1} (b - Ax)
   func testJacobiMethod() throws {
-    print()
-    print("Jacobi")
-    
-    // Prepare the right-hand side.
+    // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
-    
-    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Check the residual norm at the start of iterations.
     do {
       let residualNorm = Self.createResidualNorm(solution: x)
-      print("||r|| =", residualNorm)
+      XCTAssertEqual(residualNorm, 394, accuracy: 1)
     }
     
     // Execute the iterations.
@@ -370,7 +365,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
-    print("||r|| =", residualNorm)
+    XCTAssertLessThan(residualNorm, 50)
   }
   
   // Gauss-Seidel method:
@@ -385,16 +380,11 @@ final class LinearSolverTests: XCTestCase {
   //
   // a four-color scheme would work with Mehrstellen, provided we process the
   // multigrid one level at a time
-  func testGaussSeidelMethod() {
-    print()
-    print("Gauss-Seidel")
-    
-    // Prepare the right-hand side.
+  func testGaussSeidelMethod() throws {
+    // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
-    
-    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
@@ -405,7 +395,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
-    print("||r|| =", residualNorm)
+    XCTAssertLessThan(residualNorm, 25)
     
     // Updates all of the selected cells in-place.
     //
@@ -483,9 +473,6 @@ final class LinearSolverTests: XCTestCase {
   //   b = < r_new | r_new > / < r | r >
   //   p_new = r_new + b p
   func testConjugateGradientMethod() throws {
-    print()
-    print("Conjugate Gradient")
-    
     // Prepare the right-hand side.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
@@ -518,7 +505,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
-    print("||r|| =", residualNorm)
+    XCTAssertLessThan(residualNorm, 0.001)
   }
   
   // Preconditioned conjugate gradient method:
@@ -532,10 +519,7 @@ final class LinearSolverTests: XCTestCase {
   //
   //   b = < r_new | K | r_new > / < r | K | r >
   //   p_new = K r_new + b p
-  func testPreconditionedConjugateGradient() {
-    print()
-    print("Preconditioned Conjugate Gradient")
-    
+  func testPreconditionedConjugateGradient() throws {
     // Prepare the right-hand side.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
@@ -571,7 +555,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
-    print("||r|| =", residualNorm)
+    XCTAssertLessThan(residualNorm, 0.001)
     
     // Applies the 33-point convolution preconditioner.
     func applyLaplacianPreconditioner(_ x: [Float]) -> [Float] {
@@ -649,16 +633,11 @@ final class LinearSolverTests: XCTestCase {
     }
   }
   
-  func testMultigridMethod() {
-    print()
-    print("Multigrid")
-    
-    // Prepare the right-hand side.
+  func testMultigridMethod() throws {
+    // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
-    
-    // Prepare the solution vector.
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
@@ -677,7 +656,7 @@ final class LinearSolverTests: XCTestCase {
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
-    print("||r|| =", residualNorm)
+    XCTAssertLessThan(residualNorm, 0.001)
     
     // A recursive function call within the multigrid V-cycle.
     func multigridCoarseLevel(
