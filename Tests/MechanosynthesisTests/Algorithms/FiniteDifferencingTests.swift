@@ -397,11 +397,9 @@ final class FiniteDifferencingTests: XCTestCase {
   
   // Check the performance of different finite differencing schemes when the
   // grid spacing is nonuniform.
-  // - Plug in the analytical solutions for the hydrogen electron.
-  // - Check a few pseudo-random points along the solution to each differential
-  //   equation.
-  // - Disturb the finite differences by replacing critical sample points with
-  //   averages or interpolations.
+  // - Solve the differential equations numerically on a nonuniform grid.
+  // - Compare to the result on uniform grids of various resolutions.
+  // - Retry with a more accurate FD than 2nd order.
   //
   // Hartree differential equation
   //
@@ -441,8 +439,5 @@ final class FiniteDifferencingTests: XCTestCase {
       output += -1 / radius
       return output
     }
-    
-    // Check that the differential equations are correct, with a second-order
-    // finite difference.
   }
 }
