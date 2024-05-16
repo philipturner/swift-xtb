@@ -394,4 +394,55 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
     }
   }
+  
+  // Check the performance of different finite differencing schemes when the
+  // grid spacing is nonuniform.
+  // - Plug in the analytical solutions for the hydrogen electron.
+  // - Check a few pseudo-random points along the solution to each differential
+  //   equation.
+  // - Disturb the finite differences by replacing critical sample points with
+  //   averages or interpolations.
+  //
+  // Hartree differential equation
+  //
+  // U (operator) = -v_{I}(r)
+  // ∇^2 (operator) Ψ(r) + 2(E - U (operator)) Ψ(r) = 0
+  // Given: v_{I}(r) = 1 / r
+  // Given: E = -1/2
+  // Solution: Ψ(r) = e^{-r} / (√π)
+  //
+  // Poisson differential equation
+  //
+  // ρ(r) = -Ψ(r) * Ψ(r)
+  // v_{H}(r) = ∫ ρ(r')dr' / |r - r'|
+  // ∇^2 (operator) v_{H}(r) = -4πρ(r)
+  // Given: Ψ(r) = e^{-r} / (√π)
+  // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
+  func testNonUniformGrid() throws {
+    typealias Real = Float
+    
+    // The analytical solutions to the differential equations.
+    func waveFunction(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      return Real.exp(-radius) / Real.pi.squareRoot()
+    }
+    func ionicPotential(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      return 1 / radius
+    }
+    func chargeDensity(r: SIMD3<Real>) -> Real {
+      let waveFunctionValue = waveFunction(r: r)
+      return -waveFunctionValue * waveFunctionValue
+    }
+    func hartreePotential(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      var output: Real = .zero
+      output += Real.exp(-2 * radius) * (1 + 1 / radius)
+      output += -1 / radius
+      return output
+    }
+    
+    // Check that the differential equations are correct, with a second-order
+    // finite difference.
+  }
 }
