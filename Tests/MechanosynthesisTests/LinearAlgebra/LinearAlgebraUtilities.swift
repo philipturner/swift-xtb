@@ -428,4 +428,57 @@ struct LinearAlgebraUtilities {
     return W
   }
 #endif
+  
+  // Solves a linear equation, where the matrix is in row-major order.
+  static func solveLinearSystem(
+    matrix: [Float], vector: [Float], n: Int
+  ) -> [Float] {
+    guard matrix.count == n * n,
+          vector.count == n else {
+      fatalError("Arguments to linear equation had invalid size.")
+    }
+    
+    // Transpose the matrix into column-major order.
+    var coefficients = [Float](repeating: .zero, count: n * n)
+    for rowID in 0..<n {
+      for columnID in 0..<n {
+        let oldAddress = rowID * n + columnID
+        let newAddress = columnID * n + rowID
+        let value = matrix[oldAddress]
+        coefficients[newAddress] = value
+      }
+    }
+    
+    // Call into the LAPACK function.
+    var N: Int32 = Int32(n)
+    var NRHS: Int32 = 1
+    var A: [Float] = coefficients
+    var LDA: Int32 = Int32(n)
+    var IPIV: [Int32] = .init(repeating: .zero, count: n)
+    var B: [Float] = vector
+    var LDB: Int32 = Int32(n)
+    var INFO: Int32 = 0
+    A.withContiguousMutableStorageIfAvailable {
+      let A = $0.baseAddress!
+      B.withContiguousMutableStorageIfAvailable {
+        let B = $0.baseAddress!
+        sgesv_(
+          &N,
+          &NRHS,
+          A,
+          &LDA,
+          &IPIV,
+          B,
+          &LDB,
+          &INFO)
+        guard INFO == 0 else {
+          fatalError("LAPACK error code: \(INFO)")
+        }
+      }
+    }
+    
+    // Return B, which was overwritten with the solution.
+    let X = B
+    return X
+  }
 }

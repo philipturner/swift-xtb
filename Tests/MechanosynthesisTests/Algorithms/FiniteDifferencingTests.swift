@@ -210,4 +210,234 @@ final class FiniteDifferencingTests: XCTestCase {
       XCTAssertEqual(errors[5], 0)
     }
   }
+  
+  // Formulae for quadratic interpolation (2nd order FVM).
+  // Source: https://crd.lbl.gov/assets/pubs_presos/AMCS/ANAG/MartinCartwright.pdf
+  //
+  // f(x) = ax^2 + bx + c
+  //
+  // | x0^2 x0 1 | | a | = | y0 |
+  // | x1^2 x1 1 | | b | = | y1 |
+  // | x2^2 x2 1 | | c | = | y2 |
+  //
+  // (x0, y0) = ( -1, y0)
+  // (x1, y1) = (  0, y1)
+  // (x2, y2) = (3/2, y2)
+  //
+  // | a | = |  2/5 -2/3 4/15 | | y0 |
+  // | b | = | -3/5  1/3 4/15 | | y1 |
+  // | c | = |    0    1    0 | | y2 |
+  //
+  // (x0, y0) = (-1, y0)
+  // (x1, y1) = ( 0, y1)
+  // (x2, y2) = ( 1, y2)
+  //
+  // | a | = |  1/2 -1 1/2 | | y0 |
+  // | b | = | -1/2  0 1/2 | | y1 |
+  // | c | = |    0  1   0 | | y2 |
+  func testQuadraticInterpolation() throws {
+    // A wrapper around a quadratic polynomial.
+    func quadraticPolynomial(
+      a: Float, b: Float, c: Float
+    ) -> (Float) -> Float {
+      return { x in
+        a * (x * x) + b * x + c
+      }
+    }
+    
+    // Accepts a set of function values, sampled at [-1, 0, 1.5].
+    // Returns a set of coefficients for the quadratic polynomial.
+    func interpolateLevelBoundary(
+      y0: Float, y1: Float, y2: Float
+    ) -> (a: Float, b: Float, c: Float) {
+      var matrix: [Float] = []
+      matrix.append(2.0 / 5)
+      matrix.append(-2.0 / 3)
+      matrix.append(4.0 / 15)
+      
+      matrix.append(-3.0 / 5)
+      matrix.append(1.0 / 3)
+      matrix.append(4.0 / 15)
+      
+      matrix.append(0)
+      matrix.append(1)
+      matrix.append(0)
+      
+      var vector: [Float] = []
+      vector.append(y0)
+      vector.append(y1)
+      vector.append(y2)
+      
+      // Multiply the matrix with the vector.
+      var output = [Float](repeating: .zero, count: 3)
+      for m in 0..<3 {
+        for n in 0..<1 {
+          var dotProduct: Float = .zero
+          
+          for k in 0..<3 {
+            let lhs = matrix[m * 3 + k]
+            let rhs = vector[k * 1 + n]
+            dotProduct += lhs * rhs
+          }
+          output[m * 1 + n] = dotProduct
+        }
+      }
+      return (output[0], output[1], output[2])
+    }
+    
+    // Accepts a set of function values, sampled at [-1, 0, 1].
+    // Returns a set of coefficients for the quadratic polynomial.
+    func interpolateCoarseLevel(
+      y0: Float, y1: Float, y2: Float
+    ) -> (a: Float, b: Float, c: Float) {
+      var matrix: [Float] = []
+      matrix.append(1.0 / 2)
+      matrix.append(-1)
+      matrix.append(1.0 / 2)
+      
+      matrix.append(-1.0 / 2)
+      matrix.append(0)
+      matrix.append(1.0 / 2)
+      
+      matrix.append(0)
+      matrix.append(1)
+      matrix.append(0)
+      
+      var vector: [Float] = []
+      vector.append(y0)
+      vector.append(y1)
+      vector.append(y2)
+      
+      // Multiply the matrix with the vector.
+      var output = [Float](repeating: .zero, count: 3)
+      for m in 0..<3 {
+        for n in 0..<1 {
+          var dotProduct: Float = .zero
+          
+          for k in 0..<3 {
+            let lhs = matrix[m * 3 + k]
+            let rhs = vector[k * 1 + n]
+            dotProduct += lhs * rhs
+          }
+          output[m * 1 + n] = dotProduct
+        }
+      }
+      return (output[0], output[1], output[2])
+    }
+    
+    // Scripting part of the test case.
+    let polynomial = quadraticPolynomial(a: 7, b: -9, c: 11)
+    
+    // Check the correctness of the coarse-fine boundary interpolation.
+    do {
+      let y0 = polynomial(-1)
+      let y1 = polynomial(0)
+      let y2 = polynomial(1.5)
+      let interpolator = interpolateLevelBoundary(y0: y0, y1: y1, y2: y2)
+      XCTAssertEqual(interpolator.a,  7, accuracy: 1e-5)
+      XCTAssertEqual(interpolator.b, -9, accuracy: 1e-5)
+      XCTAssertEqual(interpolator.c, 11, accuracy: 1e-5)
+    }
+    
+    // Check the correctness of the coarse-level interpolation.
+    do {
+      let y0 = polynomial(-1)
+      let y1 = polynomial(0)
+      let y2 = polynomial(1)
+      let interpolator = interpolateCoarseLevel(y0: y0, y1: y1, y2: y2)
+      XCTAssertEqual(interpolator.a,  7, accuracy: 1e-5)
+      XCTAssertEqual(interpolator.b, -9, accuracy: 1e-5)
+      XCTAssertEqual(interpolator.c, 11, accuracy: 1e-5)
+    }
+  }
+  
+  // Test a method for automatically solving the equation for the polynomial.
+  //
+  // A more efficient implementation would collect all the polynomials with the
+  // same X spacings, then solve them simultaneously. It is more efficient
+  // because LU decomposition only needs to happen once.
+  func testPolynomialGeneration() throws {
+    // Define the matrix of equation coefficients.
+    let coefficients: [Float] = [
+      1, 1, 1,
+      4, 2, 1,
+      9, 3, 1,
+    ]
+    
+    // Solve an equation where the first column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 4, 9]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
+    }
+    
+    // Solve an equation where the second column is the RHS.
+    do {
+      let rightHandSide: [Float] = [1, 2, 3]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 1.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], 0.000, accuracy: 1e-3)
+    }
+    
+    // Here, the RHS is a multiple of the third column.
+    do {
+      let rightHandSide: [Float] = [-2, -2, -2]
+      let solution = LinearAlgebraUtilities
+        .solveLinearSystem(matrix: coefficients, vector: rightHandSide, n: 3)
+      XCTAssertEqual(solution[0], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[1], 0.000, accuracy: 1e-3)
+      XCTAssertEqual(solution[2], -2.000, accuracy: 1e-3)
+    }
+  }
+  
+  // Check the performance of different finite differencing schemes when the
+  // grid spacing is nonuniform.
+  // - Solve the differential equations numerically on a nonuniform grid.
+  // - Compare to the result on uniform grids of various resolutions.
+  // - Retry with a more accurate FD than 2nd order.
+  //
+  // Hartree differential equation
+  //
+  // U (operator) = -v_{I}(r)
+  // ∇^2 (operator) Ψ(r) + 2(E - U (operator)) Ψ(r) = 0
+  // Given: v_{I}(r) = 1 / r
+  // Given: E = -1/2
+  // Solution: Ψ(r) = e^{-r} / (√π)
+  //
+  // Poisson differential equation
+  //
+  // ρ(r) = -Ψ(r) * Ψ(r)
+  // v_{H}(r) = ∫ ρ(r')dr' / |r - r'|
+  // ∇^2 (operator) v_{H}(r) = -4πρ(r)
+  // Given: Ψ(r) = e^{-r} / (√π)
+  // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
+  func testDifferentialEquations() throws {
+    typealias Real = Float
+    
+    // The analytical solutions to the differential equations.
+    func waveFunction(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      return Real.exp(-radius) / Real.pi.squareRoot()
+    }
+    func ionicPotential(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      return 1 / radius
+    }
+    func chargeDensity(r: SIMD3<Real>) -> Real {
+      let waveFunctionValue = waveFunction(r: r)
+      return -waveFunctionValue * waveFunctionValue
+    }
+    func hartreePotential(r: SIMD3<Real>) -> Real {
+      let radius = (r * r).sum().squareRoot()
+      var output: Real = .zero
+      output += Real.exp(-2 * radius) * (1 + 1 / radius)
+      output += -1 / radius
+      return output
+    }
+  }
 }
