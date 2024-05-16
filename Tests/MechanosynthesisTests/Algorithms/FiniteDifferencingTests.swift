@@ -396,10 +396,25 @@ final class FiniteDifferencingTests: XCTestCase {
   }
   
   func testWorkspace() throws {
-    typealias Real = Float
+    typealias Real = Double
     
     func φ(_ r: SIMD3<Real>) -> Real {
       1 / (r * r).sum().squareRoot()
+    }
+    
+    func φ(_ r: SIMD3<Real>, jitter: Double) -> Real {
+      var accumulator: Real = .zero
+      for deltaX in 0...1 {
+        for deltaY in 0...1 {
+          for deltaZ in 0...1 {
+            let delta = SIMD3(deltaX, deltaY, deltaZ)
+            let rPrime = r + (SIMD3<Real>(delta) * 2 - 1) * jitter
+            let value = 1 / (rPrime * rPrime).sum().squareRoot()
+            accumulator += value
+          }
+        }
+      }
+      return accumulator / 8
     }
     
     // Line FD
@@ -431,17 +446,22 @@ final class FiniteDifferencingTests: XCTestCase {
       -24.0 / 6, 2.0 / 6, 1.0 / 6, 0
     ]
     
-    let coordinateJump: Real = 2
-    let h: Real = 0.25
+    // Try this out on arbitrary functions, whose second derivative is not zero.
+    let coordinateJump: Real = 2 / 8
+    let h: Real = 0.25 / 8
+    let jitter: Real = 0
     
     // Second order estimate.
     do {
       var accumulator: Real = .zero
       for coefficientID in 0...2 {
         let coordinate = Real(coefficientID - 1)
-        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        let value = φ(
+          SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8,
+          jitter: jitter)
         accumulator += coefficients2[coefficientID] * value
       }
+      accumulator = accumulator.magnitude
       print("O(h^2):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
     }
     
@@ -457,11 +477,14 @@ final class FiniteDifferencingTests: XCTestCase {
             let coefficientID = deltaMagnitude.wrappedSum()
             
             let coordinate = SIMD3<Real>(delta)
-            let value = φ(SIMD3(5 + coordinateJump * coordinate) / 8)
+            let value = φ(
+              SIMD3(5 + coordinateJump * coordinate) / 8,
+              jitter: jitter)
             accumulator += coefficientsMehr[coefficientID] * value
           }
         }
       }
+      accumulator = accumulator.magnitude
       print("Mehr:  ", accumulator)
     }
     
@@ -470,9 +493,12 @@ final class FiniteDifferencingTests: XCTestCase {
       var accumulator: Real = .zero
       for coefficientID in 0...4 {
         let coordinate = Real(coefficientID - 2)
-        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        let value = φ(
+          SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8,
+          jitter: jitter)
         accumulator += coefficients4[coefficientID] * value
       }
+      accumulator = accumulator.magnitude
       print("O(h^4):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
     }
     
@@ -481,9 +507,12 @@ final class FiniteDifferencingTests: XCTestCase {
       var accumulator: Real = .zero
       for coefficientID in 0...6 {
         let coordinate = Real(coefficientID - 3)
-        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        let value = φ(
+          SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8,
+          jitter: jitter)
         accumulator += coefficients6[coefficientID] * value
       }
+      accumulator = accumulator.magnitude
       print("O(h^6):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
     }
     
@@ -492,9 +521,12 @@ final class FiniteDifferencingTests: XCTestCase {
       var accumulator: Real = .zero
       for coefficientID in 0...8 {
         let coordinate = Real(coefficientID - 4)
-        let value = φ(SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8)
+        let value = φ(
+          SIMD3(5 + coordinateJump * coordinate, 5, 5) / 8,
+          jitter: jitter)
         accumulator += coefficients8[coefficientID] * value
       }
+      accumulator = accumulator.magnitude
       print("O(h^8):", accumulator / (h * h) / φ(SIMD3(5, 5, 5) / 8))
     }
   }
