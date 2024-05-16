@@ -282,17 +282,17 @@ final class ElectrostaticsTests: XCTestCase {
       
       // Specify the topology.
       //
-      // The nuclear coordinates range from +/-1.8 Bohr. 
-      // The octree spans from +/-4.0 Bohr.
+      // The nuclear coordinates range from ±1.8 Bohr.
+      // The octree spans from ±0.5 * 16.0 Bohr.
       var ansatzDesc = AnsatzDescriptor()
       ansatzDesc.atomicNumbers = [8, 1, 1]
       ansatzDesc.positions = positions
-      ansatzDesc.sizeExponent = 3
+      ansatzDesc.sizeExponent = 4
       
       // Set the quality to 1000 fragments/electron.
-      ansatzDesc.fragmentCount = 2000
+      ansatzDesc.fragmentCount = 1000
       
-      // Specify the net sharges and spins.
+      // Specify the net charges and spins.
       ansatzDesc.netCharges = [0, 0, 0]
       ansatzDesc.netSpinPolarizations = [0, 1, -1]
       return Ansatz(descriptor: ansatzDesc)
@@ -300,48 +300,86 @@ final class ElectrostaticsTests: XCTestCase {
     let ansatz = createWaterAnsatz()
     
     // Inspect each of the wavefunctions.
-    
-    // Is the wave function normalized?
-    func queryTotalCharge(waveFunction: WaveFunction) -> Float {
-      var sum: Double = .zero
+    //
+    // What is the bounding box of each hierarchy level?
+    // What is the charge enclosed by each hierarchy level?
+    func inspect(waveFunction: WaveFunction) {
       let octree = waveFunction.octree
+      
+      // Visualize the fragment count.
+      print("  - total fragments:", terminator: " ")
+      print(waveFunction.fragmentCount, terminator: " ")
+      print("-> \(waveFunction.cellValues.count * 8)")
+      
+      // Inspect the bounding boxes.
+      var boundingBoxes: [Float: (SIMD3<Float>, SIMD3<Float>)] = [:]
       for nodeID in octree.nodes.indices {
+        // Retrieve the node and its boundaries.
         let node = octree.nodes[nodeID]
-        for branchID in 0..<8
-        where node.branchesMask[branchID] == UInt8.max {
-          let Ψ = waveFunction.cellValues[8 * nodeID + branchID]
-          let d3r = node.spacing * node.spacing * node.spacing / 64
-          let ΨΨ = Ψ * Ψ * d3r
-          sum += Double(ΨΨ.sum())
+        let boundaryMinimum = node.center - node.spacing / 2
+        let boundaryMaximum = node.center + node.spacing / 2
+        
+        // Retrieve the current bounding box for this level.
+        var boundingBox: (SIMD3<Float>, SIMD3<Float>)
+        if let previousBoundingBox = boundingBoxes[node.spacing] {
+          boundingBox = previousBoundingBox
+        } else {
+          boundingBox = (
+            SIMD3<Float>(repeating: .greatestFiniteMagnitude),
+            SIMD3<Float>(repeating: -.greatestFiniteMagnitude))
+        }
+        
+        // Update the bounding box.
+        boundingBox.0.replace(
+          with: boundaryMinimum, where: boundaryMinimum .< boundingBox.0)
+        boundingBox.1.replace(
+          with: boundaryMaximum, where: boundaryMaximum .> boundingBox.1)
+        boundingBoxes[node.spacing] = boundingBox
+      }
+      
+      // Visualize each level.
+      for coordinateID in 0..<3 {
+        let coordinateNames: [String] = ["x", "y", "z"]
+        let coordinateName = coordinateNames[coordinateID]
+        let indentation: String = "  -"
+        print(indentation, "\(coordinateName):")
+        
+        for level in boundingBoxes.keys.sorted().reversed() {
+          let indentation: String = "    -"
+          let actualLevel = level / 4
+          print(indentation, terminator: " ")
+          print("levels[\(level) -> \(actualLevel)]:", terminator: " ")
+          
+          let box = boundingBoxes[level]!
+          let minimum = box.0[coordinateID]
+          let maximum = box.1[coordinateID]
+          print(minimum, "<", coordinateName, "<", maximum)
         }
       }
-      return Float(sum)
     }
-    
-    // What is the bounding box of each hierarchy level?
     
     print()
     print("O:")
     for spinNeutralOrbitalID in 0..<4 {
+      print("- orbitals[\(spinNeutralOrbitalID)]:")
       let waveFunction = ansatz.spinNeutralWaveFunctions[spinNeutralOrbitalID]
-      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
-      print("- orbitals[\(spinNeutralOrbitalID)]:", totalCharge)
+      inspect(waveFunction: waveFunction)
     }
     
     print()
     print("H(↑):")
     do {
+      print("- orbitals[0]:")
       let waveFunction = ansatz.spinUpWaveFunctions[0]
-      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
-      print("- orbitals[0]:", totalCharge)
+      inspect(waveFunction: waveFunction)
     }
     
     print()
     print("H(↓):")
     do {
+      print("- orbitals[0]:")
       let waveFunction = ansatz.spinDownWaveFunctions[0]
-      let totalCharge = queryTotalCharge(waveFunction: waveFunction)
-      print("- orbitals[0]:", totalCharge)
+      inspect(waveFunction: waveFunction)
     }
   }
   
