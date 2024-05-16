@@ -79,12 +79,12 @@ import Numerics
 // Multigrid 1-2-2-4-2-2-1  40 iters  ||r|| = 3.906945      42.194 seconds
 //
 // ========================================================================== //
-// Conclusions
+// Discussion
 // ========================================================================== //
 //
-// NOTE: These conclusions were made when there was a major bug in the
-// multigrid implementation. Now, multigrid performs much better. It is
-// consistently faster than conjugate gradient.
+// NOTE: These notes were made when there was a major bug in the multigrid
+// implementation. Now, multigrid performs much better. It is consistently
+// faster than conjugate gradient.
 //
 // Ranked in order of ease of implementation:
 // 1) Jacobi
@@ -104,9 +104,26 @@ import Numerics
 // significantly. Multigrid would coalesce the overhead of interpolation
 // and coarsening operations. However, the CG preconditioner could be modified
 // with higher / anisotropic sample count at the nuclear singularity.
+//
+// ========================================================================== //
+// Conclusions
+// ========================================================================== //
+//
+// Final conclusion: support both the 33-point PCG and multigrid solvers in
+// this library. PCG is definitely more robust and requires less fine tuning.
+// However, multigrid outperforms it for large systems. There might be an API
+// for the user to fine-tune the multigrid scheme.
+//
+// This is similar to MM4, which supports two integrators:
+// - .verlet (more efficient for small systems; default)
+// - .multipleTimeStep (more efficient for large systems)
+//
+// Mechanosynthesis would have two solvers:
+// - .conjugateGradient (more robust; default)
+// - .multigrid (more efficient)
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 16
-  static let h: Float = 0.125
+  static let gridSize: Int = 8
+  static let h: Float = 0.25
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -661,9 +678,9 @@ final class LinearSolverTests: XCTestCase {
       if coarseLevelCoarseness == 1 {
         iterations = 1
       } else if coarseLevelCoarseness == 2 {
-        iterations = 2
-      } else if coarseLevelCoarseness == 4 {
         iterations = 4
+      } else if coarseLevelCoarseness == 4 {
+        iterations = 1
       } else if coarseLevelCoarseness == 8 {
         iterations = 1
       } else {
@@ -673,7 +690,7 @@ final class LinearSolverTests: XCTestCase {
         r: rCoarse, coarseness: coarseLevelCoarseness, iterations: iterations)
       
       // Shift to a higher level.
-      if coarseLevelCoarseness < 4 {
+      if coarseLevelCoarseness < 2 {
         eCoarse = multigridCoarseLevel(
           e: eCoarse,
           r: rCoarse,
