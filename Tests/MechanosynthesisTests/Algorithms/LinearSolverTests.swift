@@ -27,40 +27,64 @@ import Numerics
 //                       0 iters  ||r|| = 394.27557
 // Gauss-Seidel         30 iters  ||r|| = 6.5650797      0.002 seconds
 // Conjugate Gradient   30 iters  ||r|| = 0.00030688613  0.003 seconds
-// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.00023875975  0.003 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
+// Multigrid 1-2-1-2-1  10 iters  ||r|| = 0.00020144212  0.003 seconds
+// Multigrid 1-4-1       7 iters  ||r|| = 0.00019803157  0.003 seconds
 //
 // h = 0.125, gridSize = 16, cellCount = 4096
 //                       0 iters  ||r|| = 3091.9424
 // Gauss-Seidel         30 iters  ||r|| = 277.43747     0.016 seconds
 // Conjugate Gradient   30 iters  ||r|| = 0.09551496    0.017 seconds
-// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.075272486   0.033 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.0032440922  0.024 seconds
+// Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.0023769636  0.025 seconds
+// Multigrid 1-2-1-2-1  12 iters  ||r|| = 0.0025058207  0.024 seconds
+// Multigrid 1-2-2-2-1  10 iters  ||r|| = 0.0023211893  0.021 seconds
+// Multigrid 1-2-4-2-1  12 iters  ||r|| = 0.0025251452  0.025 seconds
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
-//                       0 iters  ||r|| = 24494.229
-// Gauss-Seidel         60 iters  ||r|| = 1308.8044    0.250 seconds
-// Conjugate Gradient   60 iters  ||r|| = 0.49065304   0.258 seconds
-// Multigrid 1-2-2-2-1  30 iters  ||r|| = 0.035719506  0.542 seconds
-// Preconditioned CG    30 iters  ||r|| = 0.048568394  0.364 seconds
+//                           0 iters  ||r|| = 24494.229
+// Gauss-Seidel             60 iters  ||r|| = 1308.8044    0.250 seconds
+// Conjugate Gradient       60 iters  ||r|| = 0.49065304   0.258 seconds
+// Preconditioned CG        30 iters  ||r|| = 0.048568394  0.364 seconds
+// Multigrid 1-1-1-1-1-1-1  30 iters  ||r|| = 0.029823668  0.408 seconds
+// Multigrid 1-2-2-1-2-2-1  15 iters  ||r|| = 0.02897086   0.242 seconds
+// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306  0.251 seconds
 //
 // h = 0.0313, gridSize = 64, cellCount = 262,144
-//                       0 iters  ||r|| = 195015.61
-// Gauss-Seidel         99 iters  ||r|| = 5887.104   3.311 seconds
-// Conjugate Gradient   99 iters  ||r|| = 53.441914  3.375 seconds
-// Multigrid 1-2-4-2-1  60 iters  ||r|| = 0.3711439  8.855 seconds
-// Preconditioned CG    60 iters  ||r|| = 0.7311449  5.874 seconds
+//                           0 iters  ||r|| = 195015.61
+// Gauss-Seidel             99 iters  ||r|| = 5887.104    3.311 seconds
+// Conjugate Gradient       99 iters  ||r|| = 53.441914   3.375 seconds
+// Preconditioned CG        50 iters  ||r|| = 0.72252524  4.823 seconds
+// Multigrid 1-1-1-1-1-1-1  35 iters  ||r|| = 0.45097157  3.831 seconds
+// Multigrid 1-2-2-1-2-2-1  30 iters  ||r|| = 0.3642269   3.951 seconds
+// Multigrid 1-2-2-2-2-2-1  20 iters  ||r|| = 0.36008823  2.601 seconds
+// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418  2.613 seconds
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
-// Multigrid 1-2-2-1-2-2-1  60 iters  ||r|| = 294.65112  70.652 seconds
-// Multigrid 1-2-2-2-2-2-1  60 iters  ||r|| = 38.89426   71.247 seconds
-// Multigrid 1-2-2-4-2-2-1  60 iters  ||r|| = 3.4102564  72.914 seconds
-// Preconditioned CG        60 iters  ||r|| = 1209.9086  46.300 seconds
-// Preconditioned CG        99 iters  ||r|| = 11.659912  75.554 seconds
+//                               0 iters  ||r|| = 1556438.4
+// Preconditioned CG            60 iters  ||r|| = 1209.9086  46.300 seconds
+// Preconditioned CG            99 iters  ||r|| = 11.659912  75.554 seconds
+// Multigrid 1-1-1-1-1-1-1      60 iters  ||r|| = 225.7327   52.499 seconds
+// Multigrid 1-1-1-2-1-1-1      60 iters  ||r|| = 25.65553   52.680 seconds
+// Multigrid 1-2-2-2-2-2-1      60 iters  ||r|| = 6.335201   62.544 seconds
+// Multigrid 1-2-2-4-2-2-1      40 iters  ||r|| = 3.906945   42.194 seconds
+// Multigrid 1-2-2-2-1-2-2-2-1  28 iters  ||r|| = 3.576714   29.415 seconds
+//
+// Consistent pattern for reliably-performing grids:
+// Multigrid 1-4-1           7 iters  ||r|| = 0.00019803157  0.003 seconds
+// Multigrid 1-2-4-2-1      12 iters  ||r|| = 0.0025251452   0.025 seconds
+// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306    0.251 seconds
+// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418     2.613 seconds
+// Multigrid 1-2-2-4-2-2-1  40 iters  ||r|| = 3.906945      42.194 seconds
 //
 // ========================================================================== //
 // Conclusions
 // ========================================================================== //
+//
+// NOTE: These conclusions were made when there was a major bug in the
+// multigrid implementation. Now, multigrid performs much better. It is
+// consistently faster than conjugate gradient.
 //
 // Ranked in order of ease of implementation:
 // 1) Jacobi
@@ -80,15 +104,9 @@ import Numerics
 // significantly. Multigrid would coalesce the overhead of interpolation
 // and coarsening operations. However, the CG preconditioner could be modified
 // with higher / anisotropic sample count at the nuclear singularity.
-//
-// The idea of multigrid F-cycles could be transferred over to CG. In addition,
-// I'd like to consider a hybrid between multigrid and preconditioned CG.
-// Multigrid performs robustly whenever there's only 2 levels. Perhaps one
-// could start a PCG loop within the lower resolution level, which lasts for
-// around 8 iterations.
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8
-  static let h: Float = 0.25
+  static let gridSize: Int = 16
+  static let h: Float = 0.125
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // Create the 'b' vector, which equals -4πρ.
@@ -345,7 +363,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Conjugate Gradient")
-    for _ in 0..<30 {
+    for _ in 0..<99 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -399,7 +417,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<15 {
+    for _ in 0..<50 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -576,7 +594,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Gauss-Seidel")
-    for iterationID in 0..<30 {
+    for iterationID in 0..<99 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -599,7 +617,7 @@ final class LinearSolverTests: XCTestCase {
     // One V-cycle should be treated as two SD or CG iterations.
     print()
     print("Multigrid")
-    for iterationID in 0..<15 {
+    for iterationID in 0..<12 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -639,8 +657,20 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
+      var iterations: Int
+      if coarseLevelCoarseness == 1 {
+        iterations = 1
+      } else if coarseLevelCoarseness == 2 {
+        iterations = 2
+      } else if coarseLevelCoarseness == 4 {
+        iterations = 4
+      } else if coarseLevelCoarseness == 8 {
+        iterations = 1
+      } else {
+        iterations = 1
+      }
       var eCoarse = gaussSeidelSolve(
-        r: rCoarse, coarseness: coarseLevelCoarseness)
+        r: rCoarse, coarseness: coarseLevelCoarseness, iterations: iterations)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 4 {
@@ -662,7 +692,8 @@ final class LinearSolverTests: XCTestCase {
         coarseness: fineLevelCoarseness)
       
       // Smoothing iterations on the fine level.
-      let δeFine = gaussSeidelSolve(r: rFine, coarseness: fineLevelCoarseness)
+      let δeFine = gaussSeidelSolve(
+        r: rFine, coarseness: fineLevelCoarseness, iterations: iterations)
       for cellID in eFine.indices {
         eFine[cellID] += δeFine[cellID]
       }
@@ -671,13 +702,19 @@ final class LinearSolverTests: XCTestCase {
     
     // Solves the equation ∇^2 e = r, then returns e.
     func gaussSeidelSolve(
-      r: [Float], coarseness: Int
+      r: [Float], coarseness: Int, iterations: Int = 1
     ) -> [Float] {
       // Allocate an array for the solution vector.
       let arrayLength = Self.cellCount / (coarseness * coarseness * coarseness)
       var e = [Float](repeating: .zero, count: arrayLength)
       gaussSeidelIteration(e: &e, r: r, coarseness: coarseness, iteration: 0)
       gaussSeidelIteration(e: &e, r: r, coarseness: coarseness, iteration: 1)
+      for iterationID in 1..<iterations {
+        gaussSeidelIteration(
+          e: &e, r: r, coarseness: coarseness, iteration: 2 * iterationID + 0)
+        gaussSeidelIteration(
+          e: &e, r: r, coarseness: coarseness, iteration: 2 * iterationID + 1)
+      }
       return e
     }
     
@@ -861,15 +898,5 @@ final class LinearSolverTests: XCTestCase {
       }
       return output
     }
-  }
-  
-  // A hybrid between multigrid and conjugate gradient.
-  // - CG nested inside of MG.
-  // - MG only spans 2 levels.
-  // - Using the 33-point convolution to precondition CG.
-  func testHybridMethod() throws {
-    // TODO: Optimize the multigrid method before creating the hybrid kernel.
-    // It may have been implemented incorrectly, explaining some of the
-    // instability.
   }
 }

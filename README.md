@@ -55,7 +55,6 @@ LinearSolver
 - Conjugate gradient ✅
   - Preconditioned variant ✅
 - Multigrid ✅
-- Hybrid
 
 Relativity
 - Recursive definition of kinetic energy ✅
