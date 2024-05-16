@@ -2,11 +2,13 @@ import XCTest
 import Mechanosynthesis
 import Numerics
 
-// ========================================================================== //
 // Performance of different algorithms
+//
+// ========================================================================== //
+// Methods
 // ========================================================================== //
 //
-// Specification of multigrid V-cycle:
+// Specification of multigrid V-cycle
 //   A-B-C-D-E
 //
 //   A GSRB (1x)
@@ -20,7 +22,7 @@ import Numerics
 //   of two Gauss-Seidel iterations.
 //
 // ========================================================================== //
-// Raw data
+// Results
 // ========================================================================== //
 //
 // h = 0.25, gridSize = 8, cellCount = 512
@@ -106,7 +108,7 @@ import Numerics
 // with higher / anisotropic sample count at the nuclear singularity.
 //
 // ========================================================================== //
-// Conclusions
+// Conclusion
 // ========================================================================== //
 //
 // Final conclusion: support both the 33-point PCG and multigrid solvers in
@@ -192,17 +194,6 @@ final class LinearSolverTests: XCTestCase {
               let neighborAddress = createAddress(indices: neighborIndices)
               let neighborValue = x[neighborAddress]
               dotProduct += 1 / (h * h) * neighborValue
-            } else {
-              var neighborPosition = SIMD3<Float>(neighborIndices)
-              neighborPosition = h * (neighborPosition + 0.5)
-              var nucleusPosition = SIMD3(repeating: Float(gridSize))
-              nucleusPosition = h * (nucleusPosition * 0.5)
-              
-              // Generate a ghost value from the point charge approximation.
-              let r = neighborPosition - nucleusPosition
-              let distance = (r * r).sum().squareRoot()
-              let neighborValue = 1 / distance
-              // dotProduct += 1 / (h * h) * neighborValue
             }
           }
           
@@ -226,7 +217,6 @@ final class LinearSolverTests: XCTestCase {
         for indexX in 0..<gridSize {
           var dotProduct: Float = .zero
           
-          // Apply the FMA on the diagonal.
           let cellIndices = SIMD3(indexX, indexY, indexZ)
           let cellAddress = createAddress(indices: cellIndices)
           
@@ -240,7 +230,7 @@ final class LinearSolverTests: XCTestCase {
             neighborIndices[coordinateID] += coordinateShift
             
             if all(neighborIndices .>= 0) && all(neighborIndices .< gridSize) {
-              let neighborAddress = createAddress(indices: neighborIndices)
+              
             } else {
               var neighborPosition = SIMD3<Float>(neighborIndices)
               neighborPosition = h * (neighborPosition + 0.5)
@@ -339,8 +329,18 @@ final class LinearSolverTests: XCTestCase {
     let L2x = Self.applyLaplacianBoundary()
     b = Self.shift(b, scale: -1, correction: L2x)
     
+    print()
+    print("Jacobi")
     var x = [Float](repeating: .zero, count: Self.cellCount)
-    for _ in 0..<60 {
+    for _ in 0..<20 {
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
+        let r2 = Self.dot(r, r)
+        let normres = r2.squareRoot()
+        print("||r|| = \(normres)")
+      }
+      
       let L1x = Self.applyLaplacianLinearPart(x)
       let r = Self.shift(b, scale: -1, correction: L1x)
       
@@ -380,7 +380,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Conjugate Gradient")
-    for _ in 0..<99 {
+    for _ in 0..<20 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -434,7 +434,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Preconditioned Conjugate Gradient")
-    for _ in 0..<50 {
+    for _ in 0..<10 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -462,7 +462,6 @@ final class LinearSolverTests: XCTestCase {
     }
     
     func applyLaplacianPreconditioner(_ x: [Float]) -> [Float] {
-      let h = Self.h
       let gridSize = Self.gridSize
       let cellCount = Self.cellCount
       
@@ -478,7 +477,7 @@ final class LinearSolverTests: XCTestCase {
       for offsetZ in -2...2 {
         for offsetY in -2...2 {
           for offsetX in -2...2 {
-            var indices = SIMD3(Int16(offsetX), Int16(offsetY), Int16(offsetZ))
+            let indices = SIMD3(Int16(offsetX), Int16(offsetY), Int16(offsetZ))
             let integerDistanceSquared = (indices &* indices).wrappedSum()
             
             // This tolerance creates a 33-point convolution kernel.
@@ -611,7 +610,7 @@ final class LinearSolverTests: XCTestCase {
     
     print()
     print("Gauss-Seidel")
-    for iterationID in 0..<99 {
+    for _ in 0..<20 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -634,7 +633,7 @@ final class LinearSolverTests: XCTestCase {
     // One V-cycle should be treated as two SD or CG iterations.
     print()
     print("Multigrid")
-    for iterationID in 0..<12 {
+    for _ in 0..<10 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -645,7 +644,7 @@ final class LinearSolverTests: XCTestCase {
       
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
-      var rFine = Self.shift(b, scale: -1, correction: L1x)
+      let rFine = Self.shift(b, scale: -1, correction: L1x)
       
       // Smoothing iterations on the first level.
       var eFine = gaussSeidelSolve(r: rFine, coarseness: 1)
@@ -666,7 +665,7 @@ final class LinearSolverTests: XCTestCase {
         e: eFine,
         r: rFine,
         coarseness: fineLevelCoarseness)
-      var rCoarse = shiftResolution(
+      let rCoarse = shiftResolution(
         fineGrid: rFineCorrected,
         coarseGrid: [],
         fineLevelCoarseness: fineLevelCoarseness,
@@ -679,10 +678,6 @@ final class LinearSolverTests: XCTestCase {
         iterations = 1
       } else if coarseLevelCoarseness == 2 {
         iterations = 4
-      } else if coarseLevelCoarseness == 4 {
-        iterations = 1
-      } else if coarseLevelCoarseness == 8 {
-        iterations = 1
       } else {
         iterations = 1
       }
@@ -786,10 +781,9 @@ final class LinearSolverTests: XCTestCase {
             
             // Fetch the values to evaluate GSRB_LEVEL(e, R, h).
             let rValue = r[cellAddress]
-            var eValue = e[cellAddress]
             
             // Update the error in-place.
-            var λ = h * h / 6
+            let λ = h * h / 6
             e[cellAddress] = λ * (faceAccumulator - rValue)
           }
         }

@@ -250,6 +250,11 @@ final class ElectrostaticsTests: XCTestCase {
     XCTAssertNotEqual(estimates[4], actual, accuracy: 0.00)
   }
   
+  // Create a continuous charge distribution, and summarize it with FCD-MPE.
+  func testFuzzyCellDecomposition() throws {
+    // Set up a charge distribution for the water molecule.
+  }
+  
   // Directly invert the Laplacian for a 4-cell domain.
   func testLaplacianInverse4x4() throws {
     // The matrices are in row-major order.
