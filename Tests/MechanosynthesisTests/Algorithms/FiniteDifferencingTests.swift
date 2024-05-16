@@ -416,7 +416,7 @@ final class FiniteDifferencingTests: XCTestCase {
   // ∇^2 (operator) v_{H}(r) = -4πρ(r)
   // Given: Ψ(r) = e^{-r} / (√π)
   // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
-  func testNonUniformGrid() throws {
+  func testDifferentialEquations() throws {
     typealias Real = Float
     
     // The analytical solutions to the differential equations.
