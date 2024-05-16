@@ -251,6 +251,9 @@ final class ElectrostaticsTests: XCTestCase {
   }
   
   // Create a continuous charge distribution, and summarize it with FCD-MPE.
+  //
+  // This test is a work in progress.
+  #if false
   func testFuzzyCellDecomposition() throws {
     // Set up the water molecule.
     // - H-O bond length: 95.84 pm
@@ -406,6 +409,33 @@ final class ElectrostaticsTests: XCTestCase {
           print(fragmentCount)
         }
       }
+      
+      // Inspect the charge distribution.
+      func inspectChargeDistribution() {
+        var charges: [Float: Float] = [:]
+        for nodeID in octree.nodes.indices {
+          // Retrieve the node.
+          let node = octree.nodes[nodeID]
+          
+          // Determine the node's charge.
+          var nodeCharge: Float = .zero
+          for branchID in 0..<8
+          where node.branchesMask[branchID] == UInt8.max {
+            let Ψ = waveFunction.cellValues[8 * nodeID + branchID]
+            let d3r = node.spacing * node.spacing * node.spacing / 64
+            let ΨΨ = Ψ * Ψ * d3r
+            nodeCharge += ΨΨ.sum()
+          }
+          
+          // Retrieve the current charge for this level.
+          var charge: Float
+          if let previousCharge = charges[node.spacing] {
+            charge = previousCharge
+          } else {
+            charge = .zero
+          }
+        }
+      }
     }
     
     print()
@@ -432,6 +462,7 @@ final class ElectrostaticsTests: XCTestCase {
       inspect(waveFunction: waveFunction)
     }
   }
+  #endif
   
   // Directly invert the Laplacian for a 4-cell domain.
   func testLaplacianInverse4x4() throws {
