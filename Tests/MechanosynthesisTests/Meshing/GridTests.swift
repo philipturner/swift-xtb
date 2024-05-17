@@ -55,6 +55,12 @@ final class GridTests: XCTestCase {
   func testWorkspace() throws {
     let ansatz = Self.createWaterAnsatz()
     
-    // Objective: transfer each wavefunction to a dedicated 'Grid'.
+    // Objective: transfer each wavefunction to a dedicated 'Grid'. Then,
+    // compute the overlap matrix of the wavefunctions.
+    
+    // First: find the bounding box of one wavefunction at the 2x2x2 Bohr
+    // granularity.
+    let waveFunction = ansatz.spinNeutralWaveFunctions[0]
+    print(waveFunction.cellValues.count * 8)
   }
 }

@@ -26,9 +26,6 @@ public struct WaveFunction {
   /// The atomic orbital that generates the initial guess.
   var atomicOrbital: AtomicOrbital
   
-  /// The number of fragments the wavefunction should attempt to remain at.
-  public var fragmentCount: Int
-  
   /// The octree that stores the structure of the wavefunction.
   public var octree: Octree
   
@@ -40,7 +37,6 @@ public struct WaveFunction {
       fatalError("Descriptor was invalid.")
     }
     self.atomicOrbital = atomicOrbital
-    self.fragmentCount = fragmentCount
     
     var octreeDesc = OctreeDescriptor()
     octreeDesc.sizeExponent = sizeExponent
