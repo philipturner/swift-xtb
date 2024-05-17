@@ -61,6 +61,27 @@ final class GridTests: XCTestCase {
     // First: find the bounding box of one wavefunction at the 2x2x2 Bohr
     // granularity.
     let waveFunction = ansatz.spinNeutralWaveFunctions[0]
-    print(waveFunction.cellValues.count * 8)
+    var boundsMinimum = SIMD3<Float>(repeating: .greatestFiniteMagnitude)
+    var boundsMaximum = SIMD3<Float>(repeating: -.greatestFiniteMagnitude)
+    for node in waveFunction.octree.nodes {
+      guard node.spacing <= 2 else {
+        continue
+      }
+      let nodeMinimum = node.center - node.spacing / 2
+      let nodeMaximum = node.center + node.spacing / 2
+      boundsMinimum.replace(
+        with: nodeMinimum, where: nodeMinimum .< boundsMinimum)
+      boundsMaximum.replace(
+        with: nodeMaximum, where: nodeMaximum .> boundsMaximum)
+    }
+    print(boundsMinimum)
+    print(boundsMaximum)
+    
+    var gridDesc = GridDescriptor()
+    gridDesc.offset = SIMD3<Int>(boundsMinimum)
+    gridDesc.dimensions = SIMD3<Int>(boundsMaximum - boundsMinimum)
+    let grid = Grid(descriptor: gridDesc)
+    print(grid.offset)
+    print(grid.dimensions)
   }
 }

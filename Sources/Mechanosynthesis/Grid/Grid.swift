@@ -5,28 +5,32 @@
 //  Created by Philip Turner on 5/16/24.
 //
 
-struct GridDescriptor {
+public struct GridDescriptor {
   // The start of the smallest bounding box that encloses the data.
   //
   // Units: 1 cubic Bohr
-  var offset: SIMD3<Int>?
+  public var offset: SIMD3<Int>?
   
   // The size of the smallest bounding box that encloses the data.
   //
   // Units: 1 cubic Bohr
-  var dimensions: SIMD3<Int>?
+  public var dimensions: SIMD3<Int>?
+  
+  public init() {
+    
+  }
 }
 
 // A uniform grid encapsulating a compact region of the domain.
 //
 // The offset and dimensions are specified in integer multiples of the Bohr
 // radius.
-struct Grid {
+public struct Grid {
   // The start of the smallest bounding box that encloses the data.
-  var offset: SIMD3<Int>
+  public var offset: SIMD3<Int>
   
   // The size of the smallest bounding box that encloses the data.
-  var dimensions: SIMD3<Int>
+  public var dimensions: SIMD3<Int>
   
   // Encapsulates the data for valid 1x1x1 Bohr cells.
   var highestLevel: Level
@@ -34,7 +38,7 @@ struct Grid {
   // The remaining levels of the grid, which are allocated sparsely.
   var voxels: [Voxel?]
   
-  init(descriptor: GridDescriptor) {
+  public init(descriptor: GridDescriptor) {
     guard let offset = descriptor.offset,
           let dimensions = descriptor.dimensions else {
       fatalError("Descriptor was invalid.")
