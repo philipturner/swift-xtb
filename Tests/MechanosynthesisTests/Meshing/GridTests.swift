@@ -56,7 +56,12 @@ final class GridTests: XCTestCase {
     let ansatz = Self.createWaterAnsatz()
     
     // Objective: transfer each wavefunction to a dedicated 'Grid'. Then,
-    // compute the overlap matrix of the wavefunctions.
+    // represent the charge density of the system.
+    // - Create a merged grid that is a union of the wavefunctions' grids.
+    // - Expose the AtomicOrbital API and query each wavefunction's value on
+    //   the higher-resolution merged grid.
+    // - This action is "de-localizing" the wavefunctions, forcing them to use
+    //   the same dense basis.
     
     // First: find the bounding box of one wavefunction at the 2x2x2 Bohr
     // granularity.
