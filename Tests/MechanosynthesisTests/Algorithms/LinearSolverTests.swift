@@ -640,11 +640,21 @@ final class LinearSolverTests: XCTestCase {
     b = Self.shift(b, scale: -1, correction: L2x)
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
+    // TODO: Refactor the code, fixing the bug with iteration count, and
+    // converting the solver into the FAS scheme. Does it achieve the same
+    // convergence rates as the original multigrid? Does it perform better for
+    // the 128x128x128 grid attempting to peak the V-cycle at 64x64x64?
+    
     // Execute the iterations.
     for _ in 0..<10 {
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
       let rFine = Self.shift(b, scale: -1, correction: L1x)
+      do {
+        let r2 = Self.dot(rFine, rFine)
+        let residualNorm = r2.squareRoot()
+        print("||r|| = \(residualNorm)")
+      }
       
       // Smoothing iterations on the first level.
       var eFine = gaussSeidelSolve(r: rFine, coarseness: 1)
@@ -679,6 +689,9 @@ final class LinearSolverTests: XCTestCase {
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
       var iterations: Int
+      
+      // TODO: Fix this code. The number of iterations for fine level
+      // corrections is wrong.
       if coarseLevelCoarseness == 1 {
         iterations = 1
       } else if coarseLevelCoarseness == 2 {
