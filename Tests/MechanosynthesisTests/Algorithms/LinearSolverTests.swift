@@ -1002,7 +1002,6 @@ final class LinearSolverTests: XCTestCase {
     
     // Execute the iterations.
     for _ in 0..<20 {
-      print()
       do {
         let L1u = Self.applyLaplacianLinearPart(u)
         let r = Self.shift(f, scale: -1, correction: L1u)
@@ -1012,22 +1011,33 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Perform two iterations of Gauss-Seidel smoothing.
-      // smooth(solution: &u, rightHandSide: f)
+      let previousU = u
+      smooth(solution: &u, rightHandSide: f)
+      let deltaU = subtract(u, previousU)
       
+      // Use a double negative to compute the defect correction, without
+      // creating a dedicated Swift function.
+      //
       // L3 avg u4 + avg (B4 f4 - A4 u4)
       // L3 avg u4 - avg (A4 u4 - B4 f4)
+      var coarseSolution = restrict(u)
       let residual = negativeResidual(
         solution: u,
         rightHandSide: f)
       let τ = negativeResidual(
-        solution: restrict(u),
+        solution: coarseSolution,
         rightHandSide: restrict(residual))
-      print(τ[0..<8])
-      print(restrict(f)[0..<8])
+     
+      // Perform two iterations of Gauss-Seidel smoothing.
+      let previousCoarseU = coarseSolution
+      smooth(solution: &coarseSolution, rightHandSide: τ)
       
-      let coarseSolution = restrict(u)
+      // Add the correction to the current solution.
       let correction = prolong(subtract(coarseSolution, restrict(u)))
-      print(correction[0..<8])
+      u = add(u, correction)
+      
+      // Perform two iterations of Gauss-Seidel smoothing.
+      smooth(solution: &u, rightHandSide: f)
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
@@ -1359,7 +1369,7 @@ final class LinearSolverTests: XCTestCase {
             
             // Write the cell value to memory.
             let residual = rightHandSide[cellAddress] - Lu
-            output[cellAddress] = residual
+            output[cellAddress] = -residual
           }
         }
       }
