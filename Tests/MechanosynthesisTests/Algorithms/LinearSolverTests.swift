@@ -124,8 +124,8 @@ import Numerics
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8
-  static let h: Float = 0.25
+  static let gridSize: Int = 8 * 2
+  static let h: Float = 0.25 / 2
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // MARK: - Utilities
@@ -1001,7 +1001,7 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
-    for _ in 0..<10 {
+    for _ in 0..<20 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -1011,23 +1011,34 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Execute four smoothing iterations on each level (2 up, 2 down).
-      cycle(solution: &x, rightHandSide: b, levels: 3)
+      cycle(solution: &x, rightHandSide: b, stages: 4)
     }
     
     // Perform a V-cycle.
     // - solution: The solution, which will be updated in-place.
     // - rightHandSide: 'b' in the linear equation.
-    // - levels: The number of multigrid levels left, including this one.
+    // - stages: The number of V-cycle stages left, including the current one.
+    //           For example, 3 stages would indicate:
+    //             4x4x4 granularity
+    //             2x2x2 granularity
+    //             1x1x1 granularity (current level)
+    //           Note that 2^3 = 8, and the highest multigrid level is not
+    //           8x8x8. Rather, the highest level should be:
+    //             2^{stages-1} x 2^{stages-1} x 2^{stages-1}
     func cycle(
       solution: inout [Float],
       rightHandSide: [Float],
-      levels: Int
+      stages: Int
     ) {
+      guard stages >= 1 else {
+        fatalError("There must be enough stages to include the current one.")
+      }
+      
       // Perform two iterations of Gauss-Seidel smoothing.
       smooth(solution: &solution, rightHandSide: rightHandSide)
       
-      let coarseLevels = levels - 1
-      if coarseLevels > 0 {
+      let coarseStages = stages - 1
+      if coarseStages > 0 {
         // Use a double negative to compute the defect correction, without
         // creating a dedicated Swift function.
         //
@@ -1045,7 +1056,7 @@ final class LinearSolverTests: XCTestCase {
         cycle(
           solution: &coarseSolution,
           rightHandSide: τ,
-          levels: coarseLevels)
+          stages: coarseStages)
         
         // Add the correction to the current solution.
         let correction = prolong(subtract(coarseSolution, restrict(solution)))
