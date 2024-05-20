@@ -995,49 +995,65 @@ final class LinearSolverTests: XCTestCase {
   // grids.
   func testFullApproximationScheme() throws {
     // Prepare the solution and RHS.
-    var f = Self.createScaledChargeDensity()
-    let L2u = Self.applyLaplacianBoundary()
-    f = Self.shift(f, scale: -1, correction: L2u)
-    var u = [Float](repeating: .zero, count: Self.cellCount)
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
-    for _ in 0..<20 {
+    for _ in 0..<10 {
       do {
-        let L1u = Self.applyLaplacianLinearPart(u)
-        let r = Self.shift(f, scale: -1, correction: L1u)
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
         let r2 = Self.dot(r, r)
         let residualNorm = r2.squareRoot()
         print("||r|| = \(residualNorm)")
       }
       
+      // Execute four smoothing iterations on each level (2 up, 2 down).
+      cycle(solution: &x, rightHandSide: b, levels: 3)
+    }
+    
+    // Perform a V-cycle.
+    // - solution: The solution, which will be updated in-place.
+    // - rightHandSide: 'b' in the linear equation.
+    // - levels: The number of multigrid levels left, including this one.
+    func cycle(
+      solution: inout [Float],
+      rightHandSide: [Float],
+      levels: Int
+    ) {
       // Perform two iterations of Gauss-Seidel smoothing.
-      let previousU = u
-      smooth(solution: &u, rightHandSide: f)
-      let deltaU = subtract(u, previousU)
+      smooth(solution: &solution, rightHandSide: rightHandSide)
       
-      // Use a double negative to compute the defect correction, without
-      // creating a dedicated Swift function.
-      //
-      // L3 avg u4 + avg (B4 f4 - A4 u4)
-      // L3 avg u4 - avg (A4 u4 - B4 f4)
-      var coarseSolution = restrict(u)
-      let residual = negativeResidual(
-        solution: u,
-        rightHandSide: f)
-      let τ = negativeResidual(
-        solution: coarseSolution,
-        rightHandSide: restrict(residual))
-     
+      let coarseLevels = levels - 1
+      if coarseLevels > 0 {
+        // Use a double negative to compute the defect correction, without
+        // creating a dedicated Swift function.
+        //
+        // L3 avg u4 + avg (B4 f4 - A4 u4)
+        // L3 avg u4 - avg (A4 u4 - B4 f4)
+        var coarseSolution = restrict(solution)
+        let residual = negativeResidual(
+          solution: solution,
+          rightHandSide: rightHandSide)
+        let τ = negativeResidual(
+          solution: coarseSolution,
+          rightHandSide: restrict(residual))
+        
+        // Call this function, but one level higher.
+        cycle(
+          solution: &coarseSolution,
+          rightHandSide: τ,
+          levels: coarseLevels)
+        
+        // Add the correction to the current solution.
+        let correction = prolong(subtract(coarseSolution, restrict(solution)))
+        solution = add(solution, correction)
+      }
+      
       // Perform two iterations of Gauss-Seidel smoothing.
-      let previousCoarseU = coarseSolution
-      smooth(solution: &coarseSolution, rightHandSide: τ)
-      
-      // Add the correction to the current solution.
-      let correction = prolong(subtract(coarseSolution, restrict(u)))
-      u = add(u, correction)
-      
-      // Perform two iterations of Gauss-Seidel smoothing.
-      smooth(solution: &u, rightHandSide: f)
+      smooth(solution: &solution, rightHandSide: rightHandSide)
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
