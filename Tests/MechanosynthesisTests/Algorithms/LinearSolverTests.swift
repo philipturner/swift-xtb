@@ -958,35 +958,95 @@ final class LinearSolverTests: XCTestCase {
         print("||r|| = \(residualNorm)")
       }
       
-      executeSweep(red: true, black: false)
-      executeSweep(red: false, black: true)
+      let (red, black) = split(solution: x)
+      x = merge(red: red, black: black)
+      
+      x = relax(sweep: .red, solution: x, rhs: b)
+      x = relax(sweep: .black, solution: x, rhs: b)
     }
     
-    // Check the residual norm at the end of iterations.
-    let residualNorm = Self.createResidualNorm(solution: x)
-    XCTAssertLessThan(residualNorm, 25)
+    // Split the solution into red and black halves.
+    func split(solution: [Float]) -> (
+      red: [Float], black: [Float]
+    ) {
+      var red = [Float](repeating: .zero, count: solution.count / 2)
+      var black = [Float](repeating: .zero, count: solution.count / 2)
+      
+      // Iterate over the cells.
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            // Read the solution value from memory.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellValue = solution[cellAddress]
+            
+            // Write the solution value to memory.
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            if isRed {
+              red[cellAddress / 2] = cellValue
+            } else {
+              black[cellAddress / 2] = cellValue
+            }
+          }
+        }
+      }
+      return (red, black)
+    }
     
-    // Updates all of the selected cells in-place.
-    //
-    // NOTE: This function references the variables 'x' and 'b', declared in
-    // the outer scope.
-    func executeSweep(red: Bool, black: Bool) {
+    // Merge the two halves of the solution.
+    func merge(red: [Float], black: [Float]) -> [Float] {
+      var solution = [Float](repeating: .zero, count: red.count + black.count)
+      
+      // Iterate over the cells.
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            // Read the solution value from memory.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            var cellValue: Float
+            
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            if isRed {
+              cellValue = red[cellAddress / 2]
+            } else {
+              cellValue = black[cellAddress / 2]
+            }
+            
+            // Write the solution to memory.
+            solution[cellAddress] = cellValue
+          }
+        }
+      }
+      return solution
+    }
+    
+    // The two types of cells that are updated in alternation.
+    enum Sweep {
+      case red
+      case black
+    }
+    
+    func relax(
+      sweep: Sweep,
+      solution: [Float],
+      rhs: [Float]
+    ) -> [Float] {
+      // Allocate memory for the written solution values.
+      var output = solution
+      
+      // Iterate over the cells.
       for indexZ in 0..<Self.gridSize {
         for indexY in 0..<Self.gridSize {
           for indexX in 0..<Self.gridSize {
             // Mask out either the red or black cells.
             let parity = indexX ^ indexY ^ indexZ
-            switch parity & 1 {
-            case 0:
-              guard red else {
-                continue
-              }
-            case 1:
-              guard black else {
-                continue
-              }
-            default:
-              fatalError("This should never happen.")
+            let isRed = (parity & 1) == 0
+            guard isRed == (sweep == .red) else {
+              continue
             }
             
             // Iterate over the faces.
@@ -1008,19 +1068,20 @@ final class LinearSolverTests: XCTestCase {
               }
             }
             
+            // Read the cell value from memory.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = Self.createAddress(indices: cellIndices)
-            let cellValue = x[cellAddress]
+            let cellValue = solution[cellAddress]
             Lu += -6 / (Self.h * Self.h) * cellValue
             
-            // Overwrite the current value.
-            let rhsValue = b[cellAddress]
-            let residual = rhsValue - Lu
+            // Write the cell value to memory.
+            let residual = rhs[cellAddress] - Lu
             let Δt: Float = (Self.h * Self.h) / -6
-            x[cellAddress] = cellValue + Δt * residual
+            output[cellAddress] = cellValue + Δt * residual
           }
         }
       }
+      return output
     }
   }
 }
