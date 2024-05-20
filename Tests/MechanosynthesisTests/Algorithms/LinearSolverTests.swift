@@ -991,20 +991,47 @@ final class LinearSolverTests: XCTestCase {
       x = merge(red: red, black: black)
     }
     
+    func createGridSize(cellCount: Int) -> Int16 {
+      // Estimate the cube root.
+      let cubeRoot = Float.root(Float(cellCount), 3)
+      let cubeRootRounded = Int16(cubeRoot.rounded(.toNearestOrEven))
+      
+      // Check the correctness of the estimate.
+      let cube = cubeRootRounded * cubeRootRounded * cubeRootRounded
+      guard cube == cellCount else {
+        fatalError("Cube root was incorrect.")
+      }
+      
+      // Return the cube root.
+      return cubeRootRounded
+    }
+    
+    func createSpacing(gridSize: Int16) -> Float {
+      Self.h * Float(Self.gridSize / Int(gridSize))
+    }
+    
+    @_transparent
+    func createAddress(_ indices: SIMD3<Int16>, gridSize: Int16) -> Int {
+      Int(indices.z) * Int(gridSize) * Int(gridSize) +
+      Int(indices.y) * Int(gridSize) +
+      Int(indices.x)
+    }
+    
     // Split the solution into red and black halves.
     func split(solution: [Float]) -> (
       red: [Float], black: [Float]
     ) {
+      let gridSize = createGridSize(cellCount: solution.count)
       var red = [Float](repeating: .zero, count: solution.count / 2)
       var black = [Float](repeating: .zero, count: solution.count / 2)
       
       // Iterate over the cells.
-      for indexZ in 0..<Self.gridSize {
-        for indexY in 0..<Self.gridSize {
-          for indexX in 0..<Self.gridSize {
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
             // Read the solution value from memory.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
             let cellValue = solution[cellAddress]
             
             // Write the solution value to memory.
@@ -1024,14 +1051,15 @@ final class LinearSolverTests: XCTestCase {
     // Merge the two halves of the solution.
     func merge(red: [Float], black: [Float]) -> [Float] {
       var solution = [Float](repeating: .zero, count: red.count + black.count)
+      let gridSize = createGridSize(cellCount: solution.count)
       
       // Iterate over the cells.
-      for indexZ in 0..<Self.gridSize {
-        for indexY in 0..<Self.gridSize {
-          for indexX in 0..<Self.gridSize {
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
             // Locate the current cell.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
             var cellValue: Float
             
             // Read the solution value from memory.
@@ -1075,11 +1103,13 @@ final class LinearSolverTests: XCTestCase {
       
       // Allocate memory for the written solution values.
       var output = [Float](repeating: .zero, count: red.count)
+      let gridSize = createGridSize(cellCount: rhs.count)
+      let h = createSpacing(gridSize: gridSize)
       
       // Iterate over the cells.
-      for indexZ in 0..<Self.gridSize {
-        for indexY in 0..<Self.gridSize {
-          for indexX in 0..<Self.gridSize {
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
             // Mask out either the red or black cells.
             let parity = indexX ^ indexY ^ indexZ
             let isRed = (parity & 1) == 0
@@ -1094,28 +1124,27 @@ final class LinearSolverTests: XCTestCase {
               let coordinateShift = (faceID % 2 == 0) ? -1 : 1
               
               // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += coordinateShift
-              guard all(neighborIndices .>= 0),
-                    all(neighborIndices .< Self.gridSize) else {
+              var indices = SIMD3(indexX, indexY, indexZ)
+              indices[coordinateID] += Int16(coordinateShift)
+              guard all(indices .>= 0),
+                    all(indices .< gridSize) else {
                 continue
               }
-              let neighborAddress = Self
-                .createAddress(indices: neighborIndices)
+              let address = createAddress(indices, gridSize: gridSize)
               
               // Read the neighbor value from memory.
               var neighborValue: Float
               if sweep == .red {
-                neighborValue = black[neighborAddress / 2]
+                neighborValue = black[address / 2]
               } else {
-                neighborValue = red[neighborAddress / 2]
+                neighborValue = red[address / 2]
               }
-              Lu += 1 / (Self.h * Self.h) * neighborValue
+              Lu += 1 / (h * h) * neighborValue
             }
             
             // Locate the current cell.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
             
             // Read the cell value from memory.
             var cellValue: Float
@@ -1124,11 +1153,11 @@ final class LinearSolverTests: XCTestCase {
             } else {
               cellValue = black[cellAddress / 2]
             }
-            Lu += -6 / (Self.h * Self.h) * cellValue
+            Lu += -6 / (h * h) * cellValue
             
             // Write the cell value to memory.
             let residual = rhs[cellAddress] - Lu
-            let Δt: Float = (Self.h * Self.h) / -6
+            let Δt: Float = (h * h) / -6
             output[cellAddress / 2] = cellValue + Δt * residual
           }
         }
