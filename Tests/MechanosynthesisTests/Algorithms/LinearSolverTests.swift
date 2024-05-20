@@ -958,11 +958,37 @@ final class LinearSolverTests: XCTestCase {
         print("||r|| = \(residualNorm)")
       }
       
-      let (red, black) = split(solution: x)
-      x = merge(red: red, black: black)
+      // Set up the relaxations.
+      var (red, black) = split(solution: x)
+      var relaxationDesc = RelaxationDescriptor()
+      relaxationDesc.rhs = b
       
-      x = relax(sweep: .red, solution: x, rhs: b)
-      x = relax(sweep: .black, solution: x, rhs: b)
+      // Gauss-Seidel: Red
+      relaxationDesc.sweep = .red
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      red = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Black
+      relaxationDesc.sweep = .black
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      black = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Red
+      relaxationDesc.sweep = .red
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      red = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Black
+      relaxationDesc.sweep = .black
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      black = relax(descriptor: relaxationDesc)
+      
+      // Clean up after the relaxations.
+      x = merge(red: red, black: black)
     }
     
     // Split the solution into red and black halves.
@@ -1003,11 +1029,12 @@ final class LinearSolverTests: XCTestCase {
       for indexZ in 0..<Self.gridSize {
         for indexY in 0..<Self.gridSize {
           for indexX in 0..<Self.gridSize {
-            // Read the solution value from memory.
+            // Locate the current cell.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = Self.createAddress(indices: cellIndices)
             var cellValue: Float
             
+            // Read the solution value from memory.
             let parity = indexX ^ indexY ^ indexZ
             let isRed = (parity & 1) == 0
             if isRed {
@@ -1030,13 +1057,24 @@ final class LinearSolverTests: XCTestCase {
       case black
     }
     
-    func relax(
-      sweep: Sweep,
-      solution: [Float],
-      rhs: [Float]
-    ) -> [Float] {
+    // A descriptor for a relaxation.
+    struct RelaxationDescriptor {
+      var sweep: Sweep?
+      var red: [Float]?
+      var black: [Float]?
+      var rhs: [Float]?
+    }
+    
+    func relax(descriptor: RelaxationDescriptor) -> [Float] {
+      guard let sweep = descriptor.sweep,
+            let red = descriptor.red,
+            let black = descriptor.black,
+            let rhs = descriptor.rhs else {
+        fatalError("Descriptor was incomplete.")
+      }
+      
       // Allocate memory for the written solution values.
-      var output = solution
+      var output = [Float](repeating: .zero, count: red.count)
       
       // Iterate over the cells.
       for indexZ in 0..<Self.gridSize {
@@ -1058,26 +1096,40 @@ final class LinearSolverTests: XCTestCase {
               // Locate the neighboring cell.
               var neighborIndices = SIMD3(indexX, indexY, indexZ)
               neighborIndices[coordinateID] += coordinateShift
-              
-              if all(neighborIndices .>= 0),
-                 all(neighborIndices .< Self.gridSize) {
-                let neighborAddress = Self
-                  .createAddress(indices: neighborIndices)
-                let neighborValue = x[neighborAddress]
-                Lu += 1 / (Self.h * Self.h) * neighborValue
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< Self.gridSize) else {
+                continue
               }
+              let neighborAddress = Self
+                .createAddress(indices: neighborIndices)
+              
+              // Read the neighbor value from memory.
+              var neighborValue: Float
+              if sweep == .red {
+                neighborValue = black[neighborAddress / 2]
+              } else {
+                neighborValue = red[neighborAddress / 2]
+              }
+              Lu += 1 / (Self.h * Self.h) * neighborValue
             }
             
-            // Read the cell value from memory.
+            // Locate the current cell.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = Self.createAddress(indices: cellIndices)
-            let cellValue = solution[cellAddress]
+            
+            // Read the cell value from memory.
+            var cellValue: Float
+            if sweep == .red {
+              cellValue = red[cellAddress / 2]
+            } else {
+              cellValue = black[cellAddress / 2]
+            }
             Lu += -6 / (Self.h * Self.h) * cellValue
             
             // Write the cell value to memory.
             let residual = rhs[cellAddress] - Lu
             let Δt: Float = (Self.h * Self.h) / -6
-            output[cellAddress] = cellValue + Δt * residual
+            output[cellAddress / 2] = cellValue + Δt * residual
           }
         }
       }
