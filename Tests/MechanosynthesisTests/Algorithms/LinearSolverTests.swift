@@ -31,8 +31,9 @@ import Numerics
 // Conjugate Gradient   30 iters  ||r|| = 0.00030688613  0.003 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.00023875975  0.003 seconds
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
-// Multigrid 1-2-1-2-1  10 iters  ||r|| = 0.00020144212  0.003 seconds
-// Multigrid 1-4-1       7 iters  ||r|| = 0.00019803157  0.003 seconds
+// Multigrid 1-2-1-2-2  10 iters  ||r|| = 0.00020144212  0.003 seconds
+// Multigrid 1-4-2       7 iters  ||r|| = 0.00019803157  0.003 seconds
+// FAS
 //
 // h = 0.125, gridSize = 16, cellCount = 4096
 //                       0 iters  ||r|| = 3091.9424
@@ -40,9 +41,10 @@ import Numerics
 // Conjugate Gradient   30 iters  ||r|| = 0.09551496    0.017 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.0032440922  0.024 seconds
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.0023769636  0.025 seconds
-// Multigrid 1-2-1-2-1  12 iters  ||r|| = 0.0025058207  0.024 seconds
-// Multigrid 1-2-2-2-1  10 iters  ||r|| = 0.0023211893  0.021 seconds
-// Multigrid 1-2-4-2-1  12 iters  ||r|| = 0.0025251452  0.025 seconds
+// Multigrid 1-2-1-2-2  12 iters  ||r|| = 0.0025058207  0.024 seconds
+// Multigrid 1-2-2-2-2  10 iters  ||r|| = 0.0023211893  0.021 seconds
+// Multigrid 1-2-4-2-2  12 iters  ||r|| = 0.0025251452  0.025 seconds
+// FAS
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
 //                           0 iters  ||r|| = 24494.229
@@ -50,8 +52,9 @@ import Numerics
 // Conjugate Gradient       60 iters  ||r|| = 0.49065304   0.258 seconds
 // Preconditioned CG        30 iters  ||r|| = 0.048568394  0.364 seconds
 // Multigrid 1-1-1-1-1-1-1  30 iters  ||r|| = 0.029823668  0.408 seconds
-// Multigrid 1-2-2-1-2-2-1  15 iters  ||r|| = 0.02897086   0.242 seconds
-// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306  0.251 seconds
+// Multigrid 1-2-2-1-2-2-2  15 iters  ||r|| = 0.02897086   0.242 seconds
+// Multigrid 1-2-4-2-2      15 iters  ||r|| = 0.028649306  0.251 seconds
+// FAS
 //
 // h = 0.0313, gridSize = 64, cellCount = 262,144
 //                           0 iters  ||r|| = 195015.61
@@ -59,26 +62,31 @@ import Numerics
 // Conjugate Gradient       99 iters  ||r|| = 53.441914   3.375 seconds
 // Preconditioned CG        50 iters  ||r|| = 0.72252524  4.823 seconds
 // Multigrid 1-1-1-1-1-1-1  35 iters  ||r|| = 0.45097157  3.831 seconds
-// Multigrid 1-2-2-1-2-2-1  30 iters  ||r|| = 0.3642269   3.951 seconds
-// Multigrid 1-2-2-2-2-2-1  20 iters  ||r|| = 0.36008823  2.601 seconds
-// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418  2.613 seconds
+// Multigrid 1-2-2-1-2-2-2  30 iters  ||r|| = 0.3642269   3.951 seconds
+// Multigrid 1-2-2-2-2-2-2  20 iters  ||r|| = 0.36008823  2.601 seconds
+// Multigrid 1-2-2-4-2-2-2  20 iters  ||r|| = 0.30006418  2.613 seconds
+// FAS
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
-//                               0 iters  ||r|| = 1556438.4
-// Preconditioned CG            60 iters  ||r|| = 1209.9086  46.300 seconds
-// Preconditioned CG            99 iters  ||r|| = 11.659912  75.554 seconds
-// Multigrid 1-1-1-1-1-1-1      60 iters  ||r|| = 225.7327   52.499 seconds
-// Multigrid 1-1-1-2-1-1-1      60 iters  ||r|| = 25.65553   52.680 seconds
-// Multigrid 1-2-2-2-2-2-1      60 iters  ||r|| = 6.335201   62.544 seconds
-// Multigrid 1-2-2-4-2-2-1      40 iters  ||r|| = 3.906945   42.194 seconds
-// Multigrid 1-2-2-2-1-2-2-2-1  28 iters  ||r|| = 3.576714   29.415 seconds
+//                                0 iters  ||r|| = 1556438.4
+// Preconditioned CG             60 iters  ||r|| = 1209.9086  46.300 seconds
+// Preconditioned CG             99 iters  ||r|| = 11.659912  75.554 seconds
+// Multigrid 1-1-1-1-1-1-1       60 iters  ||r|| = 225.7327   52.499 seconds
+// Multigrid 1-1-1-2-1-1-1       60 iters  ||r|| = 25.65553   52.680 seconds
+// Multigrid 1-2-2-2-2-2-2       60 iters  ||r|| = 6.335201   62.544 seconds
+// Multigrid 1-2-2-4-2-2-2       40 iters  ||r|| = 3.906945   42.194 seconds
+// Multigrid 1-2-2-2-1-2-2-2-2   28 iters  ||r|| = 3.576714   29.415 seconds
+// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4 30 iters  ||r|| = 2.6634037  35.504 seconds
 //
-// Consistent pattern for reliably-performing grids:
-// Multigrid 1-4-1           7 iters  ||r|| = 0.00019803157  0.003 seconds
-// Multigrid 1-2-4-2-1      12 iters  ||r|| = 0.0025251452   0.025 seconds
-// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306    0.251 seconds
-// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418     2.613 seconds
-// Multigrid 1-2-2-4-2-2-1  40 iters  ||r|| = 3.906945      42.194 seconds
+// Pattern for reliably-performing grids:
+// Multigrid 1-4-2           7 iters  ||r|| = 0.00019803157  0.003 seconds
+// Multigrid 1-2-4-2-2      12 iters  ||r|| = 0.0025251452   0.025 seconds
+// Multigrid 1-2-4-2-2      15 iters  ||r|| = 0.028649306    0.251 seconds
+// Multigrid 1-2-2-4-2-2-2  20 iters  ||r|| = 0.30006418     2.613 seconds
+// Multigrid 1-2-2-4-2-2-2  40 iters  ||r|| = 3.906945      42.194 seconds
+//
+// The pattern has improved much more with FAS. Convergence is consistent and
+// requires minimal fine-tuning.
 //
 // ========================================================================== //
 // Discussion
@@ -124,8 +132,8 @@ import Numerics
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8 * 2
-  static let h: Float = 0.25 / 2
+  static let gridSize: Int = 8 * 16
+  static let h: Float = 0.25 / 16
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // MARK: - Utilities
@@ -1001,7 +1009,7 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
-    for _ in 0..<20 {
+    for _ in 0..<30 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -1010,8 +1018,8 @@ final class LinearSolverTests: XCTestCase {
         print("||r|| = \(residualNorm)")
       }
       
-      // Execute four smoothing iterations on each level (2 up, 2 down).
-      cycle(solution: &x, rightHandSide: b, stages: 4)
+      // Execute six smoothing iterations on each level (3 up, 3 down).
+      cycle(solution: &x, rightHandSide: b, stages: 7)
     }
     
     // Perform a V-cycle.
@@ -1039,12 +1047,14 @@ final class LinearSolverTests: XCTestCase {
       
       let coarseStages = stages - 1
       if coarseStages > 0 {
+        // Restrict the solution to a coarser level.
+        var coarseSolution = restrict(solution)
+        
         // Use a double negative to compute the defect correction, without
         // creating a dedicated Swift function.
         //
         // L3 avg u4 + avg (B4 f4 - A4 u4)
         // L3 avg u4 - avg (A4 u4 - B4 f4)
-        var coarseSolution = restrict(solution)
         let residual = negativeResidual(
           solution: solution,
           rightHandSide: rightHandSide)
@@ -1073,9 +1083,12 @@ final class LinearSolverTests: XCTestCase {
       let cubeRootRounded = Int16(cubeRoot.rounded(.toNearestOrEven))
       
       // Check the correctness of the estimate.
-      let cube = cubeRootRounded * cubeRootRounded * cubeRootRounded
+      let cube =
+      Int(cubeRootRounded) *
+      Int(cubeRootRounded) *
+      Int(cubeRootRounded)
       guard cube == cellCount else {
-        fatalError("Cube root was incorrect.")
+        fatalError("Cube root was incorrect: \(cube) != \(cellCount).")
       }
       
       // Return the cube root.
@@ -1406,7 +1419,7 @@ final class LinearSolverTests: XCTestCase {
     func smooth(
       solution: inout [Float],
       rightHandSide: [Float],
-      iterations: Int = 2
+      iterations: Int = 4
     ) {
       // Set up the relaxations.
       var (red, black) = split(solution: solution)
