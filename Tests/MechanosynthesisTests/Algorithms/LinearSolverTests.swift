@@ -954,43 +954,40 @@ final class LinearSolverTests: XCTestCase {
   // ---> t1 = B1^{-1} A1 avg u2 - avg B2^{-1} A2 u2 + avg t2
   // ---> f1 = avg f2
   // -----> B1^{-1} A1 u1 = f1 + t1
-  // ---> u2 += interp(u1 - avg u2)
+  // ---> u2 += interp (u1 - avg u2)
   // ---> B2^{-1} A2 u2 = f2 + t2
-  // -> u3 += interp(u2 - avg u3)
+  // -> u3 += interp (u2 - avg u3)
   // -> B3^{-1} A3 u3 = f3 + t3
-  // u4 += interp(u3 - avg u4)
+  // u4 += interp (u3 - avg u4)
   // B4^{-1} A4 u4 = f4
   //
   // Rearranging the equations to avoid the matrix inversion:
   //
   // solved by u4 = U4
   // A4 u4 = B4 f4
-  // t3 = L3 avg u4 - avg A4 u4
-  // f3 = avg B4 f4
+  // t3 = L3 avg u4 + avg (B4 f4 - A4 u4)
   //
   // -> solved by u3 = avg u4
-  // -> L3 u3 = f3 + t3
-  // -> t2 = L2 avg u3 - avg L3 u3 + avg t3
-  // -> f2 = avg f3
+  // -> L3 u3 = t3
+  // -> t2 = L2 avg u3 + avg (t3 - L3 u3)
   //
   // ---> solved by u2 = avg u3
-  // ---> L2 u2 = f2 + t2
-  // ---> t1 = L1 avg u2 - avg L2 u2 + avg t2
-  // ---> f1 = avg f2
+  // ---> L2 u2 = t2
+  // ---> t1 = L1 avg u2 + avg (t2 - L2 u2)
   //
   // -----> solved by u1 = avg u2
-  // -----> L1 u1 = f1 + t1
+  // -----> L1 u1 = t1
   //
   // ---> solved by u1 = avg u2
-  // ---> u2 += interp(u1 - avg u2)
-  // ---> L2 u2 = f2 + t2
+  // ---> u2 += interp (u1 - avg u2)
+  // ---> L2 u2 = t2
   //
   // -> solved by u2 = avg u3
-  // -> u3 += interp(u2 - avg u3)
-  // -> L3 u3 = f3 + t3
+  // -> u3 += interp (u2 - avg u3)
+  // -> L3 u3 = t3
   //
   // solved by u3 = avg u4
-  // u4 += interp(u3 - avg u4)
+  // u4 += interp (u3 - avg u4)
   // A4 u4 = B4 f4
   //
   // Mehrstellen should only be applied at the level where it's the source of
@@ -1156,12 +1153,7 @@ final class LinearSolverTests: XCTestCase {
       return output
     }
     
-    func restrict(_ fineGrid: [Float]) -> [Float] {
-      var coarseGrid = [Float](repeating: .zero, count: fineGrid.count / 8)
-      let fineGridSize = createGridSize(cellCount: fineGrid.count)
-      let coarseGridSize = fineGridSize / 2
-      
-      // Create a list of index permutations.
+    func createLevelTransferPermutations() -> [SIMD3<Int16>] {
       var permutations: [SIMD3<Int16>] = []
       for permutationZ in 0..<2 {
         for permutationY in 0..<2 {
@@ -1174,6 +1166,16 @@ final class LinearSolverTests: XCTestCase {
           }
         }
       }
+      return permutations
+    }
+    
+    func restrict(_ fineGrid: [Float]) -> [Float] {
+      var coarseGrid = [Float](repeating: .zero, count: fineGrid.count / 8)
+      let fineGridSize = createGridSize(cellCount: fineGrid.count)
+      let coarseGridSize = fineGridSize / 2
+      
+      // Create a list of index permutations.
+      let permutations = createLevelTransferPermutations()
       
       // Iterate over the coarse grid.
       for indexZ in 0..<coarseGridSize {
@@ -1209,18 +1211,7 @@ final class LinearSolverTests: XCTestCase {
       let fineGridSize = coarseGridSize * 2
       
       // Create a list of index permutations.
-      var permutations: [SIMD3<Int16>] = []
-      for permutationZ in 0..<2 {
-        for permutationY in 0..<2 {
-          for permutationX in 0..<2 {
-            let permutationSet = SIMD3(
-              Int16(permutationX),
-              Int16(permutationY),
-              Int16(permutationZ))
-            permutations.append(permutationSet)
-          }
-        }
-      }
+      let permutations = createLevelTransferPermutations()
       
       // Iterate over the coarse grid.
       for indexZ in 0..<coarseGridSize {
@@ -1261,6 +1252,9 @@ final class LinearSolverTests: XCTestCase {
       var black: [Float]?
       var rhs: [Float]?
     }
+    
+    // TODO: Automatically detect whether Mehrstellen should be applied, based
+    // on the grid spacing.
     
     func relax(descriptor: RelaxationDescriptor) -> [Float] {
       guard let sweep = descriptor.sweep,
@@ -1329,6 +1323,53 @@ final class LinearSolverTests: XCTestCase {
             let residual = rhs[cellAddress] - Lu
             let Δt: Float = (h * h) / -6
             output[cellAddress / 2] = cellValue + Δt * residual
+          }
+        }
+      }
+      return output
+    }
+    
+    func residual(solution: [Float], rhs: [Float]) -> [Float] {
+      var output = [Float](repeating: .zero, count: solution.count)
+      let gridSize = createGridSize(cellCount: solution.count)
+      let h = createSpacing(gridSize: gridSize)
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Iterate over the faces.
+            var Lu: Float = .zero
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += Int16(coordinateShift)
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< gridSize) else {
+                continue
+              }
+              let neighborAddress = createAddress(
+                neighborIndices, gridSize: gridSize)
+              
+              // Read the neighbor value from memory.
+              let neighborValue = solution[neighborAddress]
+              Lu += 1 / (h * h) * neighborValue
+            }
+            
+            // Locate the current cell.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            
+            // Read the cell value from memory.
+            let cellValue = solution[cellAddress]
+            Lu += -6 / (h * h) * cellValue
+            
+            // Write the cell value to memory.
+            let residual = rhs[cellAddress] - Lu
+            output[cellAddress] = residual
           }
         }
       }
