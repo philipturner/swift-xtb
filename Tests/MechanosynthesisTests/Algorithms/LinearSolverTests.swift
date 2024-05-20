@@ -645,11 +645,6 @@ final class LinearSolverTests: XCTestCase {
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
       let rFine = Self.shift(b, scale: -1, correction: L1x)
-      do {
-        let r2 = Self.dot(rFine, rFine)
-        let residualNorm = r2.squareRoot()
-        print("||r|| = \(residualNorm)")
-      }
       
       // Smoothing iterations on the first level.
       var eFine = gaussSeidelSolve(
@@ -947,6 +942,85 @@ final class LinearSolverTests: XCTestCase {
   // - Prove the correct version has O(h^4) scaling.
   // - Is Mehrstellen more numerically unstable?
   func testFullApproximationScheme() throws {
+    // Prepare the solution and RHS.
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    var x = [Float](repeating: .zero, count: Self.cellCount)
     
+    // Execute the iterations.
+    for _ in 0..<20 {
+      do {
+        let L1x = Self.applyLaplacianLinearPart(x)
+        let r = Self.shift(b, scale: -1, correction: L1x)
+        let r2 = Self.dot(r, r)
+        let residualNorm = r2.squareRoot()
+        print("||r|| = \(residualNorm)")
+      }
+      
+      executeSweep(red: true, black: false)
+      executeSweep(red: false, black: true)
+    }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    XCTAssertLessThan(residualNorm, 25)
+    
+    // Updates all of the selected cells in-place.
+    //
+    // NOTE: This function references the variables 'x' and 'b', declared in
+    // the outer scope.
+    func executeSweep(red: Bool, black: Bool) {
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            switch parity & 1 {
+            case 0:
+              guard red else {
+                continue
+              }
+            case 1:
+              guard black else {
+                continue
+              }
+            default:
+              fatalError("This should never happen.")
+            }
+            
+            // Iterate over the faces.
+            var Lu: Float = .zero
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< Self.gridSize) {
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = x[neighborAddress]
+                Lu += 1 / (Self.h * Self.h) * neighborValue
+              }
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellValue = x[cellAddress]
+            Lu += -6 / (Self.h * Self.h) * cellValue
+            
+            // Overwrite the current value.
+            let rhsValue = b[cellAddress]
+            let residual = rhsValue - Lu
+            let Δt: Float = (Self.h * Self.h) / -6
+            x[cellAddress] = cellValue + Δt * residual
+          }
+        }
+      }
+    }
   }
 }
