@@ -1079,6 +1079,72 @@ final class LinearSolverTests: XCTestCase {
       return solution
     }
     
+    func add(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+      var output = [Float](repeating: .zero, count: lhs.count)
+      for cellID in lhs.indices {
+        let lhsValue = lhs[cellID]
+        let rhsValue = rhs[cellID]
+        let sumValue = lhsValue + rhsValue
+        output[cellID] = sumValue
+      }
+      return output
+    }
+    
+    func restrict(_ fineGrid: [Float]) -> [Float] {
+      var coarseGrid = [Float](repeating: .zero, count: fineGrid.count / 8)
+      let fineGridSize = createGridSize(cellCount: fineGrid.count)
+      let coarseGridSize = fineGridSize / 2
+      
+      // Create a list of index permutations.
+      var permutations: [SIMD3<Int16>] = []
+      for permutationZ in 0..<2 {
+        for permutationY in 0..<2 {
+          for permutationX in 0..<2 {
+            let permutationSet = SIMD3(
+              Int16(permutationX),
+              Int16(permutationY),
+              Int16(permutationZ))
+            permutations.append(permutationSet)
+          }
+        }
+      }
+      
+      // Iterate over the coarse grid.
+      for indexZ in 0..<coarseGridSize {
+        for indexY in 0..<coarseGridSize {
+          for indexX in 0..<coarseGridSize {
+            // Iterate over the footprint on the finer grid.
+            var accumulator: Float = .zero
+            for permutation in permutations {
+              var fineIndices = 2 &* SIMD3(indexX, indexY, indexZ)
+              fineIndices &+= permutation
+              let fineAddress = createAddress(
+                fineIndices, gridSize: fineGridSize)
+              
+              // Read from the fine grid.
+              let fineValue = fineGrid[fineAddress]
+              accumulator += (1.0 / 8) * fineValue
+            }
+            
+            for permutationZ in 0..<Int16(2) {
+              for permutationY in 0..<2 {
+                for permutationX in 0..<2 {
+                  
+                }
+              }
+            }
+            
+            // Write to the coarse grid.
+            let coarseIndices = SIMD3(indexX, indexY, indexZ)
+            let coarseAddress = createAddress(
+              coarseIndices, gridSize: coarseGridSize)
+            coarseGrid[coarseAddress] = accumulator
+          }
+        }
+      }
+      return coarseGrid
+    }
+    
     // The two types of cells that are updated in alternation.
     enum Sweep {
       case red
@@ -1124,20 +1190,21 @@ final class LinearSolverTests: XCTestCase {
               let coordinateShift = (faceID % 2 == 0) ? -1 : 1
               
               // Locate the neighboring cell.
-              var indices = SIMD3(indexX, indexY, indexZ)
-              indices[coordinateID] += Int16(coordinateShift)
-              guard all(indices .>= 0),
-                    all(indices .< gridSize) else {
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += Int16(coordinateShift)
+              guard all(neighborIndices .>= 0),
+                    all(neighborIndices .< gridSize) else {
                 continue
               }
-              let address = createAddress(indices, gridSize: gridSize)
+              let neighborAddress = createAddress(
+                neighborIndices, gridSize: gridSize)
               
               // Read the neighbor value from memory.
               var neighborValue: Float
               if sweep == .red {
-                neighborValue = black[address / 2]
+                neighborValue = black[neighborAddress / 2]
               } else {
-                neighborValue = red[address / 2]
+                neighborValue = red[neighborAddress / 2]
               }
               Lu += 1 / (h * h) * neighborValue
             }
