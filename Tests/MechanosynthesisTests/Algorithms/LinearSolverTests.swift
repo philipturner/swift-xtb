@@ -995,23 +995,39 @@ final class LinearSolverTests: XCTestCase {
   // grids.
   func testFullApproximationScheme() throws {
     // Prepare the solution and RHS.
-    var b = Self.createScaledChargeDensity()
-    let L2x = Self.applyLaplacianBoundary()
-    b = Self.shift(b, scale: -1, correction: L2x)
-    var x = [Float](repeating: .zero, count: Self.cellCount)
+    var f = Self.createScaledChargeDensity()
+    let L2u = Self.applyLaplacianBoundary()
+    f = Self.shift(f, scale: -1, correction: L2u)
+    var u = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
     for _ in 0..<20 {
+      print()
       do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
+        let L1u = Self.applyLaplacianLinearPart(u)
+        let r = Self.shift(f, scale: -1, correction: L1u)
         let r2 = Self.dot(r, r)
         let residualNorm = r2.squareRoot()
         print("||r|| = \(residualNorm)")
       }
       
       // Perform two iterations of Gauss-Seidel smoothing.
-      smooth(solution: &x, rightHandSide: b)
+      // smooth(solution: &u, rightHandSide: f)
+      
+      // L3 avg u4 + avg (B4 f4 - A4 u4)
+      // L3 avg u4 - avg (A4 u4 - B4 f4)
+      let residual = negativeResidual(
+        solution: u,
+        rightHandSide: f)
+      let τ = negativeResidual(
+        solution: restrict(u),
+        rightHandSide: restrict(residual))
+      print(τ[0..<8])
+      print(restrict(f)[0..<8])
+      
+      let coarseSolution = restrict(u)
+      let correction = prolong(subtract(coarseSolution, restrict(u)))
+      print(correction[0..<8])
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
@@ -1300,7 +1316,10 @@ final class LinearSolverTests: XCTestCase {
       return output
     }
     
-    func residual(solution: [Float], rightHandSide: [Float]) -> [Float] {
+    // The negative of b - Ax, which is Ax - b.
+    func negativeResidual(
+      solution: [Float], rightHandSide: [Float]
+    ) -> [Float] {
       var output = [Float](repeating: .zero, count: solution.count)
       let gridSize = createGridSize(cellCount: solution.count)
       let h = createSpacing(gridSize: gridSize)
@@ -1357,29 +1376,19 @@ final class LinearSolverTests: XCTestCase {
       var relaxationDesc = RelaxationDescriptor()
       relaxationDesc.rightHandSide = rightHandSide
       
-      // Gauss-Seidel: Red
-      relaxationDesc.sweep = .red
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      red = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Black
-      relaxationDesc.sweep = .black
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      black = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Red
-      relaxationDesc.sweep = .red
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      red = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Black
-      relaxationDesc.sweep = .black
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      black = relax(descriptor: relaxationDesc)
+      for _ in 0..<iterations {
+        // Gauss-Seidel: Red
+        relaxationDesc.sweep = .red
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        red = relax(descriptor: relaxationDesc)
+        
+        // Gauss-Seidel: Black
+        relaxationDesc.sweep = .black
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        black = relax(descriptor: relaxationDesc)
+      }
       
       // Clean up after the relaxations.
       solution = merge(red: red, black: black)
