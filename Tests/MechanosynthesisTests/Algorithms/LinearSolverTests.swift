@@ -640,13 +640,8 @@ final class LinearSolverTests: XCTestCase {
     b = Self.shift(b, scale: -1, correction: L2x)
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
-    // TODO: Refactor the code, fixing the bug with iteration count, and
-    // converting the solver into the FAS scheme. Does it achieve the same
-    // convergence rates as the original multigrid? Does it perform better for
-    // the 128x128x128 grid attempting to peak the V-cycle at 64x64x64?
-    
     // Execute the iterations.
-    for _ in 0..<10 {
+    for _ in 0..<15 {
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
       let rFine = Self.shift(b, scale: -1, correction: L1x)
@@ -657,8 +652,14 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Smoothing iterations on the first level.
-      var eFine = gaussSeidelSolve(r: rFine, coarseness: 1)
-      eFine = multigridCoarseLevel(e: eFine, r: rFine, fineLevelCoarseness: 1)
+      var eFine = gaussSeidelSolve(
+        r: rFine,
+        coarseness: 1)
+      eFine = multigridCoarseLevel(
+        e: eFine, 
+        r: rFine,
+        fineLevelCoarseness: 1,
+        fineLevelIterations: 1)
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
@@ -670,7 +671,7 @@ final class LinearSolverTests: XCTestCase {
     
     // A recursive function call within the multigrid V-cycle.
     func multigridCoarseLevel(
-      e: [Float], r: [Float], fineLevelCoarseness: Int
+      e: [Float], r: [Float], fineLevelCoarseness: Int, fineLevelIterations: Int
     ) -> [Float] {
       var eFine = e
       var rFine = r
@@ -688,26 +689,26 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
-      var iterations: Int
-      
-      // TODO: Fix this code. The number of iterations for fine level
-      // corrections is wrong.
+      var coarseLevelIterations: Int
       if coarseLevelCoarseness == 1 {
-        iterations = 1
+        fatalError("This should never happen.")
       } else if coarseLevelCoarseness == 2 {
-        iterations = 4
+        coarseLevelIterations = 4
       } else {
-        iterations = 1
+        coarseLevelIterations = 1
       }
       var eCoarse = gaussSeidelSolve(
-        r: rCoarse, coarseness: coarseLevelCoarseness, iterations: iterations)
+        r: rCoarse, 
+        coarseness: coarseLevelCoarseness,
+        iterations: coarseLevelCoarseness)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 2 {
         eCoarse = multigridCoarseLevel(
           e: eCoarse,
           r: rCoarse,
-          fineLevelCoarseness: coarseLevelCoarseness)
+          fineLevelCoarseness: coarseLevelCoarseness,
+          fineLevelIterations: coarseLevelIterations)
       }
       
       // Prolong from coarse to fine.
@@ -723,7 +724,9 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the fine level.
       let δeFine = gaussSeidelSolve(
-        r: rFine, coarseness: fineLevelCoarseness, iterations: iterations)
+        r: rFine,
+        coarseness: fineLevelCoarseness,
+        iterations: fineLevelIterations)
       for cellID in eFine.indices {
         eFine[cellID] += δeFine[cellID]
       }
@@ -928,5 +931,22 @@ final class LinearSolverTests: XCTestCase {
       }
       return output
     }
+  }
+  
+  // Refactor the multigrid code, fix the bug with iteration count, and
+  // convert the solver into the FAS scheme.
+  // - Modify the storage of the e-vector, permitting RB ordering with Mehr.
+  // - Does it achieve the same convergence rates as the original multigrid?
+  // - Does it perform better for the 128x128x128 grid attempting to peak the
+  //   V-cycle at 64x64x64?
+  //
+  // Use this to test out the Mehrstellen discretization.
+  // - Check the order of convergence, prove there is O(h^2) scaling.
+  // - Implement Mehrstellen without the RHS correction, prove there is O(h^2)
+  //   scaling. Is it already better than central differencing?
+  // - Prove the correct version has O(h^4) scaling.
+  // - Is Mehrstellen more numerically unstable?
+  func testFullApproximationScheme() throws {
+    
   }
 }

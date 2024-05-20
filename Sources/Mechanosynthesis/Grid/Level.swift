@@ -19,8 +19,8 @@ struct Level {
   // each 2x2x2 chunk are stored in Morton order.
   var data: [SIMD8<Float>]
   
-  // Whether each 2x2x2 chunk is part of the "valid" region.
-  var mask: [Bool]
+  // Whether each cell is part of the "valid" region.
+  var mask: [UInt8]
   
   init(descriptor: LevelDescriptor) {
     guard let dimensions = descriptor.dimensions else {
@@ -33,6 +33,6 @@ struct Level {
     // Allocate an array of chunks.
     let chunkCount = dimensions[0] * dimensions[1] * dimensions[2]
     data = Array(repeating: SIMD8(repeating: .nan), count: chunkCount)
-    mask = Array(repeating: false, count: chunkCount)
+    mask = Array(repeating: 0b0000_0000, count: chunkCount)
   }
 }
