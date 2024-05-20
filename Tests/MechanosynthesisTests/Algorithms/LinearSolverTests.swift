@@ -941,6 +941,61 @@ final class LinearSolverTests: XCTestCase {
   //   scaling. Is it already better than central differencing?
   // - Prove the correct version has O(h^4) scaling.
   // - Is Mehrstellen more numerically unstable?
+  //
+  // Exact equations for the Mehrstellen correction:
+  //
+  // B4^{-1} A4 u4 = f4
+  // t3 = B3^{-1} A3 avg u4 - avg B4^{-1} A4 u4
+  // f3 = avg f4
+  // -> B3^{-1} A3 u3 = f3 + t3
+  // -> t2 = B2^{-1} A2 avg u3 - avg B3^{-1} A3 u3 + avg t3
+  // -> f2 = avg f3
+  // ---> B2^{-1} A2 u2 = f2 + t2
+  // ---> t1 = B1^{-1} A1 avg u2 - avg B2^{-1} A2 u2 + avg t2
+  // ---> f1 = avg f2
+  // -----> B1^{-1} A1 u1 = f1 + t1
+  // ---> u2 += interp(u1 - avg u2)
+  // ---> B2^{-1} A2 u2 = f2 + t2
+  // -> u3 += interp(u2 - avg u3)
+  // -> B3^{-1} A3 u3 = f3 + t3
+  // u4 += interp(u3 - avg u4)
+  // B4^{-1} A4 u4 = f4
+  //
+  // Rearranging the equations to avoid the matrix inversion:
+  //
+  // solved by u4 = U4
+  // A4 u4 = B4 f4
+  // t3 = L3 avg u4 - avg A4 u4
+  // f3 = avg B4 f4
+  //
+  // -> solved by u3 = avg u4
+  // -> L3 u3 = f3 + t3
+  // -> t2 = L2 avg u3 - avg L3 u3 + avg t3
+  // -> f2 = avg f3
+  //
+  // ---> solved by u2 = avg u3
+  // ---> L2 u2 = f2 + t2
+  // ---> t1 = L1 avg u2 - avg L2 u2 + avg t2
+  // ---> f1 = avg f2
+  //
+  // -----> solved by u1 = avg u2
+  // -----> L1 u1 = f1 + t1
+  //
+  // ---> solved by u1 = avg u2
+  // ---> u2 += interp(u1 - avg u2)
+  // ---> L2 u2 = f2 + t2
+  //
+  // -> solved by u2 = avg u3
+  // -> u3 += interp(u2 - avg u3)
+  // -> L3 u3 = f3 + t3
+  //
+  // solved by u3 = avg u4
+  // u4 += interp(u3 - avg u4)
+  // A4 u4 = B4 f4
+  //
+  // Mehrstellen should only be applied at the level where it's the source of
+  // truth. This explains why Mehrstellen is "numerically unstable" on coarse
+  // grids.
   func testFullApproximationScheme() throws {
     // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
@@ -1090,6 +1145,17 @@ final class LinearSolverTests: XCTestCase {
       return output
     }
     
+    func subtract(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+      var output = [Float](repeating: .zero, count: lhs.count)
+      for cellID in lhs.indices {
+        let lhsValue = lhs[cellID]
+        let rhsValue = rhs[cellID]
+        let sumValue = lhsValue - rhsValue
+        output[cellID] = sumValue
+      }
+      return output
+    }
+    
     func restrict(_ fineGrid: [Float]) -> [Float] {
       var coarseGrid = [Float](repeating: .zero, count: fineGrid.count / 8)
       let fineGridSize = createGridSize(cellCount: fineGrid.count)
@@ -1126,14 +1192,6 @@ final class LinearSolverTests: XCTestCase {
               accumulator += (1.0 / 8) * fineValue
             }
             
-            for permutationZ in 0..<Int16(2) {
-              for permutationY in 0..<2 {
-                for permutationX in 0..<2 {
-                  
-                }
-              }
-            }
-            
             // Write to the coarse grid.
             let coarseIndices = SIMD3(indexX, indexY, indexZ)
             let coarseAddress = createAddress(
@@ -1143,6 +1201,51 @@ final class LinearSolverTests: XCTestCase {
         }
       }
       return coarseGrid
+    }
+    
+    func prolong(_ coarseGrid: [Float]) -> [Float] {
+      var fineGrid = [Float](repeating: .zero, count: coarseGrid.count * 8)
+      let coarseGridSize = createGridSize(cellCount: coarseGrid.count)
+      let fineGridSize = coarseGridSize * 2
+      
+      // Create a list of index permutations.
+      var permutations: [SIMD3<Int16>] = []
+      for permutationZ in 0..<2 {
+        for permutationY in 0..<2 {
+          for permutationX in 0..<2 {
+            let permutationSet = SIMD3(
+              Int16(permutationX),
+              Int16(permutationY),
+              Int16(permutationZ))
+            permutations.append(permutationSet)
+          }
+        }
+      }
+      
+      // Iterate over the coarse grid.
+      for indexZ in 0..<coarseGridSize {
+        for indexY in 0..<coarseGridSize {
+          for indexX in 0..<coarseGridSize {
+            // Read from the coarse grid.
+            let coarseIndices = SIMD3(indexX, indexY, indexZ)
+            let coarseAddress = createAddress(
+              coarseIndices, gridSize: coarseGridSize)
+            let coarseValue = coarseGrid[coarseAddress]
+            
+            // Iterate over the footprint on the finer grid.
+            for permutation in permutations {
+              var fineIndices = 2 &* SIMD3(indexX, indexY, indexZ)
+              fineIndices &+= permutation
+              let fineAddress = createAddress(
+                fineIndices, gridSize: fineGridSize)
+              
+              // Write to the fine grid.
+              fineGrid[fineAddress] = coarseValue
+            }
+          }
+        }
+      }
+      return fineGrid
     }
     
     // The two types of cells that are updated in alternation.
