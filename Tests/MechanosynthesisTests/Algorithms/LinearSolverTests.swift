@@ -1010,37 +1010,8 @@ final class LinearSolverTests: XCTestCase {
         print("||r|| = \(residualNorm)")
       }
       
-      // Set up the relaxations.
-      var (red, black) = split(solution: x)
-      var relaxationDesc = RelaxationDescriptor()
-      relaxationDesc.rhs = b
-      
-      // Gauss-Seidel: Red
-      relaxationDesc.sweep = .red
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      red = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Black
-      relaxationDesc.sweep = .black
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      black = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Red
-      relaxationDesc.sweep = .red
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      red = relax(descriptor: relaxationDesc)
-      
-      // Gauss-Seidel: Black
-      relaxationDesc.sweep = .black
-      relaxationDesc.red = red
-      relaxationDesc.black = black
-      black = relax(descriptor: relaxationDesc)
-      
-      // Clean up after the relaxations.
-      x = merge(red: red, black: black)
+      // Perform two iterations of Gauss-Seidel smoothing.
+      smooth(solution: &x, rightHandSide: b)
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
@@ -1250,7 +1221,7 @@ final class LinearSolverTests: XCTestCase {
       var sweep: Sweep?
       var red: [Float]?
       var black: [Float]?
-      var rhs: [Float]?
+      var rightHandSide: [Float]?
     }
     
     // TODO: Automatically detect whether Mehrstellen should be applied, based
@@ -1260,13 +1231,13 @@ final class LinearSolverTests: XCTestCase {
       guard let sweep = descriptor.sweep,
             let red = descriptor.red,
             let black = descriptor.black,
-            let rhs = descriptor.rhs else {
+            let rightHandSide = descriptor.rightHandSide else {
         fatalError("Descriptor was incomplete.")
       }
       
       // Allocate memory for the written solution values.
       var output = [Float](repeating: .zero, count: red.count)
-      let gridSize = createGridSize(cellCount: rhs.count)
+      let gridSize = createGridSize(cellCount: rightHandSide.count)
       let h = createSpacing(gridSize: gridSize)
       
       // Iterate over the cells.
@@ -1320,7 +1291,7 @@ final class LinearSolverTests: XCTestCase {
             Lu += -6 / (h * h) * cellValue
             
             // Write the cell value to memory.
-            let residual = rhs[cellAddress] - Lu
+            let residual = rightHandSide[cellAddress] - Lu
             let Δt: Float = (h * h) / -6
             output[cellAddress / 2] = cellValue + Δt * residual
           }
@@ -1329,7 +1300,7 @@ final class LinearSolverTests: XCTestCase {
       return output
     }
     
-    func residual(solution: [Float], rhs: [Float]) -> [Float] {
+    func residual(solution: [Float], rightHandSide: [Float]) -> [Float] {
       var output = [Float](repeating: .zero, count: solution.count)
       let gridSize = createGridSize(cellCount: solution.count)
       let h = createSpacing(gridSize: gridSize)
@@ -1368,12 +1339,50 @@ final class LinearSolverTests: XCTestCase {
             Lu += -6 / (h * h) * cellValue
             
             // Write the cell value to memory.
-            let residual = rhs[cellAddress] - Lu
+            let residual = rightHandSide[cellAddress] - Lu
             output[cellAddress] = residual
           }
         }
       }
       return output
+    }
+    
+    func smooth(
+      solution: inout [Float],
+      rightHandSide: [Float],
+      iterations: Int = 2
+    ) {
+      // Set up the relaxations.
+      var (red, black) = split(solution: solution)
+      var relaxationDesc = RelaxationDescriptor()
+      relaxationDesc.rightHandSide = rightHandSide
+      
+      // Gauss-Seidel: Red
+      relaxationDesc.sweep = .red
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      red = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Black
+      relaxationDesc.sweep = .black
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      black = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Red
+      relaxationDesc.sweep = .red
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      red = relax(descriptor: relaxationDesc)
+      
+      // Gauss-Seidel: Black
+      relaxationDesc.sweep = .black
+      relaxationDesc.red = red
+      relaxationDesc.black = black
+      black = relax(descriptor: relaxationDesc)
+      
+      // Clean up after the relaxations.
+      solution = merge(red: red, black: black)
     }
   }
 }
