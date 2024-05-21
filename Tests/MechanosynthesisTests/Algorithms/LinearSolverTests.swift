@@ -1413,6 +1413,96 @@ final class LinearSolverTests: XCTestCase {
       var rightHandSide: [Float]?
     }
     
+    // Execute the convolution kernel.
+    @_transparent
+    func convolutionKernel(
+      sweep: Sweep?,
+      red: [Float]?,
+      black: [Float]?,
+      solution: [Float]?,
+      rightHandSide: [Float],
+      
+      gridSize: Int16,
+      h: Float,
+      useMehrstellen: Bool,
+      edgePermutations: [SIMD3<Int16>],
+      cellIndices: SIMD3<Int16>,
+      cellAddress: Int
+    ) -> (cellValue: Float, residual: Float) {
+      // Iterate over the faces.
+      var Lu: Float = .zero
+      var f: Float = .zero
+      for faceID in 0..<6 {
+        let coordinateID = faceID / 2
+        let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+        
+        // Locate the neighboring cell.
+        var neighborIndices = cellIndices
+        neighborIndices[coordinateID] += Int16(coordinateShift)
+        guard all(neighborIndices .>= 0),
+              all(neighborIndices .< gridSize) else {
+          continue
+        }
+        let neighborAddress = createAddress(
+          neighborIndices, gridSize: gridSize)
+        
+        // Read the neighbor value from memory.
+        var neighborValue: Float
+        if sweep == .red {
+          neighborValue = black.unsafelyUnwrapped[neighborAddress / 2]
+        } else if sweep == .black {
+          neighborValue = red.unsafelyUnwrapped[neighborAddress / 2]
+        } else {
+          neighborValue = solution.unsafelyUnwrapped[neighborAddress]
+        }
+        Lu += 1 / (h * h) * neighborValue
+      }
+      
+      // Iterate over the edges.
+      if useMehrstellen {
+        for edgePermutation in edgePermutations {
+          // Locate the neighboring cell.
+          var neighborIndices = cellIndices
+          neighborIndices &+= edgePermutation
+          guard all(neighborIndices .>= 0),
+                all(neighborIndices .< gridSize) else {
+            continue
+          }
+          let neighborAddress = createAddress(
+            neighborIndices, gridSize: gridSize)
+          
+          // Read the neighbor value from memory.
+          var neighborValue: Float
+          if sweep == .red {
+            neighborValue = red.unsafelyUnwrapped[neighborAddress / 2]
+          } else if sweep == .black {
+            neighborValue = black.unsafelyUnwrapped[neighborAddress / 2]
+          } else {
+            neighborValue = solution.unsafelyUnwrapped[neighborAddress]
+          }
+          Lu += Float(1.0 / 6) / (h * h) * neighborValue
+        }
+      }
+      
+      // Read the cell value from memory.
+      var cellValue: Float
+      if sweep == .red {
+        cellValue = red.unsafelyUnwrapped[cellAddress / 2]
+      } else if sweep == .black {
+        cellValue = black.unsafelyUnwrapped[cellAddress / 2]
+      } else {
+        cellValue = solution.unsafelyUnwrapped[cellAddress]
+      }
+      Lu += -6 / (h * h) * cellValue
+      
+      // Read the RHS value from memory.
+      f += rightHandSide[cellAddress]
+      
+      // Return the residual and cell value.
+      let residual = f - Lu
+      return (cellValue, residual)
+    }
+    
     func relax(descriptor: RelaxationDescriptor) -> [Float] {
       guard let sweep = descriptor.sweep,
             let red = descriptor.red,
@@ -1441,78 +1531,23 @@ final class LinearSolverTests: XCTestCase {
               continue
             }
             
-            // Iterate over the faces.
-            var Lu: Float = .zero
-            var f: Float = .zero
-            for faceID in 0..<6 {
-              let coordinateID = faceID / 2
-              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-              
-              // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += Int16(coordinateShift)
-              guard all(neighborIndices .>= 0),
-                    all(neighborIndices .< gridSize) else {
-                continue
-              }
-              let neighborAddress = createAddress(
-                neighborIndices, gridSize: gridSize)
-              
-              // Read the neighbor value from memory.
-              var neighborValue: Float
-              if sweep == .red {
-                neighborValue = black[neighborAddress / 2]
-              } else {
-                neighborValue = red[neighborAddress / 2]
-              }
-              let faceWeight = useMehrstellen ? Float(1.0 / 3) : Float(1)
-              Lu += faceWeight / (h * h) * neighborValue
-            }
-            
-            // Iterate over the edges.
-            if useMehrstellen {
-              for edgePermutation in edgePermutations {
-                // Locate the neighboring cell.
-                var neighborIndices = SIMD3(indexX, indexY, indexZ)
-                neighborIndices &+= edgePermutation
-                guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< gridSize) else {
-                  continue
-                }
-                let neighborAddress = createAddress(
-                  neighborIndices, gridSize: gridSize)
-                
-                // Read the neighbor value from memory.
-                var neighborValue: Float
-                if sweep == .red {
-                  neighborValue = red[neighborAddress / 2]
-                } else {
-                  neighborValue = black[neighborAddress / 2]
-                }
-                Lu += 1 / (6 * h * h) * neighborValue
-              }
-            }
-            
-            // Locate the current cell.
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let (cellValue, residual) = convolutionKernel(
+              sweep: sweep,
+              red: red,
+              black: black,
+              solution: nil,
+              rightHandSide: rightHandSide,
+              
+              gridSize: gridSize,
+              h: h,
+              useMehrstellen: useMehrstellen,
+              edgePermutations: edgePermutations,
+              cellIndices: cellIndices,
+              cellAddress: cellAddress)
             
-            // Read the cell value from memory.
-            var cellValue: Float
-            if sweep == .red {
-              cellValue = red[cellAddress / 2]
-            } else {
-              cellValue = black[cellAddress / 2]
-            }
-            let cellWeight = useMehrstellen ? Float(-4) : Float(-6)
-            Lu += cellWeight / (h * h) * cellValue
-            
-            // Read the RHS value from memory.
-            f += rightHandSide[cellAddress]
-            
-            // Write the cell value to memory.
-            let residual = f - Lu
-            let Δt: Float = (h * h) / cellWeight
+            let Δt: Float = (h * h) / -6
             output[cellAddress / 2] = cellValue + Δt * residual
           }
         }
