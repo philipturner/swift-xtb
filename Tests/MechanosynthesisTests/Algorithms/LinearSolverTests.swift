@@ -22,7 +22,7 @@ import Numerics
 //   of two Gauss-Seidel iterations.
 //
 // ========================================================================== //
-// Results
+// Results (Raw Data)
 // ========================================================================== //
 //
 // h = 0.25, gridSize = 8, cellCount = 512
@@ -33,7 +33,9 @@ import Numerics
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
 // Multigrid 1-2-1-2-2  10 iters  ||r|| = 0.00020144212  0.003 seconds
 // Multigrid 1-4-2       7 iters  ||r|| = 0.00019803157  0.003 seconds
-// FAS
+// FAS 2-2-4-2-2        13 iters  ||r|| = 0.00018249848  0.004 seconds
+// FAS 3-3-6-3-3        10 iters  ||r|| = 0.00013220003  0.004 seconds
+// FAS 4-4-8-4-4         8 iters  ||r|| = 0.00016010087  0.004 seconds
 //
 // h = 0.125, gridSize = 16, cellCount = 4096
 //                       0 iters  ||r|| = 3091.9424
@@ -44,7 +46,9 @@ import Numerics
 // Multigrid 1-2-1-2-2  12 iters  ||r|| = 0.0025058207  0.024 seconds
 // Multigrid 1-2-2-2-2  10 iters  ||r|| = 0.0023211893  0.021 seconds
 // Multigrid 1-2-4-2-2  12 iters  ||r|| = 0.0025251452  0.025 seconds
-// FAS
+// FAS 2-2-2-4-2-2-2    21 iters  ||r|| = 0.0019460453  0.031 seconds
+// FAS 3-3-3-6-3-3-3    13 iters  ||r|| = 0.0019811026  0.026 seconds
+// FAS 4-4-4-8-4-4-4    10 iters  ||r|| = 0.001796775   0.025 seconds
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
 //                           0 iters  ||r|| = 24494.229
@@ -54,39 +58,53 @@ import Numerics
 // Multigrid 1-1-1-1-1-1-1  30 iters  ||r|| = 0.029823668  0.408 seconds
 // Multigrid 1-2-2-1-2-2-2  15 iters  ||r|| = 0.02897086   0.242 seconds
 // Multigrid 1-2-4-2-2      15 iters  ||r|| = 0.028649306  0.251 seconds
-// FAS
+// FAS 2-2-2-2-4-2-2-2-2    55 iters  ||r|| = 0.022709914  0.640 seconds
+// FAS 3-3-3-3-6-3-3-3-3    20 iters  ||r|| = 0.02041208   0.300 seconds
+// FAS 4-4-4-4-8-4-4-4-4    15 iters  ||r|| = 0.01959731   0.283 seconds
 //
 // h = 0.0313, gridSize = 64, cellCount = 262,144
-//                           0 iters  ||r|| = 195015.61
-// Gauss-Seidel             99 iters  ||r|| = 5887.104    3.311 seconds
-// Conjugate Gradient       99 iters  ||r|| = 53.441914   3.375 seconds
-// Preconditioned CG        50 iters  ||r|| = 0.72252524  4.823 seconds
-// Multigrid 1-1-1-1-1-1-1  35 iters  ||r|| = 0.45097157  3.831 seconds
-// Multigrid 1-2-2-1-2-2-2  30 iters  ||r|| = 0.3642269   3.951 seconds
-// Multigrid 1-2-2-2-2-2-2  20 iters  ||r|| = 0.36008823  2.601 seconds
-// Multigrid 1-2-2-4-2-2-2  20 iters  ||r|| = 0.30006418  2.613 seconds
-// FAS
+//                             0 iters  ||r|| = 195015.61
+// Gauss-Seidel               99 iters  ||r|| = 5887.104    3.311 seconds
+// Conjugate Gradient         99 iters  ||r|| = 53.441914   3.375 seconds
+// Preconditioned CG          50 iters  ||r|| = 0.72252524  4.823 seconds
+// Multigrid 1-1-1-1-1-1-1    35 iters  ||r|| = 0.45097157  3.831 seconds
+// Multigrid 1-2-2-1-2-2-2    30 iters  ||r|| = 0.3642269   3.951 seconds
+// Multigrid 1-2-2-2-2-2-2    20 iters  ||r|| = 0.36008823  2.601 seconds
+// Multigrid 1-2-2-4-2-2-2    20 iters  ||r|| = 0.30006418  2.613 seconds
+// FAS 3-3-3-3-3-6-3-3-3-3-3  35 iters  ||r|| = 0.23221506  4.315 seconds
+// FAS 4-4-4-4-4-8-4-4-4-4-4  20 iters  ||r|| = 0.22813758  3.047 seconds
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
-//                                0 iters  ||r|| = 1556438.4
-// Preconditioned CG             60 iters  ||r|| = 1209.9086  46.300 seconds
-// Preconditioned CG             99 iters  ||r|| = 11.659912  75.554 seconds
-// Multigrid 1-1-1-1-1-1-1       60 iters  ||r|| = 225.7327   52.499 seconds
-// Multigrid 1-1-1-2-1-1-1       60 iters  ||r|| = 25.65553   52.680 seconds
-// Multigrid 1-2-2-2-2-2-2       60 iters  ||r|| = 6.335201   62.544 seconds
-// Multigrid 1-2-2-4-2-2-2       40 iters  ||r|| = 3.906945   42.194 seconds
-// Multigrid 1-2-2-2-1-2-2-2-2   28 iters  ||r|| = 3.576714   29.415 seconds
-// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4 30 iters  ||r|| = 2.6634037  35.504 seconds
+//                                 0 iters  ||r|| = 1556438.4
+// Preconditioned CG              60 iters  ||r|| = 1209.9086  46.300 seconds
+// Preconditioned CG              99 iters  ||r|| = 11.659912  75.554 seconds
+// Multigrid 1-1-1-1-1-1-1        60 iters  ||r|| = 225.7327   52.499 seconds
+// Multigrid 1-1-1-2-1-1-1        60 iters  ||r|| = 25.65553   52.680 seconds
+// Multigrid 1-2-2-2-2-2-2        60 iters  ||r|| = 6.335201   62.544 seconds
+// Multigrid 1-2-2-4-2-2-2        40 iters  ||r|| = 3.906945   42.194 seconds
+// Multigrid 1-2-2-2-1-2-2-2-2    28 iters  ||r|| = 3.576714   29.415 seconds
+// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4  30 iters  ||r|| = 2.6634037  35.504 seconds
 //
-// Pattern for reliably-performing grids:
-// Multigrid 1-4-2           7 iters  ||r|| = 0.00019803157  0.003 seconds
-// Multigrid 1-2-4-2-2      12 iters  ||r|| = 0.0025251452   0.025 seconds
-// Multigrid 1-2-4-2-2      15 iters  ||r|| = 0.028649306    0.251 seconds
-// Multigrid 1-2-2-4-2-2-2  20 iters  ||r|| = 0.30006418     2.613 seconds
-// Multigrid 1-2-2-4-2-2-2  40 iters  ||r|| = 3.906945      42.194 seconds
+// ========================================================================== //
+// Results (Summary)
+// ========================================================================== //
 //
-// The pattern has improved much more with FAS. Convergence is consistent and
-// requires minimal fine-tuning.
+// Pattern for reliable convergence (original multigrid):
+// Multigrid 1-4-2                 7 V-cycles  ||r|| = 0.000198   0.003 seconds
+// Multigrid 1-2-4-2-2            12 V-cycles  ||r|| = 0.002525   0.025 seconds
+// Multigrid 1-2-4-2-2            15 V-cycles  ||r|| = 0.028649   0.251 seconds
+// Multigrid 1-2-2-4-2-2-2        20 V-cycles  ||r|| = 0.300064   2.613 seconds
+// Multigrid 1-2-2-4-2-2-2        40 V-cycles  ||r|| = 3.906945  42.194 seconds
+//
+// Pattern for reliable convergence (after rewrite, which added FAS):
+// FAS 4-4-8-4-4                   8 V-cycles  ||r|| = 0.000160   0.004 seconds
+// FAS 4-4-4-8-4-4-4              10 V-cycles  ||r|| = 0.001796   0.025 seconds
+// FAS 4-4-4-4-8-4-4-4-4          15 V-cycles  ||r|| = 0.019597   0.283 seconds
+// FAS 4-4-4-4-4-8-4-4-4-4-4      20 V-cycles  ||r|| = 0.228137   3.047 seconds
+// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4  30 V-cycles  ||r|| = 2.663403  35.504 seconds
+//
+// The pattern is much simpler with FAS. The solver converges consistently and
+// requires no fine-tuning.
 //
 // ========================================================================== //
 // Discussion
@@ -132,8 +150,8 @@ import Numerics
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8 * 16
-  static let h: Float = 0.25 / 16
+  static let gridSize: Int = 8
+  static let h: Float = 0.25
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // MARK: - Utilities
@@ -938,13 +956,14 @@ final class LinearSolverTests: XCTestCase {
   
   // Refactor the multigrid code, fix the bug with iteration count, and
   // convert the solver into the FAS scheme.
-  // - Modify the storage of the e-vector, permitting RB ordering with Mehr.
-  // - Does it achieve the same convergence rates as the original multigrid?
+  // - Modify the storage of the e-vector, permitting RB ordering with Mehr. ✅
+  // - Does it achieve the same convergence rates as the original multigrid? ✅
   // - Does it perform better for the 128x128x128 grid attempting to peak the
-  //   V-cycle at 64x64x64?
+  //   V-cycle at 64x64x64? ✅
   //
   // Use this to test out the Mehrstellen discretization.
-  // - Check the order of convergence, prove there is O(h^2) scaling.
+  // - Check the order of convergence, prove there is O(h^2) scaling on
+  //   increasingly expensive grids.
   // - Implement Mehrstellen without the RHS correction, prove there is O(h^2)
   //   scaling. Is it already better than central differencing?
   // - Prove the correct version has O(h^4) scaling.
@@ -1009,7 +1028,7 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
-    for _ in 0..<30 {
+    for _ in 0..<10 {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -1019,8 +1038,12 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Execute six smoothing iterations on each level (3 up, 3 down).
-      cycle(solution: &x, rightHandSide: b, stages: 7)
+      cycle(solution: &x, rightHandSide: b, stages: 3)
     }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    XCTAssertLessThan(residualNorm, 0.001)
     
     // Perform a V-cycle.
     // - solution: The solution, which will be updated in-place.
