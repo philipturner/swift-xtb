@@ -1027,8 +1027,19 @@ final class LinearSolverTests: XCTestCase {
     b = Self.shift(b, scale: -1, correction: L2x)
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
-    // Execute the iterations.
-    for _ in 0..<10 {
+    // Heuristic for number of iterations:
+    // - Optimal iteration count: (2/3) * stageCount^2
+    // - Conservative iteration count: stageCount^2
+    //
+    // Data used for parametrization:
+    // 8x8x8         9 iterations > 8 iterations
+    // 16x16x16     16 iterations > 10 iterations
+    // 32x32x32     25 iterations > 15 iterations
+    // 64x64x64     36 iterations > 20 iterations
+    // 128x128x128  49 iterations > 30 iterations
+    let stageCount = Self.gridSize.trailingZeroBitCount
+    let iterationCount = stageCount * stageCount
+    for _ in 0..<iterationCount {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
         let r = Self.shift(b, scale: -1, correction: L1x)
@@ -1038,12 +1049,55 @@ final class LinearSolverTests: XCTestCase {
       }
       
       // Execute six smoothing iterations on each level (3 up, 3 down).
-      cycle(solution: &x, rightHandSide: b, stages: 3)
+      cycle(solution: &x, rightHandSide: b, stages: stageCount)
     }
     
     // Check the residual norm at the end of iterations.
     let residualNorm = Self.createResidualNorm(solution: x)
     XCTAssertLessThan(residualNorm, 0.001)
+    
+    // Check the accuracy of the solution.
+    do {
+      // Create variables to accumulate the population statistics.
+      var rmsAccumulator: Double = .zero
+      var madAccumulator: Double = .zero
+      var maxAccumulator: Float = .zero
+      
+      // Iterate over the grid.
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellValue = x[cellAddress]
+            
+            let position = (SIMD3<Float>(cellIndices) + 0.5) * Self.h
+            let rDelta = position - SIMD3<Float>(1, 1, 1)
+            let r = (rDelta * rDelta).sum().squareRoot()
+            let expected = 1 / r
+            
+            let error = (cellValue - expected).magnitude
+            let drTerm = Self.h * Self.h * Self.h
+            rmsAccumulator += Double(error * error * drTerm)
+            madAccumulator += Double(error * drTerm)
+            maxAccumulator = max(maxAccumulator, error)
+          }
+        }
+      }
+      
+      // Prepare the population statistics for presentation.
+      let rms = Float(rmsAccumulator).squareRoot()
+      let mad = Float(madAccumulator)
+      let max = maxAccumulator
+      
+      // Present the population statistics.
+      func fmt(_ number: Float) -> String {
+        String(format: "%.6f", number)
+      }
+      print("RMS:", fmt(rms), terminator: " | ")
+      print("MAD:", fmt(mad), terminator: " | ")
+      print("MAX:", fmt(max))
+    }
     
     // Perform a V-cycle.
     // - solution: The solution, which will be updated in-place.
