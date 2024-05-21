@@ -1413,6 +1413,125 @@ final class LinearSolverTests: XCTestCase {
       var rightHandSide: [Float]?
     }
     
+    func smooth(
+      solution: inout [Float],
+      rightHandSide: [Float],
+      iterations: Int = 4
+    ) {
+      // Set up the relaxations.
+      var (red, black) = split(solution: solution)
+      var relaxationDesc = RelaxationDescriptor()
+      relaxationDesc.rightHandSide = rightHandSide
+      
+      for _ in 0..<iterations {
+        // Gauss-Seidel: Red
+        relaxationDesc.sweep = .red
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        red = relax(descriptor: relaxationDesc)
+        
+        // Gauss-Seidel: Black
+        relaxationDesc.sweep = .black
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        black = relax(descriptor: relaxationDesc)
+      }
+      
+      // Clean up after the relaxations.
+      solution = merge(red: red, black: black)
+    }
+    
+    func relax(descriptor: RelaxationDescriptor) -> [Float] {
+      guard let sweep = descriptor.sweep,
+            let red = descriptor.red,
+            let black = descriptor.black,
+            let rightHandSide = descriptor.rightHandSide else {
+        fatalError("Descriptor was incomplete.")
+      }
+      
+      // Allocate memory for the written solution values.
+      var output = [Float](repeating: .zero, count: red.count)
+      let gridSize = createGridSize(cellCount: rightHandSide.count)
+      let h = createSpacing(gridSize: gridSize)
+      
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let edgePermutations = createEdgePermutations()
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            guard isRed == (sweep == .red) else {
+              continue
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let (cellValue, residual) = convolutionKernel(
+              sweep: sweep,
+              red: red,
+              black: black,
+              solution: nil,
+              rightHandSide: rightHandSide,
+              
+              gridSize: gridSize,
+              h: h,
+              useMehrstellen: useMehrstellen,
+              edgePermutations: edgePermutations,
+              cellIndices: cellIndices,
+              cellAddress: cellAddress)
+            
+            let Δt: Float = (h * h) / -6
+            output[cellAddress / 2] = cellValue + Δt * residual
+          }
+        }
+      }
+      return output
+    }
+    
+    // The negative of b - Ax, which is Ax - b.
+    func negativeResidual(
+      solution: [Float], rightHandSide: [Float]
+    ) -> [Float] {
+      var output = [Float](repeating: .zero, count: solution.count)
+      let gridSize = createGridSize(cellCount: solution.count)
+      let h = createSpacing(gridSize: gridSize)
+      
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let edgePermutations = createEdgePermutations()
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let (_, residual) = convolutionKernel(
+              sweep: nil,
+              red: nil,
+              black: nil,
+              solution: solution,
+              rightHandSide: rightHandSide,
+              
+              gridSize: gridSize,
+              h: h,
+              useMehrstellen: useMehrstellen,
+              edgePermutations: edgePermutations,
+              cellIndices: cellIndices,
+              cellAddress: cellAddress)
+            
+            output[cellAddress] = -residual
+          }
+        }
+      }
+      return output
+    }
+    
     // Execute the convolution kernel.
     @_transparent
     func convolutionKernel(
@@ -1501,165 +1620,6 @@ final class LinearSolverTests: XCTestCase {
       // Return the residual and cell value.
       let residual = f - Lu
       return (cellValue, residual)
-    }
-    
-    func relax(descriptor: RelaxationDescriptor) -> [Float] {
-      guard let sweep = descriptor.sweep,
-            let red = descriptor.red,
-            let black = descriptor.black,
-            let rightHandSide = descriptor.rightHandSide else {
-        fatalError("Descriptor was incomplete.")
-      }
-      
-      // Allocate memory for the written solution values.
-      var output = [Float](repeating: .zero, count: red.count)
-      let gridSize = createGridSize(cellCount: rightHandSide.count)
-      let h = createSpacing(gridSize: gridSize)
-      
-      // Determine whether to use Mehrstellen.
-      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
-      let edgePermutations = createEdgePermutations()
-      
-      // Iterate over the cells.
-      for indexZ in 0..<gridSize {
-        for indexY in 0..<gridSize {
-          for indexX in 0..<gridSize {
-            // Mask out either the red or black cells.
-            let parity = indexX ^ indexY ^ indexZ
-            let isRed = (parity & 1) == 0
-            guard isRed == (sweep == .red) else {
-              continue
-            }
-            
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
-            let (cellValue, residual) = convolutionKernel(
-              sweep: sweep,
-              red: red,
-              black: black,
-              solution: nil,
-              rightHandSide: rightHandSide,
-              
-              gridSize: gridSize,
-              h: h,
-              useMehrstellen: useMehrstellen,
-              edgePermutations: edgePermutations,
-              cellIndices: cellIndices,
-              cellAddress: cellAddress)
-            
-            let Δt: Float = (h * h) / -6
-            output[cellAddress / 2] = cellValue + Δt * residual
-          }
-        }
-      }
-      return output
-    }
-    
-    // The negative of b - Ax, which is Ax - b.
-    func negativeResidual(
-      solution: [Float], rightHandSide: [Float]
-    ) -> [Float] {
-      var output = [Float](repeating: .zero, count: solution.count)
-      let gridSize = createGridSize(cellCount: solution.count)
-      let h = createSpacing(gridSize: gridSize)
-      
-      // Determine whether to use Mehrstellen.
-      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
-      let edgePermutations = createEdgePermutations()
-      
-      // Iterate over the cells.
-      for indexZ in 0..<gridSize {
-        for indexY in 0..<gridSize {
-          for indexX in 0..<gridSize {
-            // Iterate over the faces.
-            var Lu: Float = .zero
-            var f: Float = .zero
-            for faceID in 0..<6 {
-              let coordinateID = faceID / 2
-              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-              
-              // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += Int16(coordinateShift)
-              guard all(neighborIndices .>= 0),
-                    all(neighborIndices .< gridSize) else {
-                continue
-              }
-              let neighborAddress = createAddress(
-                neighborIndices, gridSize: gridSize)
-              
-              // Read the neighbor value from memory.
-              let neighborValue = solution[neighborAddress]
-              let faceWeight = useMehrstellen ? Float(1.0 / 3) : Float(1)
-              Lu += faceWeight / (h * h) * neighborValue
-            }
-            
-            // Iterate over the edges.
-            if useMehrstellen {
-              for edgePermutation in edgePermutations {
-                // Locate the neighboring cell.
-                var neighborIndices = SIMD3(indexX, indexY, indexZ)
-                neighborIndices &+= edgePermutation
-                guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< gridSize) else {
-                  continue
-                }
-                let neighborAddress = createAddress(
-                  neighborIndices, gridSize: gridSize)
-                
-                // Read the neighbor value from memory.
-                let neighborValue = solution[neighborAddress]
-                Lu += 1 / (6 * h * h) * neighborValue
-              }
-            }
-            
-            // Locate the current cell.
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
-            
-            // Read the cell value from memory.
-            let cellValue = solution[cellAddress]
-            let cellWeight = useMehrstellen ? Float(-4) : Float(-6)
-            Lu += cellWeight / (h * h) * cellValue
-            
-            // Read the RHS value from memory.
-            f += rightHandSide[cellAddress]
-            
-            // Write the cell value to memory.
-            let residual = f - Lu
-            output[cellAddress] = -residual
-          }
-        }
-      }
-      return output
-    }
-    
-    func smooth(
-      solution: inout [Float],
-      rightHandSide: [Float],
-      iterations: Int = 4
-    ) {
-      // Set up the relaxations.
-      var (red, black) = split(solution: solution)
-      var relaxationDesc = RelaxationDescriptor()
-      relaxationDesc.rightHandSide = rightHandSide
-      
-      for _ in 0..<iterations {
-        // Gauss-Seidel: Red
-        relaxationDesc.sweep = .red
-        relaxationDesc.red = red
-        relaxationDesc.black = black
-        red = relax(descriptor: relaxationDesc)
-        
-        // Gauss-Seidel: Black
-        relaxationDesc.sweep = .black
-        relaxationDesc.red = red
-        relaxationDesc.black = black
-        black = relax(descriptor: relaxationDesc)
-      }
-      
-      // Clean up after the relaxations.
-      solution = merge(red: red, black: black)
     }
   }
 }
