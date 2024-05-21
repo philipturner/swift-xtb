@@ -179,7 +179,7 @@ import Numerics
 //
 // TODO
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8 * 4
+  static let gridSize: Int = 8
   static let h: Float = 2 / Float(gridSize)
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
@@ -1052,13 +1052,8 @@ final class LinearSolverTests: XCTestCase {
   func testFullApproximationScheme() throws {
     // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
-    if shouldUseMehrstellen(gridSize: Int16(Self.gridSize)) {
-      let L2x = applyLaplacianMehrstellenBoundary()
-      b = Self.shift(b, scale: -1, correction: L2x)
-    } else {
-      let L2x = Self.applyLaplacianBoundary()
-      b = Self.shift(b, scale: -1, correction: L2x)
-    }
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Heuristic for number of iterations:
@@ -1071,21 +1066,10 @@ final class LinearSolverTests: XCTestCase {
     // 32x32x32     25 iterations > 15 iterations
     // 64x64x64     36 iterations > 20 iterations
     // 128x128x128  49 iterations > 30 iterations
-    let stageCount: Int = 1
-    let iterationCount: Int = 200
-    // let stageCount = Self.gridSize.trailingZeroBitCount
-    // let iterationCount = stageCount * stageCount
+    let stageCount = Self.gridSize.trailingZeroBitCount
+    let iterationCount = stageCount * stageCount
     for _ in 0..<iterationCount {
-      do {
-//         let L1x = Self.applyLaplacianLinearPart(x)
-//         let r = Self.shift(b, scale: -1, correction: L1x)
-        let r = negativeResidual(solution: x, rightHandSide: b)
-        let r2 = Self.dot(r, r)
-        let residualNorm = r2.squareRoot()
-        print("||r|| = \(residualNorm)")
-      }
-      
-      // Execute six smoothing iterations on each level (3 up, 3 down).
+      // Execute eight smoothing iterations on each level (4 up, 4 down).
       cycle(solution: &x, rightHandSide: b, stages: stageCount)
     }
     
@@ -1099,7 +1083,6 @@ final class LinearSolverTests: XCTestCase {
       var rmsAccumulator: Double = .zero
       var madAccumulator: Double = .zero
       var maxAccumulator: Float = .zero
-      let useMehrstellen = shouldUseMehrstellen(gridSize: Int16(Self.gridSize))
       
       // Iterate over the grid.
       for indexZ in 0..<Self.gridSize {
@@ -1107,34 +1090,7 @@ final class LinearSolverTests: XCTestCase {
           for indexX in 0..<Self.gridSize {
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = Self.createAddress(indices: cellIndices)
-            
-            #if true
             let cellValue = x[cellAddress]
-            #else
-            var cellValue = x[cellAddress]
-            if useMehrstellen {
-              cellValue *= 0.5
-              
-              for faceID in 0..<6 {
-                let coordinateID = faceID / 2
-                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-                
-                // Locate the neighboring cell.
-                var neighborIndices = cellIndices
-                neighborIndices[coordinateID] += Int(coordinateShift)
-                guard all(neighborIndices .>= 0),
-                      all(neighborIndices .< Self.gridSize) else {
-                  continue
-                }
-                
-                // Read the neighbor value from memory.
-                let neighborAddress = Self
-                  .createAddress(indices: neighborIndices)
-                let neighborValue = x[neighborAddress]
-                cellValue += Float(1.0 / 12) * neighborValue
-              }
-            }
-            #endif
             
             let position = (SIMD3<Float>(cellIndices) + 0.5) * Self.h
             let rDelta = position - SIMD3<Float>(1, 1, 1)
@@ -1150,18 +1106,13 @@ final class LinearSolverTests: XCTestCase {
         }
       }
       
-      // Prepare the population statistics for presentation.
+      // Check the population statistics.
       let rms = Float(rmsAccumulator).squareRoot()
       let mad = Float(madAccumulator)
       let max = maxAccumulator
-      
-      // Present the population statistics.
-      func fmt(_ number: Float) -> String {
-        String(format: "%.6f", number)
-      }
-      print("RMS:", fmt(rms), terminator: " | ")
-      print("MAD:", fmt(mad), terminator: " | ")
-      print("MAX:", fmt(max))
+      XCTAssertLessThan(rms, 0.10)
+      XCTAssertLessThan(mad, 0.14)
+      XCTAssertLessThan(max, 0.19)
     }
     
     // Perform a V-cycle.
@@ -1221,8 +1172,8 @@ final class LinearSolverTests: XCTestCase {
     
     // Whether Mehrstellen discretization should be used.
     func shouldUseMehrstellen(gridSize: Int16) -> Bool {
-      gridSize == Self.gridSize
-//      false
+      // The current implementation of Mehrstellen has a bug.
+      false
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
@@ -1670,81 +1621,6 @@ final class LinearSolverTests: XCTestCase {
       // Return the residual and cell value.
       let residual = f - Lu
       return (cellValue, residual)
-    }
-    
-    func applyLaplacianMehrstellenBoundary() -> [Float] {
-      let gridSize = Self.gridSize
-      let h = Self.h
-      
-      let edgePermutations = createEdgePermutations()
-      
-      // Iterate over the cells.
-      var output = [Float](repeating: 0, count: Self.cellCount)
-      for indexZ in 0..<gridSize {
-        for indexY in 0..<gridSize {
-          for indexX in 0..<gridSize {
-            var dotProduct: Float = .zero
-            
-            let cellIndices = SIMD3(indexX, indexY, indexZ)
-            let cellAddress = Self.createAddress(indices: cellIndices)
-            
-            // Iterate over the faces.
-            for faceID in 0..<6 {
-              let coordinateID = faceID / 2
-              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
-              
-              // Locate the neighboring cell.
-              var neighborIndices = SIMD3(indexX, indexY, indexZ)
-              neighborIndices[coordinateID] += coordinateShift
-              if all(neighborIndices .>= 0),
-                 all(neighborIndices .< gridSize) {
-                
-              } else {
-                var neighborPosition = SIMD3<Float>(neighborIndices)
-                neighborPosition = h * (neighborPosition + 0.5)
-                var nucleusPosition = SIMD3(repeating: Float(gridSize))
-                nucleusPosition = h * (nucleusPosition * 0.5)
-                
-                // Generate a ghost value from the point charge approximation.
-                let r = neighborPosition - nucleusPosition
-                let distance = (r * r).sum().squareRoot()
-                let neighborValue = 1 / distance
-                dotProduct += Float(1.0 / 3) / (h * h) * neighborValue
-                
-                // Skip the boundary correction for the right-hand side. It
-                // should always be zero here.
-              }
-            }
-            
-            // Iterate over the edges.
-            for edgePermutation in edgePermutations {
-              // Locate the neighboring cell.
-              var neighborIndices = cellIndices
-              neighborIndices &+= SIMD3(truncatingIfNeeded: edgePermutation)
-              if all(neighborIndices .>= 0),
-                 all(neighborIndices .< gridSize) {
-                
-              } else {
-                var neighborPosition = SIMD3<Float>(neighborIndices)
-                neighborPosition = h * (neighborPosition + 0.5)
-                var nucleusPosition = SIMD3(repeating: Float(gridSize))
-                nucleusPosition = h * (nucleusPosition * 0.5)
-                
-                // Generate a ghost value from the point charge approximation.
-                let r = neighborPosition - nucleusPosition
-                let distance = (r * r).sum().squareRoot()
-                let neighborValue = 1 / distance
-                dotProduct += Float(1.0 / 6) / (h * h) * neighborValue
-              }
-            }
-            
-            // Store the dot product.
-            output[cellAddress] = dotProduct
-          }
-        }
-      }
-      
-      return output
     }
   }
 }
