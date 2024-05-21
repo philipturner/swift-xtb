@@ -453,5 +453,41 @@ final class FiniteDifferencingTests: XCTestCase {
     // - 6th order
     //
     // Normalize the residual as a fraction of the right-hand side.
+    
+    // Start by gathering the residual at a single point along the hydrogen
+    // wave function, with a second-order derivative. Report the actual
+    // raw value and the expected raw value.
+    do {
+      let r = samplePoints[2]
+      
+      var finiteDifference: Float = .zero
+      finiteDifference += -6 * waveFunction(r: r)
+      for faceID in 0..<6 {
+        let coordinateID = faceID / 2
+        var coordinateShift: SIMD3<Float> = .zero
+        coordinateShift[coordinateID] = (faceID % 2 == 0) ? -1 : 1
+        coordinateShift *= h
+        
+        let neighborR = r + coordinateShift
+        finiteDifference += 1 * waveFunction(r: neighborR)
+      }
+      
+      // Report the Laplacian.
+      let laplacian = finiteDifference / (h * h)
+      print(laplacian)
+      
+      // Report the remaining terms of the Hamiltonian.
+      let E: Float = -1.0 / 2
+      let U = -ionicPotential(r: r)
+      print(E)
+      print(U)
+      let remainingTerm = 2 * (E - U) * waveFunction(r: r)
+      print(remainingTerm)
+      
+      let residual = laplacian + remainingTerm
+      print(residual)
+      print(residual / remainingTerm)
+    }
+    
   }
 }
