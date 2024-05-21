@@ -446,48 +446,114 @@ final class FiniteDifferencingTests: XCTestCase {
     samplePoints.append(SIMD3(-1.287692, 6.581067, -4.103087)) // r ≈ 7
     samplePoints.append(SIMD3(5.091602, -12.298992, -21.688050)) // r ≈ 25
     
-    // Use the following finite differences:
-    // - 2nd order
-    // - Mehrstellen
-    // - 4th order
-    // - 6th order
-    //
-    // Normalize the residual as a fraction of the right-hand side.
+    // The available techniques for sampling discretized functions.
+    enum FiniteDifference {
+      case secondOrderLaplacian
+      case fourthOrderLaplacian
+      case sixthOrderLaplacian
+      case mehrstellenLeftHandSide
+      case mehrstellenRightHandSide
+    }
     
-    // Start by gathering the residual at a single point along the hydrogen
-    // wave function, with a second-order derivative. Report the actual
-    // raw value and the expected raw value.
-    do {
-      let r = samplePoints[2]
+    // A self-contained function for executing finite differences.
+    func sample(
+      method finiteDifferenceMethod: FiniteDifference,
+      spacing: Real,
+      position: SIMD3<Real>,
+      function: (SIMD3<Real>) -> Real
+    ) -> Real {
+      var accumulator: Real = .zero
       
-      var finiteDifference: Float = .zero
-      finiteDifference += -6 * waveFunction(r: r)
-      for faceID in 0..<6 {
-        let coordinateID = faceID / 2
-        var coordinateShift: SIMD3<Float> = .zero
-        coordinateShift[coordinateID] = (faceID % 2 == 0) ? -1 : 1
-        coordinateShift *= h
-        
-        let neighborR = r + coordinateShift
-        finiteDifference += 1 * waveFunction(r: neighborR)
+      // Accumulate the central point.
+      let centerValue = function(position)
+      switch finiteDifferenceMethod {
+      case .secondOrderLaplacian:
+        accumulator += 3 * Real(-2) * centerValue
+      case .fourthOrderLaplacian:
+        accumulator += 3 * Real(-5.0 / 2) * centerValue
+      case .sixthOrderLaplacian:
+        accumulator += 3 * Real(-49.0 / 18) * centerValue
+      case .mehrstellenLeftHandSide:
+        accumulator += Real(-4) * centerValue
+      case .mehrstellenRightHandSide:
+        accumulator += Real(1.0 / 2) * centerValue
       }
       
-      // Report the Laplacian.
-      let laplacian = finiteDifference / (h * h)
-      print(laplacian)
+      // Iterate over the faces.
+      for faceID in 0..<6 {
+        let coordinateID = faceID / 2
+        var coordinateShift: SIMD3<Real> = .zero
+        coordinateShift[coordinateID] = (faceID % 2 == 0) ? -1 : 1
+        
+        // Accumulate the central point, plus h.
+        let firstNeighborPosition = position + coordinateShift * spacing
+        let firstNeighborValue = function(firstNeighborPosition)
+        switch finiteDifferenceMethod {
+        case .secondOrderLaplacian:
+          accumulator += Real(1) * firstNeighborValue
+        case .fourthOrderLaplacian:
+          accumulator += Real(4.0 / 3) * firstNeighborValue
+        case .sixthOrderLaplacian:
+          accumulator += Real(3.0 / 2) * firstNeighborValue
+        case .mehrstellenLeftHandSide:
+          accumulator += Real(1.0 / 3) * firstNeighborValue
+        case .mehrstellenRightHandSide:
+          accumulator += Real(1.0 / 12) * firstNeighborValue
+        }
+        
+        // Accumulate the central point, plus 2 * h.
+        let secondNeighborPosition = position + 2 * coordinateShift * spacing
+        let secondNeighborValue = function(secondNeighborPosition)
+        switch finiteDifferenceMethod {
+        case .fourthOrderLaplacian:
+          accumulator += Real(-1.0 / 12) * secondNeighborValue
+        case .sixthOrderLaplacian:
+          accumulator += Real(-3.0 / 20) * secondNeighborValue
+        default:
+          break
+        }
+        
+        // Accumulate the central point, plus 3 * h.
+        let thirdNeighborPosition = position + 3 * coordinateShift * spacing
+        let thirdNeighborValue = function(thirdNeighborPosition)
+        switch finiteDifferenceMethod {
+        case .sixthOrderLaplacian:
+          accumulator += Real(1.0 / 90) * thirdNeighborValue
+        default:
+          break
+        }
+      }
       
-      // Report the remaining terms of the Hamiltonian.
-      let E: Float = -1.0 / 2
-      let U = -ionicPotential(r: r)
-      print(E)
-      print(U)
-      let remainingTerm = 2 * (E - U) * waveFunction(r: r)
-      print(remainingTerm)
+      // Iterate over the edges.
+      if finiteDifferenceMethod == .mehrstellenLeftHandSide {
+        func createEdgePermutations() -> [SIMD3<Real>] {
+          var permutations: [SIMD3<Real>] = []
+          permutations.append(SIMD3(1, 1, 0))
+          permutations.append(SIMD3(1, 0, 1))
+          permutations.append(SIMD3(0, 1, 1))
+          permutations.append(SIMD3(1, -1, 0))
+          permutations.append(SIMD3(1, 0, -1))
+          permutations.append(SIMD3(0, 1, -1))
+          permutations += permutations.map(-)
+          return permutations
+        }
+        let permutations = createEdgePermutations()
+        
+        for coordinateShift in permutations {
+          let edgePosition = position + coordinateShift * spacing
+          let edgeValue = function(edgePosition)
+          accumulator += Real(1.0 / 6) * edgeValue
+        }
+      }
       
-      let residual = laplacian + remainingTerm
-      print(residual)
-      print(residual / remainingTerm)
+      // Scale by the grid spacing.
+      if finiteDifferenceMethod != .mehrstellenRightHandSide {
+        accumulator /= Real(spacing * spacing)
+      }
+      
+      return accumulator
     }
+    
     
   }
 }

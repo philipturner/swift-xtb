@@ -150,17 +150,6 @@ import Numerics
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
 //
-//
-//
-// Accuracy of different algorithms
-//
-// ========================================================================== //
-// Methods
-// ========================================================================== //
-//
-// Reporting accuracy of the overall solution, not the accuracy of the
-// Laplacian at a specific point.
-//
 // ========================================================================== //
 // Results (Raw Data)
 // ========================================================================== //
@@ -989,14 +978,6 @@ final class LinearSolverTests: XCTestCase {
   // - Does it achieve the same convergence rates as the original multigrid? ✅
   // - Does it perform better for the 128x128x128 grid attempting to peak the
   //   V-cycle at 64x64x64? ✅
-  //
-  // Use this to test out the Mehrstellen discretization.
-  // - Check the order of convergence, prove there is O(h^2) scaling on
-  //   increasingly expensive grids.
-  // - Implement Mehrstellen without the RHS correction, prove there is O(h^2)
-  //   scaling. Is it already better than central differencing?
-  // - Prove the correct version has O(h^4) scaling.
-  // - Is Mehrstellen more numerically unstable?
   //
   // Exact equations for the Mehrstellen correction:
   //
