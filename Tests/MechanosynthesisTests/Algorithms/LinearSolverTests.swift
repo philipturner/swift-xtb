@@ -1383,6 +1383,22 @@ final class LinearSolverTests: XCTestCase {
       return fineGrid
     }
     
+    func shouldUseMehrstellen(gridSize: Int16) -> Bool {
+      gridSize == Self.gridSize
+    }
+    
+    func createEdgePermutations() -> [SIMD3<Int16>] {
+      var permutations: [SIMD3<Int16>] = []
+      permutations.append(SIMD3(1, 1, 0))
+      permutations.append(SIMD3(1, 0, 1))
+      permutations.append(SIMD3(0, 1, 1))
+      permutations.append(SIMD3(1, -1, 0))
+      permutations.append(SIMD3(1, 0, -1))
+      permutations.append(SIMD3(0, 1, -1))
+      permutations += permutations.map { 0 &- $0 }
+      return permutations
+    }
+    
     // The two types of cells that are updated in alternation.
     enum Sweep {
       case red
@@ -1397,9 +1413,6 @@ final class LinearSolverTests: XCTestCase {
       var rightHandSide: [Float]?
     }
     
-    // TODO: Automatically detect whether Mehrstellen should be applied, based
-    // on the grid spacing.
-    
     func relax(descriptor: RelaxationDescriptor) -> [Float] {
       guard let sweep = descriptor.sweep,
             let red = descriptor.red,
@@ -1412,6 +1425,10 @@ final class LinearSolverTests: XCTestCase {
       var output = [Float](repeating: .zero, count: red.count)
       let gridSize = createGridSize(cellCount: rightHandSide.count)
       let h = createSpacing(gridSize: gridSize)
+      
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let edgePermutations = createEdgePermutations()
       
       // Iterate over the cells.
       for indexZ in 0..<gridSize {
@@ -1426,6 +1443,7 @@ final class LinearSolverTests: XCTestCase {
             
             // Iterate over the faces.
             var Lu: Float = .zero
+            var f: Float = .zero
             for faceID in 0..<6 {
               let coordinateID = faceID / 2
               let coordinateShift = (faceID % 2 == 0) ? -1 : 1
@@ -1447,7 +1465,32 @@ final class LinearSolverTests: XCTestCase {
               } else {
                 neighborValue = red[neighborAddress / 2]
               }
-              Lu += 1 / (h * h) * neighborValue
+              let faceWeight = useMehrstellen ? Float(1.0 / 3) : Float(1)
+              Lu += faceWeight / (h * h) * neighborValue
+            }
+            
+            // Iterate over the edges.
+            if useMehrstellen {
+              for edgePermutation in edgePermutations {
+                // Locate the neighboring cell.
+                var neighborIndices = SIMD3(indexX, indexY, indexZ)
+                neighborIndices &+= edgePermutation
+                guard all(neighborIndices .>= 0),
+                      all(neighborIndices .< gridSize) else {
+                  continue
+                }
+                let neighborAddress = createAddress(
+                  neighborIndices, gridSize: gridSize)
+                
+                // Read the neighbor value from memory.
+                var neighborValue: Float
+                if sweep == .red {
+                  neighborValue = red[neighborAddress / 2]
+                } else {
+                  neighborValue = black[neighborAddress / 2]
+                }
+                Lu += 1 / (6 * h * h) * neighborValue
+              }
             }
             
             // Locate the current cell.
@@ -1461,11 +1504,15 @@ final class LinearSolverTests: XCTestCase {
             } else {
               cellValue = black[cellAddress / 2]
             }
-            Lu += -6 / (h * h) * cellValue
+            let cellWeight = useMehrstellen ? Float(-4) : Float(-6)
+            Lu += cellWeight / (h * h) * cellValue
+            
+            // Read the RHS value from memory.
+            f += rightHandSide[cellAddress]
             
             // Write the cell value to memory.
-            let residual = rightHandSide[cellAddress] - Lu
-            let Δt: Float = (h * h) / -6
+            let residual = f - Lu
+            let Δt: Float = (h * h) / cellWeight
             output[cellAddress / 2] = cellValue + Δt * residual
           }
         }
@@ -1481,12 +1528,17 @@ final class LinearSolverTests: XCTestCase {
       let gridSize = createGridSize(cellCount: solution.count)
       let h = createSpacing(gridSize: gridSize)
       
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let edgePermutations = createEdgePermutations()
+      
       // Iterate over the cells.
       for indexZ in 0..<gridSize {
         for indexY in 0..<gridSize {
           for indexX in 0..<gridSize {
             // Iterate over the faces.
             var Lu: Float = .zero
+            var f: Float = .zero
             for faceID in 0..<6 {
               let coordinateID = faceID / 2
               let coordinateShift = (faceID % 2 == 0) ? -1 : 1
@@ -1503,7 +1555,27 @@ final class LinearSolverTests: XCTestCase {
               
               // Read the neighbor value from memory.
               let neighborValue = solution[neighborAddress]
-              Lu += 1 / (h * h) * neighborValue
+              let faceWeight = useMehrstellen ? Float(1.0 / 3) : Float(1)
+              Lu += faceWeight / (h * h) * neighborValue
+            }
+            
+            // Iterate over the edges.
+            if useMehrstellen {
+              for edgePermutation in edgePermutations {
+                // Locate the neighboring cell.
+                var neighborIndices = SIMD3(indexX, indexY, indexZ)
+                neighborIndices &+= edgePermutation
+                guard all(neighborIndices .>= 0),
+                      all(neighborIndices .< gridSize) else {
+                  continue
+                }
+                let neighborAddress = createAddress(
+                  neighborIndices, gridSize: gridSize)
+                
+                // Read the neighbor value from memory.
+                let neighborValue = solution[neighborAddress]
+                Lu += 1 / (6 * h * h) * neighborValue
+              }
             }
             
             // Locate the current cell.
@@ -1512,10 +1584,14 @@ final class LinearSolverTests: XCTestCase {
             
             // Read the cell value from memory.
             let cellValue = solution[cellAddress]
-            Lu += -6 / (h * h) * cellValue
+            let cellWeight = useMehrstellen ? Float(-4) : Float(-6)
+            Lu += cellWeight / (h * h) * cellValue
+            
+            // Read the RHS value from memory.
+            f += rightHandSide[cellAddress]
             
             // Write the cell value to memory.
-            let residual = rightHandSide[cellAddress] - Lu
+            let residual = f - Lu
             output[cellAddress] = -residual
           }
         }
