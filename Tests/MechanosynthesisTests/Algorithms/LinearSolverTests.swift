@@ -149,9 +149,38 @@ import Numerics
 // Mechanosynthesis would have two solvers:
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
+//
+//
+//
+// Accuracy of different algorithms
+//
+// ========================================================================== //
+// Methods
+// ========================================================================== //
+//
+// Reporting accuracy of the overall solution, not the accuracy of the
+// Laplacian at a specific point.
+//
+// ========================================================================== //
+// Results (Raw Data)
+// ========================================================================== //
+//
+// 7-point Laplacian
+//
+// Spacing  | Cells | RMS Average   | MAD Average   | Maximum Cell  | Order
+// -------- | ----- | ------------- | ------------- | ------------- | -----
+// h = 1/4  |   8^3 | RMS: 0.044557 | MAD: 0.068089 | MAX: 0.096520 | n/a
+// h = 1/8  |  16^3 | RMS: 0.032344 | MAD: 0.028211 | MAX: 0.189478 | 1.27
+// h = 1/16 |  32^3 | RMS: 0.022969 | MAD: 0.010023 | MAX: 0.377876 | 1.49
+// h = 1/32 |  64^3 | RMS: 0.016251 | MAD: 0.003268 | MAX: 0.755470 | 1.62
+// h = 1/64 | 128^3 | RMS: 0.011492 | MAD: 0.001010 | MAX: 1.510849 | 1.69
+//
+// 19-point Laplacian on lowest level, no Mehrstellen correction
+//
+// TODO
 final class LinearSolverTests: XCTestCase {
   static let gridSize: Int = 8
-  static let h: Float = 0.25
+  static let h: Float = 2 / Float(gridSize)
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // MARK: - Utilities
@@ -1038,7 +1067,8 @@ final class LinearSolverTests: XCTestCase {
     // 64x64x64     36 iterations > 20 iterations
     // 128x128x128  49 iterations > 30 iterations
     let stageCount = Self.gridSize.trailingZeroBitCount
-    let iterationCount = stageCount * stageCount
+    let iterationCount: Int = 20
+    // let iterationCount = stageCount * stageCount
     for _ in 0..<iterationCount {
       do {
         let L1x = Self.applyLaplacianLinearPart(x)
