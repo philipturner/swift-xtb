@@ -9,9 +9,8 @@ final class FiniteDifferencingTests: XCTestCase {
   // Graph of the test function and its derivatives:
   // https://www.desmos.com/calculator/davk2k5ahe
   func testSymmetricDifference() throws {
-    typealias Real = Float
-    
     // Program settings.
+    typealias Real = Float
     let h: Real = 0.05 // must divide evenly into 0.1
     
     // It looks like 4th-order FD with a large grid spacing is optimal for FP32.
@@ -395,11 +394,7 @@ final class FiniteDifferencingTests: XCTestCase {
     }
   }
   
-  // Check the performance of different finite differencing schemes when the
-  // grid spacing is nonuniform.
-  // - Solve the differential equations numerically on a nonuniform grid.
-  // - Compare to the result on uniform grids of various resolutions.
-  // - Retry with a more accurate FD than 2nd order.
+  // Test the accuracy of Mehrstellen on various 3D functions.
   //
   // Hartree differential equation
   //
@@ -416,7 +411,9 @@ final class FiniteDifferencingTests: XCTestCase {
   // ∇^2 (operator) v_{H}(r) = -4πρ(r)
   // Given: Ψ(r) = e^{-r} / (√π)
   // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
-  func testDifferentialEquations() throws {
+  func testMehrstellenDiscretization() throws {
+    // Program settings.
+    let h: Real = 0.25
     typealias Real = Float
     
     // The analytical solutions to the differential equations.
@@ -439,5 +436,22 @@ final class FiniteDifferencingTests: XCTestCase {
       output += -1 / radius
       return output
     }
+    
+    // Specific locations within the domain to report the residual at.
+    var samplePoints: [SIMD3<Real>] = []
+    samplePoints.append(SIMD3(0.046279, 0.017622, -0.019439))// r ≈ 0.05
+    samplePoints.append(SIMD3(0.034873, -0.082556, -0.249546)) // r ≈ 0.33
+    samplePoints.append(SIMD3(-0.064516, 0.126008, -0.800164)) // r ≈ 1
+    samplePoints.append(SIMD3(-2.054362, 0.571690, 1.3407375)) // r ≈ 2.5
+    samplePoints.append(SIMD3(-1.287692, 6.581067, -4.103087)) // r ≈ 7
+    samplePoints.append(SIMD3(5.091602, -12.298992, -21.688050)) // r ≈ 25
+    
+    // Use the following finite differences:
+    // - 2nd order
+    // - Mehrstellen
+    // - 4th order
+    // - 6th order
+    //
+    // Normalize the residual as a fraction of the right-hand side.
   }
 }
