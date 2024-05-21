@@ -179,7 +179,7 @@ import Numerics
 //
 // TODO
 final class LinearSolverTests: XCTestCase {
-  static let gridSize: Int = 8
+  static let gridSize: Int = 8 * 4
   static let h: Float = 2 / Float(gridSize)
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
@@ -1052,8 +1052,13 @@ final class LinearSolverTests: XCTestCase {
   func testFullApproximationScheme() throws {
     // Prepare the solution and RHS.
     var b = Self.createScaledChargeDensity()
-    let L2x = Self.applyLaplacianBoundary()
-    b = Self.shift(b, scale: -1, correction: L2x)
+    if shouldUseMehrstellen(gridSize: Int16(Self.gridSize)) {
+      let L2x = applyLaplacianMehrstellenBoundary()
+      b = Self.shift(b, scale: -1, correction: L2x)
+    } else {
+      let L2x = Self.applyLaplacianBoundary()
+      b = Self.shift(b, scale: -1, correction: L2x)
+    }
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Heuristic for number of iterations:
@@ -1066,13 +1071,15 @@ final class LinearSolverTests: XCTestCase {
     // 32x32x32     25 iterations > 15 iterations
     // 64x64x64     36 iterations > 20 iterations
     // 128x128x128  49 iterations > 30 iterations
-    let stageCount = Self.gridSize.trailingZeroBitCount
-    let iterationCount: Int = 20
+    let stageCount: Int = 1
+    let iterationCount: Int = 200
+    // let stageCount = Self.gridSize.trailingZeroBitCount
     // let iterationCount = stageCount * stageCount
     for _ in 0..<iterationCount {
       do {
-        let L1x = Self.applyLaplacianLinearPart(x)
-        let r = Self.shift(b, scale: -1, correction: L1x)
+//         let L1x = Self.applyLaplacianLinearPart(x)
+//         let r = Self.shift(b, scale: -1, correction: L1x)
+        let r = negativeResidual(solution: x, rightHandSide: b)
         let r2 = Self.dot(r, r)
         let residualNorm = r2.squareRoot()
         print("||r|| = \(residualNorm)")
@@ -1092,6 +1099,7 @@ final class LinearSolverTests: XCTestCase {
       var rmsAccumulator: Double = .zero
       var madAccumulator: Double = .zero
       var maxAccumulator: Float = .zero
+      let useMehrstellen = shouldUseMehrstellen(gridSize: Int16(Self.gridSize))
       
       // Iterate over the grid.
       for indexZ in 0..<Self.gridSize {
@@ -1099,7 +1107,34 @@ final class LinearSolverTests: XCTestCase {
           for indexX in 0..<Self.gridSize {
             let cellIndices = SIMD3(indexX, indexY, indexZ)
             let cellAddress = Self.createAddress(indices: cellIndices)
+            
+            #if true
             let cellValue = x[cellAddress]
+            #else
+            var cellValue = x[cellAddress]
+            if useMehrstellen {
+              cellValue *= 0.5
+              
+              for faceID in 0..<6 {
+                let coordinateID = faceID / 2
+                let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+                
+                // Locate the neighboring cell.
+                var neighborIndices = cellIndices
+                neighborIndices[coordinateID] += Int(coordinateShift)
+                guard all(neighborIndices .>= 0),
+                      all(neighborIndices .< Self.gridSize) else {
+                  continue
+                }
+                
+                // Read the neighbor value from memory.
+                let neighborAddress = Self
+                  .createAddress(indices: neighborIndices)
+                let neighborValue = x[neighborAddress]
+                cellValue += Float(1.0 / 12) * neighborValue
+              }
+            }
+            #endif
             
             let position = (SIMD3<Float>(cellIndices) + 0.5) * Self.h
             let rDelta = position - SIMD3<Float>(1, 1, 1)
@@ -1182,6 +1217,12 @@ final class LinearSolverTests: XCTestCase {
       
       // Perform two iterations of Gauss-Seidel smoothing.
       smooth(solution: &solution, rightHandSide: rightHandSide)
+    }
+    
+    // Whether Mehrstellen discretization should be used.
+    func shouldUseMehrstellen(gridSize: Int16) -> Bool {
+      gridSize == Self.gridSize
+//      false
     }
     
     func createGridSize(cellCount: Int) -> Int16 {
@@ -1383,10 +1424,6 @@ final class LinearSolverTests: XCTestCase {
       return fineGrid
     }
     
-    func shouldUseMehrstellen(gridSize: Int16) -> Bool {
-      gridSize == Self.gridSize
-    }
-    
     func createEdgePermutations() -> [SIMD3<Int16>] {
       var permutations: [SIMD3<Int16>] = []
       permutations.append(SIMD3(1, 1, 0))
@@ -1455,7 +1492,7 @@ final class LinearSolverTests: XCTestCase {
       let h = createSpacing(gridSize: gridSize)
       
       // Determine whether to use Mehrstellen.
-      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize)
       let edgePermutations = createEdgePermutations()
       
       // Iterate over the cells.
@@ -1485,7 +1522,8 @@ final class LinearSolverTests: XCTestCase {
               cellIndices: cellIndices,
               cellAddress: cellAddress)
             
-            let Δt: Float = (h * h) / -6
+            let weight = useMehrstellen ? Float(-4) : Float(-6)
+            let Δt: Float = (h * h) / weight
             output[cellAddress / 2] = cellValue + Δt * residual
           }
         }
@@ -1502,7 +1540,7 @@ final class LinearSolverTests: XCTestCase {
       let h = createSpacing(gridSize: gridSize)
       
       // Determine whether to use Mehrstellen.
-      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize) && false
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize)
       let edgePermutations = createEdgePermutations()
       
       // Iterate over the cells.
@@ -1574,7 +1612,13 @@ final class LinearSolverTests: XCTestCase {
         } else {
           neighborValue = solution.unsafelyUnwrapped[neighborAddress]
         }
-        Lu += 1 / (h * h) * neighborValue
+        let weight = useMehrstellen ? Float(1.0 / 3) : Float(1)
+        Lu += weight / (h * h) * neighborValue
+        
+        // Read the RHS value from memory.
+        if useMehrstellen {
+          f += Float(1.0 / 12) * rightHandSide[neighborAddress]
+        }
       }
       
       // Iterate over the edges.
@@ -1612,14 +1656,95 @@ final class LinearSolverTests: XCTestCase {
       } else {
         cellValue = solution.unsafelyUnwrapped[cellAddress]
       }
-      Lu += -6 / (h * h) * cellValue
+      do {
+        let weight = useMehrstellen ? Float(-4) : Float(-6)
+        Lu += weight / (h * h) * cellValue
+      }
       
       // Read the RHS value from memory.
-      f += rightHandSide[cellAddress]
+      do {
+        let weight = useMehrstellen ? Float(1.0 / 2) : Float(1)
+        f += weight * rightHandSide[cellAddress]
+      }
       
       // Return the residual and cell value.
       let residual = f - Lu
       return (cellValue, residual)
+    }
+    
+    func applyLaplacianMehrstellenBoundary() -> [Float] {
+      let gridSize = Self.gridSize
+      let h = Self.h
+      
+      let edgePermutations = createEdgePermutations()
+      
+      // Iterate over the cells.
+      var output = [Float](repeating: 0, count: Self.cellCount)
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            var dotProduct: Float = .zero
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            
+            // Iterate over the faces.
+            for faceID in 0..<6 {
+              let coordinateID = faceID / 2
+              let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+              
+              // Locate the neighboring cell.
+              var neighborIndices = SIMD3(indexX, indexY, indexZ)
+              neighborIndices[coordinateID] += coordinateShift
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< gridSize) {
+                
+              } else {
+                var neighborPosition = SIMD3<Float>(neighborIndices)
+                neighborPosition = h * (neighborPosition + 0.5)
+                var nucleusPosition = SIMD3(repeating: Float(gridSize))
+                nucleusPosition = h * (nucleusPosition * 0.5)
+                
+                // Generate a ghost value from the point charge approximation.
+                let r = neighborPosition - nucleusPosition
+                let distance = (r * r).sum().squareRoot()
+                let neighborValue = 1 / distance
+                dotProduct += Float(1.0 / 3) / (h * h) * neighborValue
+                
+                // Skip the boundary correction for the right-hand side. It
+                // should always be zero here.
+              }
+            }
+            
+            // Iterate over the edges.
+            for edgePermutation in edgePermutations {
+              // Locate the neighboring cell.
+              var neighborIndices = cellIndices
+              neighborIndices &+= SIMD3(truncatingIfNeeded: edgePermutation)
+              if all(neighborIndices .>= 0),
+                 all(neighborIndices .< gridSize) {
+                
+              } else {
+                var neighborPosition = SIMD3<Float>(neighborIndices)
+                neighborPosition = h * (neighborPosition + 0.5)
+                var nucleusPosition = SIMD3(repeating: Float(gridSize))
+                nucleusPosition = h * (nucleusPosition * 0.5)
+                
+                // Generate a ghost value from the point charge approximation.
+                let r = neighborPosition - nucleusPosition
+                let distance = (r * r).sum().squareRoot()
+                let neighborValue = 1 / distance
+                dotProduct += Float(1.0 / 6) / (h * h) * neighborValue
+              }
+            }
+            
+            // Store the dot product.
+            output[cellAddress] = dotProduct
+          }
+        }
+      }
+      
+      return output
     }
   }
 }
