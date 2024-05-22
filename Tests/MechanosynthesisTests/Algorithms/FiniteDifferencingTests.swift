@@ -413,6 +413,17 @@ final class FiniteDifferencingTests: XCTestCase {
   // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
   //
   // ======================================================================== //
+  // Methods
+  // ======================================================================== //
+  //
+  // Data for specific sample points:
+  // - Took the Laplacian in whichever differential equation is references.
+  // - Compared the Laplacian term to the other terms (the right hand side).
+  // - Subtracted RHS - LHS to create the residual.
+  // - Normalized the residual by divinding it by the RHS.
+  // - Reported the normalized residual to 7 decimal places.
+  //
+  // ======================================================================== //
   // Results (Raw Data)
   // ======================================================================== //
   //
@@ -485,7 +496,7 @@ final class FiniteDifferencingTests: XCTestCase {
   // h = 0.125, 0.0005881, 0.0000005, 0.0000000, 0.0000000, 0.0000001, (FP64)
   //
   func testMehrstellenDiscretization() throws {
-    typealias Real = Double
+    typealias Real = Float
     
     // The analytical solutions to the differential equations.
     func waveFunction(r: SIMD3<Real>) -> Real {
@@ -644,77 +655,58 @@ final class FiniteDifferencingTests: XCTestCase {
     samplePoints.append(SIMD3(-1.287692, 6.581067, -4.103087)) // r ≈ 7
     samplePoints.append(SIMD3(2.442969, -5.903516, -10.410264)) // r ≈ 12
     
-    // Report the residual for the charge distribution.
-    for position in samplePoints {
-      let resolutions: [Real] = [
-        1.0 / 2,
-        1.0 / 4,
-        1.0 / 8,
-        1.0 / 16,
-        1.0 / 32,
+    // Query various expectation values of the hydrogen electron.
+    let resolutions: [Real] = [
+      1.0 / 2,
+      1.0 / 4,
+      1.0 / 8,
+    ]
+    
+    // Iterate over the computationally feasible resolutions.
+    print()
+    for h in resolutions {
+      let resolutionRepr = String(format: "%.3f", h)
+      print("h = \(resolutionRepr)", terminator: ", ")
+      
+      // Iterate over the difference methods.
+      var expectationValues: [Real] = []
+      let finiteDifferenceMethods: [FiniteDifferenceMethod] = [
+        .secondOrderLaplacian,
+        .fourthOrderLaplacian,
+        .sixthOrderLaplacian,
+        .eighthOrderLaplacian,
+        .mehrstellenLeftHandSide
       ]
-      
-      func createLeftHandSide(r: SIMD3<Real>) -> Real {
-        waveFunction(r: r)
-      }
-      
-      func createRightHandSide(r: SIMD3<Real>) -> Real {
-        let E = Real(-1.0 / 2)
-        let U = -ionicPotential(r: r)
-        let Ψ = waveFunction(r: r)
-        return -2 * (E - U) * Ψ
-      }
-      
-      // Iterate over the resolutions.
-      print()
-      for h in resolutions {
-        let resolutionRepr = String(format: "%.3f", h)
-        print("h = \(resolutionRepr)", terminator: ", ")
+      for method in finiteDifferenceMethods {
+        #if false
+        let leftHandSide = sample(
+          method: method,
+          spacing: h,
+          position: position,
+          function: createLeftHandSide(r:))
         
-        // Iterate over the difference methods.
-        var residuals: [Real] = []
-        let finiteDifferenceMethods: [FiniteDifferenceMethod] = [
-          .secondOrderLaplacian,
-          .fourthOrderLaplacian,
-          .sixthOrderLaplacian,
-          .eighthOrderLaplacian,
-          .mehrstellenLeftHandSide
-        ]
-        for method in finiteDifferenceMethods {
-          let leftHandSide = sample(
-            method: method,
+        // Branch on the right-hand side for Mehrstellen.
+        var rightHandSide: Real
+        if method == .mehrstellenLeftHandSide {
+          rightHandSide = sample(
+            method: .mehrstellenRightHandSide,
             spacing: h,
             position: position,
-            function: createLeftHandSide(r:))
-          
-          // Branch on the right-hand side for Mehrstellen.
-          var rightHandSide: Real
-          if method == .mehrstellenLeftHandSide {
-            rightHandSide = sample(
-              method: .mehrstellenRightHandSide,
-              spacing: h,
-              position: position,
-              function: createRightHandSide(r:))
-          } else {
-            rightHandSide = createRightHandSide(r: position)
-          }
-          
-          // Compute the residual as RHS - LHS.
-          residuals.append(rightHandSide - leftHandSide)
+            function: createRightHandSide(r:))
+        } else {
+          rightHandSide = createRightHandSide(r: position)
         }
         
-        // Report the normalized residuals.
-        for residual in residuals {
-          let expected = createRightHandSide(r: position)
-          let normalizedResidual = (residual / expected).magnitude
-          let repr = String(format: "%.7f", normalizedResidual)
-          print(repr, terminator: ", ")
-        }
-        print()
+        residuals.append(rightHandSide - leftHandSide)
+        #endif
       }
+      
+      // Report the expectation values.
+      for expectationValue in expectationValues {
+        let repr = String(format: "%.7f", expectationValue)
+        print(repr, terminator: ", ")
+      }
+      print()
     }
-    
-    // Next: investigate accuracy of wavefunction
-    // After that: investigate accuracy of global integrals
   }
 }
