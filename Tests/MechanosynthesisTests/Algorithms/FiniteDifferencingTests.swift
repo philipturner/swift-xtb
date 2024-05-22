@@ -411,9 +411,44 @@ final class FiniteDifferencingTests: XCTestCase {
   // ∇^2 (operator) v_{H}(r) = -4πρ(r)
   // Given: Ψ(r) = e^{-r} / (√π)
   // Solution: v_{H}(r) = e^{-2r}(1 + 1/r) - 1/r
+  //
+  // ========================================================================== //
+  // Results (Raw Data)
+  // ========================================================================== //
+  //
+  // Key:       2nd Order  4th Order  6th Order  8th Order  Mehrstellen
+  //
+  // Hartree potential, r ≈ 0.05
+  // h = 0.500, 0.3156697, 0.2372360, 0.2121769, 0.2002852, 0.0948272,
+  // h = 0.250, 0.1456027, 0.0889145, 0.0738506, 0.0672043, 0.0310335,
+  // h = 0.125, 0.0516573, 0.0203581, 0.0136607, 0.0109489, 0.0046150,
+  // h = 0.125, 0.0516985, 0.0203931, 0.0137204, 0.0110157, 0.0046477, (FP64)
+  //
+  // Hartree potential, r ≈ 0.33
+  // h = 0.500, 0.1402474, 0.0582366, 0.0352753, 0.0253011, 0.0101832,
+  // h = 0.250, 0.0386179, 0.0047414, 0.0006261, 0.0000823, 0.0053651,
+  // h = 0.125, 0.0105852, 0.0012434, 0.0009124, 0.0008343, 0.0008314,
+  // h = 0.125, 0.0105990, 0.0012587, 0.0009490, 0.0008495, 0.0008333, (FP64)
+  //
+  // Hartree potential, r ≈ 1
+  // h = 0.500, 0.0501792, 0.0297362, 0.0313445, 0.0327737, 0.0303154,
+  // h = 0.250, 0.0149480, 0.0031947, 0.0007120, 0.0001764, 0.0020250,
+  // h = 0.125, 0.0039315, 0.0003057, 0.0000095, 0.0000004, 0.0001522,
+  // h = 0.125, 0.0038992, 0.0002218, 0.0000145, 0.0000018, 0.0001264, (FP64)
+  //
+  // Hartree potential, r ≈ 2.5
+  // h = 0.500, 0.0596931, 0.0012162, 0.0005437, 0.0001839, 0.0005137,
+  // h = 0.250, 0.0149492, 0.0000688, 0.0000114, 0.0002007, 0.0000072,
+  // h = 0.125, 0.0034106, 0.0006545, 0.0000667, 0.0005778, 0.0001317,
+  // h = 0.125, 0.0037473, 0.0000040, 0.0000001, 0.0000000, 0.0000015, (FP64)
+  //
+  // Hartree potential, r ≈ 7
+  // h = 0.500, 4.8223810, 0.0777047, 0.7481260, 0.3463864, 0.1541908,
+  // h = 0.250, 4.2200661, 0.0791482, 3.2350295, 2.4064538, 0.2866600,
+  // h = 0.125, 10.243218, 8.0347290, 22.691066, 7.8276830, 2.8101072,
+  // h = 0.125, 0.2632410, 0.0004656, 0.0000007, 0.0000000, 0.0004544, (FP64)
+  //
   func testMehrstellenDiscretization() throws {
-    // Program settings.
-    let h: Real = 0.25
     typealias Real = Float
     
     // The analytical solutions to the differential equations.
@@ -437,27 +472,19 @@ final class FiniteDifferencingTests: XCTestCase {
       return output
     }
     
-    // Specific locations within the domain to report the residual at.
-    var samplePoints: [SIMD3<Real>] = []
-    samplePoints.append(SIMD3(0.046279, 0.017622, -0.019439))// r ≈ 0.05
-    samplePoints.append(SIMD3(0.034873, -0.082556, -0.249546)) // r ≈ 0.33
-    samplePoints.append(SIMD3(-0.064516, 0.126008, -0.800164)) // r ≈ 1
-    samplePoints.append(SIMD3(-2.054362, 0.571690, 1.3407375)) // r ≈ 2.5
-    samplePoints.append(SIMD3(-1.287692, 6.581067, -4.103087)) // r ≈ 7
-    samplePoints.append(SIMD3(5.091602, -12.298992, -21.688050)) // r ≈ 25
-    
     // The available techniques for sampling discretized functions.
-    enum FiniteDifference {
+    enum FiniteDifferenceMethod {
       case secondOrderLaplacian
       case fourthOrderLaplacian
       case sixthOrderLaplacian
+      case eighthOrderLaplacian
       case mehrstellenLeftHandSide
       case mehrstellenRightHandSide
     }
     
     // A self-contained function for executing finite differences.
     func sample(
-      method finiteDifferenceMethod: FiniteDifference,
+      method finiteDifferenceMethod: FiniteDifferenceMethod,
       spacing: Real,
       position: SIMD3<Real>,
       function: (SIMD3<Real>) -> Real
@@ -473,6 +500,8 @@ final class FiniteDifferencingTests: XCTestCase {
         accumulator += 3 * Real(-5.0 / 2) * centerValue
       case .sixthOrderLaplacian:
         accumulator += 3 * Real(-49.0 / 18) * centerValue
+      case .eighthOrderLaplacian:
+        accumulator += 3 * Real(-205.0 / 72) * centerValue
       case .mehrstellenLeftHandSide:
         accumulator += Real(-4) * centerValue
       case .mehrstellenRightHandSide:
@@ -495,6 +524,8 @@ final class FiniteDifferencingTests: XCTestCase {
           accumulator += Real(4.0 / 3) * firstNeighborValue
         case .sixthOrderLaplacian:
           accumulator += Real(3.0 / 2) * firstNeighborValue
+        case .eighthOrderLaplacian:
+          accumulator += Real(8.0 / 5) * firstNeighborValue
         case .mehrstellenLeftHandSide:
           accumulator += Real(1.0 / 3) * firstNeighborValue
         case .mehrstellenRightHandSide:
@@ -509,6 +540,8 @@ final class FiniteDifferencingTests: XCTestCase {
           accumulator += Real(-1.0 / 12) * secondNeighborValue
         case .sixthOrderLaplacian:
           accumulator += Real(-3.0 / 20) * secondNeighborValue
+        case .eighthOrderLaplacian:
+          accumulator += Real(-1.0 / 5) * secondNeighborValue
         default:
           break
         }
@@ -519,6 +552,18 @@ final class FiniteDifferencingTests: XCTestCase {
         switch finiteDifferenceMethod {
         case .sixthOrderLaplacian:
           accumulator += Real(1.0 / 90) * thirdNeighborValue
+        case .eighthOrderLaplacian:
+          accumulator += Real(8.0 / 315) * thirdNeighborValue
+        default:
+          break
+        }
+        
+        // Accumulate the central point, plus 4 * h.
+        let fourthNeighborPosition = position + 4 * coordinateShift * spacing
+        let fourthNeighborValue = function(fourthNeighborPosition)
+        switch finiteDifferenceMethod {
+        case .eighthOrderLaplacian:
+          accumulator += Real(-1.0 / 560) * fourthNeighborValue
         default:
           break
         }
@@ -554,6 +599,83 @@ final class FiniteDifferencingTests: XCTestCase {
       return accumulator
     }
     
+    // Specific locations within the domain to report the residual at.
+    var samplePoints: [SIMD3<Real>] = []
+    samplePoints.append(SIMD3(0.046279, 0.017622, -0.019439))// r ≈ 0.05
+    samplePoints.append(SIMD3(0.034873, -0.082556, -0.249546)) // r ≈ 0.33
+    samplePoints.append(SIMD3(-0.064516, 0.126008, -0.800164)) // r ≈ 1
+    samplePoints.append(SIMD3(-2.054362, 0.571690, 1.3407375)) // r ≈ 2.5
+    samplePoints.append(SIMD3(-1.287692, 6.581067, -4.103087)) // r ≈ 7
+    samplePoints.append(SIMD3(2.442969, -5.903516, -10.410264)) // r ≈ 12
     
+    // Report the residual for the charge distribution.
+    for position in samplePoints {
+      let resolutions: [Real] = [
+        1.0 / 2,
+        1.0 / 4,
+        1.0 / 8,
+        1.0 / 16,
+        1.0 / 32,
+      ]
+      
+      func createLeftHandSide(r: SIMD3<Real>) -> Real {
+        hartreePotential(r: r)
+      }
+      
+      func createRightHandSide(r: SIMD3<Real>) -> Real {
+        -4 * Real.pi * chargeDensity(r: r)
+      }
+      
+      // Iterate over the resolutions.
+      print()
+      for h in resolutions {
+        let resolutionRepr = String(format: "%.3f", h)
+        print("h = \(resolutionRepr)", terminator: ", ")
+        
+        // Iterate over the difference methods.
+        var residuals: [Real] = []
+        let finiteDifferenceMethods: [FiniteDifferenceMethod] = [
+          .secondOrderLaplacian,
+          .fourthOrderLaplacian,
+          .sixthOrderLaplacian,
+          .eighthOrderLaplacian,
+          .mehrstellenLeftHandSide
+        ]
+        for method in finiteDifferenceMethods {
+          let leftHandSide = sample(
+            method: method,
+            spacing: h,
+            position: position,
+            function: createLeftHandSide(r:))
+          
+          // Branch on the right-hand side for Mehrstellen.
+          var rightHandSide: Real
+          if method == .mehrstellenLeftHandSide {
+            rightHandSide = sample(
+              method: .mehrstellenRightHandSide,
+              spacing: h,
+              position: position,
+              function: createRightHandSide(r:))
+          } else {
+            rightHandSide = createRightHandSide(r: position)
+          }
+          
+          // Compute the residual as RHS - LHS.
+          residuals.append(rightHandSide - leftHandSide)
+        }
+        
+        // Report the normalized residuals.
+        for residual in residuals {
+          let expected = createRightHandSide(r: position)
+          let normalizedResidual = (residual / expected).magnitude
+          let repr = String(format: "%.7f", normalizedResidual)
+          print(repr, terminator: ", ")
+        }
+        print()
+      }
+    }
+    
+    // Next: investigate accuracy of wavefunction
+    // After that: investigate accuracy of global integrals
   }
 }
