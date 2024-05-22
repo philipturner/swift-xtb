@@ -396,6 +396,11 @@ final class FiniteDifferencingTests: XCTestCase {
   
   // Test the accuracy of Mehrstellen on various 3D functions.
   //
+  // TODO: After this experiment is completed, merge into the main branch and
+  // start a new branch. The experimental data should provide enough
+  // confidence that the current design is feasible. Therefore, development of
+  // the internal data structures and APIs can begin.
+  //
   // Hartree differential equation
   //
   // U (operator) = -v_{I}(r)
@@ -494,7 +499,6 @@ final class FiniteDifferencingTests: XCTestCase {
   // h = 0.250, 0.0022993, 0.0000669, 0.0000624, 0.0000746, 0.0000263,
   // h = 0.125, 0.0002278, 0.0003585, 0.0005138, 0.0005083, 0.0001787,
   // h = 0.125, 0.0005881, 0.0000005, 0.0000000, 0.0000000, 0.0000001, (FP64)
-  //
   func testMehrstellenDiscretization() throws {
     typealias Real = Float
     
@@ -699,6 +703,46 @@ final class FiniteDifferencingTests: XCTestCase {
         
         residuals.append(rightHandSide - leftHandSide)
         #endif
+        
+        // Encapsulate the hydrogen atom in an 8x8x8 Bohr simulation box.
+        let gridSize = Int32(Float(8 / h).rounded(.toNearestOrEven))
+        
+        // Iterate over the cells.
+        var accumulator: Double = .zero
+        for indexZ in 0..<gridSize {
+          for indexY in 0..<gridSize {
+            for indexX in 0..<gridSize {
+              // Locate the cell.
+              let cellIndices = SIMD3(indexX, indexY, indexZ)
+              var cellPosition = SIMD3<Float>(cellIndices)
+              cellPosition = h * (cellPosition + 0.5)
+              
+              // Generate the position, relative to the nucleus.
+              var nucleusPosition = SIMD3(repeating: Float(gridSize))
+              nucleusPosition = h * (nucleusPosition * 0.5)
+              let r = SIMD3<Real>(cellPosition - nucleusPosition)
+              
+              // TODO: Does there need to be a Mehrstellen correction to the
+              // integral? For example, the Rayleigh quotient is ΨHΨ / ΨBΨ.
+              
+              // Compute the integrand at this point in real space.
+              let Ψ = waveFunction(r: r)
+              let BΨ = sample(
+                method: .mehrstellenRightHandSide,
+                spacing: h,
+                position: r,
+                function: waveFunction(r:))
+              let value = Ψ * BΨ
+              
+              // Accumulate the integral.
+              let drTerm = Real(h * h * h)
+              accumulator += Double(value * drTerm)
+            }
+          }
+        }
+        
+        // Add the integral to the list.
+        expectationValues.append(Real(accumulator))
       }
       
       // Report the expectation values.
