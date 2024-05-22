@@ -428,6 +428,13 @@ final class FiniteDifferencingTests: XCTestCase {
   // - Normalized the residual by divinding it by the RHS.
   // - Reported the normalized residual to 7 decimal places.
   //
+  // Data for integrals:
+  // - Encapsulated the hydrogen atom in a 16x16x16 Bohr uniform grid. The
+  //   finest grid spacing was 0.125 Bohr, and it took ~4 seconds to compute
+  //   all of the integrals.
+  // - Divided every Mehrstellen estimate by ΨBΨ, to mirror the formula used
+  //   for Rayleigh quotients.
+  //
   // ======================================================================== //
   // Results (Raw Data)
   // ======================================================================== //
@@ -499,8 +506,35 @@ final class FiniteDifferencingTests: XCTestCase {
   // h = 0.250, 0.0022993, 0.0000669, 0.0000624, 0.0000746, 0.0000263,
   // h = 0.125, 0.0002278, 0.0003585, 0.0005138, 0.0005083, 0.0001787,
   // h = 0.125, 0.0005881, 0.0000005, 0.0000000, 0.0000000, 0.0000001, (FP64)
+  //
+  // Euclidean Norm
+  // h = 0.500, 0.9782071, 0.9782071, 0.9782071, 0.9782071, 1.0000000,
+  // h = 0.250, 0.9947214, 0.9947214, 0.9947214, 0.9947214, 1.0000000,
+  // h = 0.125, 0.9986905, 0.9986905, 0.9986905, 0.9986905, 1.0000000,
+  // h = 0.125, 0.9986905, 0.9986905, 0.9986905, 0.9986905, 1.0000000, (FP64)
+  //
+  // Kinetic Energy
+  // h = 0.500, 0.4670562, 0.4825225, 0.4845980, 0.4851608, 0.4658559,
+  // h = 0.250, 0.4918282, 0.4973585, 0.4977855, 0.4978775, 0.4905346,
+  // h = 0.125, 0.4979922, 0.4996298, 0.4997187, 0.4997239, 0.4975142,
+  // h = 0.125, 0.4979936, 0.4996396, 0.4997066, 0.4997194, 0.4975183, (FP64)
+  //
+  // Potential Energy
+  // h = 0.500, -0.9385867, -0.9385867, -0.9385867, -0.9385867, -0.9239331,
+  // h = 0.250, -0.9841995, -0.9841995, -0.9841995, -0.9841995, -0.9776164,
+  // h = 0.125, -0.9960209, -0.9960209, -0.9960209, -0.9960209, -0.9939297,
+  // h = 0.125, -0.9960208, -0.9960208, -0.9960208, -0.9960208, -0.9939297, (FP64)
+  //
+  // Rayleigh Quotient
+  // h = 0.500, -0.4715304, -0.4560640, -0.4539896, -0.4534254, -0.4580769,
+  // h = 0.250, -0.4923704, -0.4868388, -0.4864171, -0.4863236, -0.4870800,
+  // h = 0.125, -0.4980272, -0.4963813, -0.4963142, -0.4963014, -0.4964114, (FP64)
+  //
+  // Atomic Radius
+  
+  
   func testMehrstellenDiscretization() throws {
-    typealias Real = Float
+    typealias Real = Double
     
     // The analytical solutions to the differential equations.
     func waveFunction(r: SIMD3<Real>) -> Real {
@@ -633,9 +667,9 @@ final class FiniteDifferencingTests: XCTestCase {
           permutations += permutations.map(-)
           return permutations
         }
-        let permutations = createEdgePermutations()
+        let edgePermutations = createEdgePermutations()
         
-        for coordinateShift in permutations {
+        for coordinateShift in edgePermutations {
           let edgePosition = position + coordinateShift * spacing
           let edgeValue = function(edgePosition)
           accumulator += Real(1.0 / 6) * edgeValue
@@ -682,67 +716,73 @@ final class FiniteDifferencingTests: XCTestCase {
         .mehrstellenLeftHandSide
       ]
       for method in finiteDifferenceMethods {
-        #if false
-        let leftHandSide = sample(
-          method: method,
-          spacing: h,
-          position: position,
-          function: createLeftHandSide(r:))
-        
-        // Branch on the right-hand side for Mehrstellen.
-        var rightHandSide: Real
-        if method == .mehrstellenLeftHandSide {
-          rightHandSide = sample(
-            method: .mehrstellenRightHandSide,
-            spacing: h,
-            position: position,
-            function: createRightHandSide(r:))
-        } else {
-          rightHandSide = createRightHandSide(r: position)
-        }
-        
-        residuals.append(rightHandSide - leftHandSide)
-        #endif
-        
-        // Encapsulate the hydrogen atom in an 8x8x8 Bohr simulation box.
-        let gridSize = Int32(Float(8 / h).rounded(.toNearestOrEven))
+        // Encapsulate the hydrogen atom in a 16x16x16 Bohr simulation box.
+        // - Eventually, we'll decrease the compute cost to enable unit tests.
+        let gridSize = Int32(Float(16 / h).rounded(.toNearestOrEven))
         
         // Iterate over the cells.
         var accumulator: Double = .zero
+        var mehrstellenCorrection: Double = .zero
         for indexZ in 0..<gridSize {
           for indexY in 0..<gridSize {
             for indexX in 0..<gridSize {
               // Locate the cell.
               let cellIndices = SIMD3(indexX, indexY, indexZ)
-              var cellPosition = SIMD3<Float>(cellIndices)
+              var cellPosition = SIMD3<Real>(cellIndices)
               cellPosition = h * (cellPosition + 0.5)
               
               // Generate the position, relative to the nucleus.
-              var nucleusPosition = SIMD3(repeating: Float(gridSize))
+              var nucleusPosition = SIMD3(repeating: Real(gridSize))
               nucleusPosition = h * (nucleusPosition * 0.5)
               let r = SIMD3<Real>(cellPosition - nucleusPosition)
               
-              // TODO: Does there need to be a Mehrstellen correction to the
-              // integral? For example, the Rayleigh quotient is ΨHΨ / ΨBΨ.
-              
               // Compute the integrand at this point in real space.
               let Ψ = waveFunction(r: r)
+              let ΔΨ = sample(
+                method: method,
+                spacing: h,
+                position: r,
+                function: waveFunction(r:))
+              
+              var VΨ: Real
+              if method == .mehrstellenLeftHandSide {
+                VΨ  = sample(
+                  method: .mehrstellenRightHandSide,
+                  spacing: h,
+                  position: r
+                ) { r in
+                  // Be careful to not reference the Ψ from the outer scope.
+                  let U = -ionicPotential(r: r)
+                  let Ψ = waveFunction(r: r)
+                  return U * Ψ
+                }
+              } else {
+                let U = -ionicPotential(r: r)
+                VΨ = U * Ψ
+              }
+              let integrand = Ψ * (-0.5 * ΔΨ + VΨ)
+              
+              // Accumulate the integral.
               let BΨ = sample(
                 method: .mehrstellenRightHandSide,
                 spacing: h,
                 position: r,
                 function: waveFunction(r:))
-              let value = Ψ * BΨ
-              
-              // Accumulate the integral.
               let drTerm = Real(h * h * h)
-              accumulator += Double(value * drTerm)
+              accumulator += Double(integrand * drTerm)
+              mehrstellenCorrection += Double(Ψ * BΨ * drTerm)
             }
           }
         }
         
         // Add the integral to the list.
-        expectationValues.append(Real(accumulator))
+        if method == .mehrstellenLeftHandSide {
+          let expectationValue = Real(accumulator / mehrstellenCorrection)
+          expectationValues.append(expectationValue)
+        } else {
+          let expectationValue = Real(accumulator)
+          expectationValues.append(expectationValue)
+        }
       }
       
       // Report the expectation values.
