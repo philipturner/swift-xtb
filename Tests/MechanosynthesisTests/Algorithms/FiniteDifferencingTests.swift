@@ -432,8 +432,11 @@ final class FiniteDifferencingTests: XCTestCase {
   // - Encapsulated the hydrogen atom in a 16x16x16 Bohr uniform grid. The
   //   finest grid spacing was 0.125 Bohr, and it took ~4 seconds to compute
   //   all of the integrals.
-  // - Divided every Mehrstellen estimate by ΨBΨ, to mirror the formula used
+  // - Divided every Mehrstellen integral by ΨBΨ, to mirror the formula used
   //   for Rayleigh quotients.
+  //
+  // All data is calculated in FP32, unless noted otherwise. Integrals are
+  // summed with FP32 integrands, and temporary FP64 accumulators.
   //
   // ======================================================================== //
   // Results (Raw Data)
@@ -526,15 +529,18 @@ final class FiniteDifferencingTests: XCTestCase {
   // h = 0.125, -0.9960208, -0.9960208, -0.9960208, -0.9960208, -0.9939297, (FP64)
   //
   // Rayleigh Quotient
-  // h = 0.500, -0.4715304, -0.4560640, -0.4539896, -0.4534254, -0.4580769,
-  // h = 0.250, -0.4923704, -0.4868388, -0.4864171, -0.4863236, -0.4870800,
+  // h = 0.500, -0.4715305, -0.4560642, -0.4539886, -0.4534259, -0.4580772,
+  // h = 0.250, -0.4923713, -0.4868410, -0.4864140, -0.4863219, -0.4870818,
+  // h = 0.125, -0.4980287, -0.4963911, -0.4963022, -0.4962970, -0.4964156,
   // h = 0.125, -0.4980272, -0.4963813, -0.4963142, -0.4963014, -0.4964114, (FP64)
   //
   // Atomic Radius
-  
-  
+  // h = 0.500, 1.0006634, 1.0006634, 1.0006634, 1.0006634, 1.0498127,
+  // h = 0.250, 1.0000311, 1.0000311, 1.0000311, 1.0000311, 1.0122266,
+  // h = 0.125, 0.9999850, 0.9999850, 0.9999850, 0.9999850, 1.0030289,
+  // h = 0.125, 0.9999849, 0.9999849, 0.9999849, 0.9999849, 1.0030289, (FP64)
   func testMehrstellenDiscretization() throws {
-    typealias Real = Double
+    typealias Real = Float
     
     // The analytical solutions to the differential equations.
     func waveFunction(r: SIMD3<Real>) -> Real {
@@ -695,17 +701,14 @@ final class FiniteDifferencingTests: XCTestCase {
     
     // Query various expectation values of the hydrogen electron.
     let resolutions: [Real] = [
-      1.0 / 2,
-      1.0 / 4,
-      1.0 / 8,
+      // Deactivate the unit test entirely, as the latency is not acceptable.
+      // 1.0 / 2,
+      // 1.0 / 4,
+      // 1.0 / 8,
     ]
     
     // Iterate over the computationally feasible resolutions.
-    print()
     for h in resolutions {
-      let resolutionRepr = String(format: "%.3f", h)
-      print("h = \(resolutionRepr)", terminator: ", ")
-      
       // Iterate over the difference methods.
       var expectationValues: [Real] = []
       let finiteDifferenceMethods: [FiniteDifferenceMethod] = [
@@ -717,7 +720,6 @@ final class FiniteDifferencingTests: XCTestCase {
       ]
       for method in finiteDifferenceMethods {
         // Encapsulate the hydrogen atom in a 16x16x16 Bohr simulation box.
-        // - Eventually, we'll decrease the compute cost to enable unit tests.
         let gridSize = Int32(Float(16 / h).rounded(.toNearestOrEven))
         
         // Iterate over the cells.
@@ -738,29 +740,22 @@ final class FiniteDifferencingTests: XCTestCase {
               
               // Compute the integrand at this point in real space.
               let Ψ = waveFunction(r: r)
-              let ΔΨ = sample(
-                method: method,
-                spacing: h,
-                position: r,
-                function: waveFunction(r:))
-              
-              var VΨ: Real
+              var rΨ: Real
               if method == .mehrstellenLeftHandSide {
-                VΨ  = sample(
+                rΨ = sample(
                   method: .mehrstellenRightHandSide,
                   spacing: h,
                   position: r
                 ) { r in
                   // Be careful to not reference the Ψ from the outer scope.
-                  let U = -ionicPotential(r: r)
-                  let Ψ = waveFunction(r: r)
-                  return U * Ψ
+                  let radius = (r * r).sum().squareRoot()
+                  return Real(2.0 / 3) * radius * Ψ
                 }
               } else {
-                let U = -ionicPotential(r: r)
-                VΨ = U * Ψ
+                let radius = (r * r).sum().squareRoot()
+                rΨ = Real(2.0 / 3) * radius * Ψ
               }
-              let integrand = Ψ * (-0.5 * ΔΨ + VΨ)
+              let integrand = Ψ * rΨ
               
               // Accumulate the integral.
               let BΨ = sample(
@@ -784,13 +779,6 @@ final class FiniteDifferencingTests: XCTestCase {
           expectationValues.append(expectationValue)
         }
       }
-      
-      // Report the expectation values.
-      for expectationValue in expectationValues {
-        let repr = String(format: "%.7f", expectationValue)
-        print(repr, terminator: ", ")
-      }
-      print()
     }
   }
 }
