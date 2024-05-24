@@ -11,14 +11,6 @@ var targets: [Target] = []
 var platforms: [SupportedPlatform] = []
 #if canImport(Darwin)
 platforms.append(.macOS(.v14))
-targets.append(
-  .target(
-    name: "MetalCompiler",
-    dependencies: []))
-targets.append(
-  .testTarget(
-    name: "MetalCompilerTests",
-    dependencies: ["MetalCompiler"]))
 #endif
 
 var cSettings: [CSetting] = []
@@ -54,10 +46,6 @@ targets.append(
 var packageDependencies: [Package.Dependency] = []
 packageDependencies.append(
   .package(
-    url: "https://github.com/philipturner/swift-opencl",
-    branch: "main"))
-packageDependencies.append(
-  .package(
     url: "https://github.com/philipturner/swift-numerics", 
     branch: "Quaternions"))
 
@@ -66,10 +54,6 @@ targetDependencies.append(
   .product(
     name: "Numerics",
     package: "swift-numerics"))
-targetDependencies.append(
-  .product(
-    name: "OpenCL",
-    package: "swift-opencl"))
 
 // MARK: - Package Manifest
 
