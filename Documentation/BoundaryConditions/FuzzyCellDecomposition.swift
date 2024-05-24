@@ -46,7 +46,7 @@ func testFuzzyCellDecomposition() throws {
     ansatzDesc.positions = positions
     ansatzDesc.sizeExponent = 4
     
-    // Set the quality to 1000 fragments/electron.
+    // Set the quality to ≥1000 fragments/electron.
     ansatzDesc.fragmentCount = 1000
     
     // Specify the net charges and spins.

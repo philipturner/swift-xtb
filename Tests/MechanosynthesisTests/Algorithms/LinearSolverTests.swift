@@ -22,7 +22,7 @@ import Numerics
 //   of two Gauss-Seidel iterations.
 //
 // ========================================================================== //
-// Results
+// Results (Raw Data)
 // ========================================================================== //
 //
 // h = 0.25, gridSize = 8, cellCount = 512
@@ -31,8 +31,11 @@ import Numerics
 // Conjugate Gradient   30 iters  ||r|| = 0.00030688613  0.003 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.00023875975  0.003 seconds
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.017259505    0.004 seconds
-// Multigrid 1-2-1-2-1  10 iters  ||r|| = 0.00020144212  0.003 seconds
-// Multigrid 1-4-1       7 iters  ||r|| = 0.00019803157  0.003 seconds
+// Multigrid 1-2-1-2-2  10 iters  ||r|| = 0.00020144212  0.003 seconds
+// Multigrid 1-4-2       7 iters  ||r|| = 0.00019803157  0.003 seconds
+// FAS 2-2-4-2-2        13 iters  ||r|| = 0.00018249848  0.004 seconds
+// FAS 3-3-6-3-3        10 iters  ||r|| = 0.00013220003  0.004 seconds
+// FAS 4-4-8-4-4         8 iters  ||r|| = 0.00016010087  0.004 seconds
 //
 // h = 0.125, gridSize = 16, cellCount = 4096
 //                       0 iters  ||r|| = 3091.9424
@@ -40,9 +43,12 @@ import Numerics
 // Conjugate Gradient   30 iters  ||r|| = 0.09551496    0.017 seconds
 // Preconditioned CG    15 iters  ||r|| = 0.0032440922  0.024 seconds
 // Multigrid 1-1-1-1-1  15 iters  ||r|| = 0.0023769636  0.025 seconds
-// Multigrid 1-2-1-2-1  12 iters  ||r|| = 0.0025058207  0.024 seconds
-// Multigrid 1-2-2-2-1  10 iters  ||r|| = 0.0023211893  0.021 seconds
-// Multigrid 1-2-4-2-1  12 iters  ||r|| = 0.0025251452  0.025 seconds
+// Multigrid 1-2-1-2-2  12 iters  ||r|| = 0.0025058207  0.024 seconds
+// Multigrid 1-2-2-2-2  10 iters  ||r|| = 0.0023211893  0.021 seconds
+// Multigrid 1-2-4-2-2  12 iters  ||r|| = 0.0025251452  0.025 seconds
+// FAS 2-2-2-4-2-2-2    21 iters  ||r|| = 0.0019460453  0.031 seconds
+// FAS 3-3-3-6-3-3-3    13 iters  ||r|| = 0.0019811026  0.026 seconds
+// FAS 4-4-4-8-4-4-4    10 iters  ||r|| = 0.001796775   0.025 seconds
 //
 // h = 0.0625, gridSize = 32, cellCount = 32,768
 //                           0 iters  ||r|| = 24494.229
@@ -50,35 +56,55 @@ import Numerics
 // Conjugate Gradient       60 iters  ||r|| = 0.49065304   0.258 seconds
 // Preconditioned CG        30 iters  ||r|| = 0.048568394  0.364 seconds
 // Multigrid 1-1-1-1-1-1-1  30 iters  ||r|| = 0.029823668  0.408 seconds
-// Multigrid 1-2-2-1-2-2-1  15 iters  ||r|| = 0.02897086   0.242 seconds
-// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306  0.251 seconds
+// Multigrid 1-2-2-1-2-2-2  15 iters  ||r|| = 0.02897086   0.242 seconds
+// Multigrid 1-2-4-2-2      15 iters  ||r|| = 0.028649306  0.251 seconds
+// FAS 2-2-2-2-4-2-2-2-2    55 iters  ||r|| = 0.022709914  0.640 seconds
+// FAS 3-3-3-3-6-3-3-3-3    20 iters  ||r|| = 0.02041208   0.300 seconds
+// FAS 4-4-4-4-8-4-4-4-4    15 iters  ||r|| = 0.01959731   0.283 seconds
 //
 // h = 0.0313, gridSize = 64, cellCount = 262,144
-//                           0 iters  ||r|| = 195015.61
-// Gauss-Seidel             99 iters  ||r|| = 5887.104    3.311 seconds
-// Conjugate Gradient       99 iters  ||r|| = 53.441914   3.375 seconds
-// Preconditioned CG        50 iters  ||r|| = 0.72252524  4.823 seconds
-// Multigrid 1-1-1-1-1-1-1  35 iters  ||r|| = 0.45097157  3.831 seconds
-// Multigrid 1-2-2-1-2-2-1  30 iters  ||r|| = 0.3642269   3.951 seconds
-// Multigrid 1-2-2-2-2-2-1  20 iters  ||r|| = 0.36008823  2.601 seconds
-// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418  2.613 seconds
+//                             0 iters  ||r|| = 195015.61
+// Gauss-Seidel               99 iters  ||r|| = 5887.104    3.311 seconds
+// Conjugate Gradient         99 iters  ||r|| = 53.441914   3.375 seconds
+// Preconditioned CG          50 iters  ||r|| = 0.72252524  4.823 seconds
+// Multigrid 1-1-1-1-1-1-1    35 iters  ||r|| = 0.45097157  3.831 seconds
+// Multigrid 1-2-2-1-2-2-2    30 iters  ||r|| = 0.3642269   3.951 seconds
+// Multigrid 1-2-2-2-2-2-2    20 iters  ||r|| = 0.36008823  2.601 seconds
+// Multigrid 1-2-2-4-2-2-2    20 iters  ||r|| = 0.30006418  2.613 seconds
+// FAS 3-3-3-3-3-6-3-3-3-3-3  35 iters  ||r|| = 0.23221506  4.315 seconds
+// FAS 4-4-4-4-4-8-4-4-4-4-4  20 iters  ||r|| = 0.22813758  3.047 seconds
 //
 // h = 0.0156, gridSize = 128, cellCount = 2,097,152
-//                               0 iters  ||r|| = 1556438.4
-// Preconditioned CG            60 iters  ||r|| = 1209.9086  46.300 seconds
-// Preconditioned CG            99 iters  ||r|| = 11.659912  75.554 seconds
-// Multigrid 1-1-1-1-1-1-1      60 iters  ||r|| = 225.7327   52.499 seconds
-// Multigrid 1-1-1-2-1-1-1      60 iters  ||r|| = 25.65553   52.680 seconds
-// Multigrid 1-2-2-2-2-2-1      60 iters  ||r|| = 6.335201   62.544 seconds
-// Multigrid 1-2-2-4-2-2-1      40 iters  ||r|| = 3.906945   42.194 seconds
-// Multigrid 1-2-2-2-1-2-2-2-1  28 iters  ||r|| = 3.576714   29.415 seconds
+//                                 0 iters  ||r|| = 1556438.4
+// Preconditioned CG              60 iters  ||r|| = 1209.9086  46.300 seconds
+// Preconditioned CG              99 iters  ||r|| = 11.659912  75.554 seconds
+// Multigrid 1-1-1-1-1-1-1        60 iters  ||r|| = 225.7327   52.499 seconds
+// Multigrid 1-1-1-2-1-1-1        60 iters  ||r|| = 25.65553   52.680 seconds
+// Multigrid 1-2-2-2-2-2-2        60 iters  ||r|| = 6.335201   62.544 seconds
+// Multigrid 1-2-2-4-2-2-2        40 iters  ||r|| = 3.906945   42.194 seconds
+// Multigrid 1-2-2-2-1-2-2-2-2    28 iters  ||r|| = 3.576714   29.415 seconds
+// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4  30 iters  ||r|| = 2.6634037  35.504 seconds
 //
-// Consistent pattern for reliably-performing grids:
-// Multigrid 1-4-1           7 iters  ||r|| = 0.00019803157  0.003 seconds
-// Multigrid 1-2-4-2-1      12 iters  ||r|| = 0.0025251452   0.025 seconds
-// Multigrid 1-2-4-2-1      15 iters  ||r|| = 0.028649306    0.251 seconds
-// Multigrid 1-2-2-4-2-2-1  20 iters  ||r|| = 0.30006418     2.613 seconds
-// Multigrid 1-2-2-4-2-2-1  40 iters  ||r|| = 3.906945      42.194 seconds
+// ========================================================================== //
+// Results (Summary)
+// ========================================================================== //
+//
+// Pattern for reliable convergence (original multigrid):
+// Multigrid 1-4-2                 7 V-cycles  ||r|| = 0.000198   0.003 seconds
+// Multigrid 1-2-4-2-2            12 V-cycles  ||r|| = 0.002525   0.025 seconds
+// Multigrid 1-2-4-2-2            15 V-cycles  ||r|| = 0.028649   0.251 seconds
+// Multigrid 1-2-2-4-2-2-2        20 V-cycles  ||r|| = 0.300064   2.613 seconds
+// Multigrid 1-2-2-4-2-2-2        40 V-cycles  ||r|| = 3.906945  42.194 seconds
+//
+// Pattern for reliable convergence (after rewrite, which added FAS):
+// FAS 4-4-8-4-4                   8 V-cycles  ||r|| = 0.000160   0.004 seconds
+// FAS 4-4-4-8-4-4-4              10 V-cycles  ||r|| = 0.001796   0.025 seconds
+// FAS 4-4-4-4-8-4-4-4-4          15 V-cycles  ||r|| = 0.019597   0.283 seconds
+// FAS 4-4-4-4-4-8-4-4-4-4-4      20 V-cycles  ||r|| = 0.228137   3.047 seconds
+// FAS 4-4-4-4-4-4-8-4-4-4-4-4-4  30 V-cycles  ||r|| = 2.663403  35.504 seconds
+//
+// The pattern is much simpler with FAS. The solver converges consistently and
+// requires no fine-tuning.
 //
 // ========================================================================== //
 // Discussion
@@ -123,9 +149,27 @@ import Numerics
 // Mechanosynthesis would have two solvers:
 // - .conjugateGradient (more robust; default)
 // - .multigrid (more efficient)
+//
+// ========================================================================== //
+// Results (Raw Data)
+// ========================================================================== //
+//
+// 7-point Laplacian
+//
+// Spacing  | Cells | RMS Average   | MAD Average   | Maximum Cell  | Order
+// -------- | ----- | ------------- | ------------- | ------------- | -----
+// h = 1/4  |   8^3 | RMS: 0.044557 | MAD: 0.068089 | MAX: 0.096520 | n/a
+// h = 1/8  |  16^3 | RMS: 0.032344 | MAD: 0.028211 | MAX: 0.189478 | 1.27
+// h = 1/16 |  32^3 | RMS: 0.022969 | MAD: 0.010023 | MAX: 0.377876 | 1.49
+// h = 1/32 |  64^3 | RMS: 0.016251 | MAD: 0.003268 | MAX: 0.755470 | 1.62
+// h = 1/64 | 128^3 | RMS: 0.011492 | MAD: 0.001010 | MAX: 1.510849 | 1.69
+//
+// 19-point Laplacian on lowest level, no Mehrstellen correction
+//
+// TODO
 final class LinearSolverTests: XCTestCase {
   static let gridSize: Int = 8
-  static let h: Float = 0.25
+  static let h: Float = 2 / Float(gridSize)
   static var cellCount: Int { gridSize * gridSize * gridSize }
   
   // MARK: - Utilities
@@ -641,14 +685,20 @@ final class LinearSolverTests: XCTestCase {
     var x = [Float](repeating: .zero, count: Self.cellCount)
     
     // Execute the iterations.
-    for _ in 0..<10 {
+    for _ in 0..<15 {
       // Initialize the residual.
       let L1x = Self.applyLaplacianLinearPart(x)
       let rFine = Self.shift(b, scale: -1, correction: L1x)
       
       // Smoothing iterations on the first level.
-      var eFine = gaussSeidelSolve(r: rFine, coarseness: 1)
-      eFine = multigridCoarseLevel(e: eFine, r: rFine, fineLevelCoarseness: 1)
+      var eFine = gaussSeidelSolve(
+        r: rFine,
+        coarseness: 1)
+      eFine = multigridCoarseLevel(
+        e: eFine, 
+        r: rFine,
+        fineLevelCoarseness: 1,
+        fineLevelIterations: 1)
       
       // Update the solution.
       x = Self.shift(x, scale: 1, correction: eFine)
@@ -660,7 +710,7 @@ final class LinearSolverTests: XCTestCase {
     
     // A recursive function call within the multigrid V-cycle.
     func multigridCoarseLevel(
-      e: [Float], r: [Float], fineLevelCoarseness: Int
+      e: [Float], r: [Float], fineLevelCoarseness: Int, fineLevelIterations: Int
     ) -> [Float] {
       var eFine = e
       var rFine = r
@@ -678,23 +728,26 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the coarse level.
       let coarseLevelCoarseness = 2 * fineLevelCoarseness
-      var iterations: Int
+      var coarseLevelIterations: Int
       if coarseLevelCoarseness == 1 {
-        iterations = 1
+        fatalError("This should never happen.")
       } else if coarseLevelCoarseness == 2 {
-        iterations = 4
+        coarseLevelIterations = 4
       } else {
-        iterations = 1
+        coarseLevelIterations = 1
       }
       var eCoarse = gaussSeidelSolve(
-        r: rCoarse, coarseness: coarseLevelCoarseness, iterations: iterations)
+        r: rCoarse, 
+        coarseness: coarseLevelCoarseness,
+        iterations: coarseLevelCoarseness)
       
       // Shift to a higher level.
       if coarseLevelCoarseness < 2 {
         eCoarse = multigridCoarseLevel(
           e: eCoarse,
           r: rCoarse,
-          fineLevelCoarseness: coarseLevelCoarseness)
+          fineLevelCoarseness: coarseLevelCoarseness,
+          fineLevelIterations: coarseLevelIterations)
       }
       
       // Prolong from coarse to fine.
@@ -710,7 +763,9 @@ final class LinearSolverTests: XCTestCase {
       
       // Smoothing iterations on the fine level.
       let δeFine = gaussSeidelSolve(
-        r: rFine, coarseness: fineLevelCoarseness, iterations: iterations)
+        r: rFine,
+        coarseness: fineLevelCoarseness,
+        iterations: fineLevelIterations)
       for cellID in eFine.indices {
         eFine[cellID] += δeFine[cellID]
       }
@@ -914,6 +969,639 @@ final class LinearSolverTests: XCTestCase {
         }
       }
       return output
+    }
+  }
+  
+  // Refactor the multigrid code, fix the bug with iteration count, and
+  // convert the solver into the FAS scheme.
+  // - Modify the storage of the e-vector, permitting RB ordering with Mehr. ✅
+  // - Does it achieve the same convergence rates as the original multigrid? ✅
+  // - Does it perform better for the 128x128x128 grid attempting to peak the
+  //   V-cycle at 64x64x64? ✅
+  //
+  // Exact equations for the Mehrstellen correction:
+  //
+  // B4^{-1} A4 u4 = f4
+  // t3 = B3^{-1} A3 avg u4 - avg B4^{-1} A4 u4
+  // f3 = avg f4
+  // -> B3^{-1} A3 u3 = f3 + t3
+  // -> t2 = B2^{-1} A2 avg u3 - avg B3^{-1} A3 u3 + avg t3
+  // -> f2 = avg f3
+  // ---> B2^{-1} A2 u2 = f2 + t2
+  // ---> t1 = B1^{-1} A1 avg u2 - avg B2^{-1} A2 u2 + avg t2
+  // ---> f1 = avg f2
+  // -----> B1^{-1} A1 u1 = f1 + t1
+  // ---> u2 += interp (u1 - avg u2)
+  // ---> B2^{-1} A2 u2 = f2 + t2
+  // -> u3 += interp (u2 - avg u3)
+  // -> B3^{-1} A3 u3 = f3 + t3
+  // u4 += interp (u3 - avg u4)
+  // B4^{-1} A4 u4 = f4
+  //
+  // Rearranging the equations to avoid the matrix inversion:
+  //
+  // solved by u4 = U4
+  // A4 u4 = B4 f4
+  // t3 = L3 avg u4 + avg (B4 f4 - A4 u4)
+  //
+  // -> solved by u3 = avg u4
+  // -> L3 u3 = t3
+  // -> t2 = L2 avg u3 + avg (t3 - L3 u3)
+  //
+  // ---> solved by u2 = avg u3
+  // ---> L2 u2 = t2
+  // ---> t1 = L1 avg u2 + avg (t2 - L2 u2)
+  //
+  // -----> solved by u1 = avg u2
+  // -----> L1 u1 = t1
+  //
+  // ---> solved by u1 = avg u2
+  // ---> u2 += interp (u1 - avg u2)
+  // ---> L2 u2 = t2
+  //
+  // -> solved by u2 = avg u3
+  // -> u3 += interp (u2 - avg u3)
+  // -> L3 u3 = t3
+  //
+  // solved by u3 = avg u4
+  // u4 += interp (u3 - avg u4)
+  // A4 u4 = B4 f4
+  //
+  // Mehrstellen should only be applied at the level where it's the source of
+  // truth. This explains why Mehrstellen is "numerically unstable" on coarse
+  // grids.
+  func testFullApproximationScheme() throws {
+    // Prepare the solution and RHS.
+    var b = Self.createScaledChargeDensity()
+    let L2x = Self.applyLaplacianBoundary()
+    b = Self.shift(b, scale: -1, correction: L2x)
+    var x = [Float](repeating: .zero, count: Self.cellCount)
+    
+    // Heuristic for number of iterations:
+    // - Optimal iteration count: (2/3) * stageCount^2
+    // - Conservative iteration count: stageCount^2
+    //
+    // Data used for parametrization:
+    // 8x8x8         9 iterations > 8 iterations
+    // 16x16x16     16 iterations > 10 iterations
+    // 32x32x32     25 iterations > 15 iterations
+    // 64x64x64     36 iterations > 20 iterations
+    // 128x128x128  49 iterations > 30 iterations
+    let stageCount = Self.gridSize.trailingZeroBitCount
+    let iterationCount = stageCount * stageCount
+    for _ in 0..<iterationCount {
+      // Execute eight smoothing iterations on each level (4 up, 4 down).
+      cycle(solution: &x, rightHandSide: b, stages: stageCount)
+    }
+    
+    // Check the residual norm at the end of iterations.
+    let residualNorm = Self.createResidualNorm(solution: x)
+    XCTAssertLessThan(residualNorm, 0.001)
+    
+    // Check the accuracy of the solution.
+    do {
+      // Create variables to accumulate the population statistics.
+      var rmsAccumulator: Double = .zero
+      var madAccumulator: Double = .zero
+      var maxAccumulator: Float = .zero
+      
+      // Iterate over the grid.
+      for indexZ in 0..<Self.gridSize {
+        for indexY in 0..<Self.gridSize {
+          for indexX in 0..<Self.gridSize {
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = Self.createAddress(indices: cellIndices)
+            let cellValue = x[cellAddress]
+            
+            let position = (SIMD3<Float>(cellIndices) + 0.5) * Self.h
+            let rDelta = position - SIMD3<Float>(1, 1, 1)
+            let r = (rDelta * rDelta).sum().squareRoot()
+            let expected = 1 / r
+            
+            let error = (cellValue - expected).magnitude
+            let drTerm = Self.h * Self.h * Self.h
+            rmsAccumulator += Double(error * error * drTerm)
+            madAccumulator += Double(error * drTerm)
+            maxAccumulator = max(maxAccumulator, error)
+          }
+        }
+      }
+      
+      // Check the population statistics.
+      let rms = Float(rmsAccumulator).squareRoot()
+      let mad = Float(madAccumulator)
+      let max = maxAccumulator
+      XCTAssertLessThan(rms, 0.10)
+      XCTAssertLessThan(mad, 0.14)
+      XCTAssertLessThan(max, 0.19)
+    }
+    
+    // Perform a V-cycle.
+    // - solution: The solution, which will be updated in-place.
+    // - rightHandSide: 'b' in the linear equation.
+    // - stages: The number of V-cycle stages left, including the current one.
+    //           For example, 3 stages would indicate:
+    //             4x4x4 granularity
+    //             2x2x2 granularity
+    //             1x1x1 granularity (current level)
+    //           Note that 2^3 = 8, and the highest multigrid level is not
+    //           8x8x8. Rather, the highest level should be:
+    //             2^{stages-1} x 2^{stages-1} x 2^{stages-1}
+    func cycle(
+      solution: inout [Float],
+      rightHandSide: [Float],
+      stages: Int
+    ) {
+      guard stages >= 1 else {
+        fatalError("There must be enough stages to include the current one.")
+      }
+      
+      // Perform two iterations of Gauss-Seidel smoothing.
+      smooth(solution: &solution, rightHandSide: rightHandSide)
+      
+      let coarseStages = stages - 1
+      if coarseStages > 0 {
+        // Restrict the solution to a coarser level.
+        var coarseSolution = restrict(solution)
+        
+        // Use a double negative to compute the defect correction, without
+        // creating a dedicated Swift function.
+        //
+        // L3 avg u4 + avg (B4 f4 - A4 u4)
+        // L3 avg u4 - avg (A4 u4 - B4 f4)
+        let residual = negativeResidual(
+          solution: solution,
+          rightHandSide: rightHandSide)
+        let τ = negativeResidual(
+          solution: coarseSolution,
+          rightHandSide: restrict(residual))
+        
+        // Call this function, but one level higher.
+        cycle(
+          solution: &coarseSolution,
+          rightHandSide: τ,
+          stages: coarseStages)
+        
+        // Add the correction to the current solution.
+        let correction = prolong(subtract(coarseSolution, restrict(solution)))
+        solution = add(solution, correction)
+      }
+      
+      // Perform two iterations of Gauss-Seidel smoothing.
+      smooth(solution: &solution, rightHandSide: rightHandSide)
+    }
+    
+    // Whether Mehrstellen discretization should be used.
+    func shouldUseMehrstellen(gridSize: Int16) -> Bool {
+      // The current implementation of Mehrstellen has a bug.
+      false
+    }
+    
+    func createGridSize(cellCount: Int) -> Int16 {
+      // Estimate the cube root.
+      let cubeRoot = Float.root(Float(cellCount), 3)
+      let cubeRootRounded = Int16(cubeRoot.rounded(.toNearestOrEven))
+      
+      // Check the correctness of the estimate.
+      let cube =
+      Int(cubeRootRounded) *
+      Int(cubeRootRounded) *
+      Int(cubeRootRounded)
+      guard cube == cellCount else {
+        fatalError("Cube root was incorrect: \(cube) != \(cellCount).")
+      }
+      
+      // Return the cube root.
+      return cubeRootRounded
+    }
+    
+    func createSpacing(gridSize: Int16) -> Float {
+      Self.h * Float(Self.gridSize / Int(gridSize))
+    }
+    
+    @_transparent
+    func createAddress(_ indices: SIMD3<Int16>, gridSize: Int16) -> Int {
+      Int(indices.z) * Int(gridSize) * Int(gridSize) +
+      Int(indices.y) * Int(gridSize) +
+      Int(indices.x)
+    }
+    
+    // Split the solution into red and black halves.
+    func split(solution: [Float]) -> (
+      red: [Float], black: [Float]
+    ) {
+      let gridSize = createGridSize(cellCount: solution.count)
+      var red = [Float](repeating: .zero, count: solution.count / 2)
+      var black = [Float](repeating: .zero, count: solution.count / 2)
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Read the solution value from memory.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let cellValue = solution[cellAddress]
+            
+            // Write the solution value to memory.
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            if isRed {
+              red[cellAddress / 2] = cellValue
+            } else {
+              black[cellAddress / 2] = cellValue
+            }
+          }
+        }
+      }
+      return (red, black)
+    }
+    
+    // Merge the two halves of the solution.
+    func merge(red: [Float], black: [Float]) -> [Float] {
+      var solution = [Float](repeating: .zero, count: red.count + black.count)
+      let gridSize = createGridSize(cellCount: solution.count)
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Locate the current cell.
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            var cellValue: Float
+            
+            // Read the solution value from memory.
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            if isRed {
+              cellValue = red[cellAddress / 2]
+            } else {
+              cellValue = black[cellAddress / 2]
+            }
+            
+            // Write the solution to memory.
+            solution[cellAddress] = cellValue
+          }
+        }
+      }
+      return solution
+    }
+    
+    func add(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+      var output = [Float](repeating: .zero, count: lhs.count)
+      for cellID in lhs.indices {
+        let lhsValue = lhs[cellID]
+        let rhsValue = rhs[cellID]
+        let sumValue = lhsValue + rhsValue
+        output[cellID] = sumValue
+      }
+      return output
+    }
+    
+    func subtract(_ lhs: [Float], _ rhs: [Float]) -> [Float] {
+      var output = [Float](repeating: .zero, count: lhs.count)
+      for cellID in lhs.indices {
+        let lhsValue = lhs[cellID]
+        let rhsValue = rhs[cellID]
+        let sumValue = lhsValue - rhsValue
+        output[cellID] = sumValue
+      }
+      return output
+    }
+    
+    func createLevelTransferPermutations() -> [SIMD3<Int16>] {
+      var permutations: [SIMD3<Int16>] = []
+      for permutationZ in 0..<2 {
+        for permutationY in 0..<2 {
+          for permutationX in 0..<2 {
+            let permutationSet = SIMD3(
+              Int16(permutationX),
+              Int16(permutationY),
+              Int16(permutationZ))
+            permutations.append(permutationSet)
+          }
+        }
+      }
+      return permutations
+    }
+    
+    func restrict(_ fineGrid: [Float]) -> [Float] {
+      var coarseGrid = [Float](repeating: .zero, count: fineGrid.count / 8)
+      let fineGridSize = createGridSize(cellCount: fineGrid.count)
+      let coarseGridSize = fineGridSize / 2
+      
+      // Create a list of index permutations.
+      let permutations = createLevelTransferPermutations()
+      
+      // Iterate over the coarse grid.
+      for indexZ in 0..<coarseGridSize {
+        for indexY in 0..<coarseGridSize {
+          for indexX in 0..<coarseGridSize {
+            // Iterate over the footprint on the finer grid.
+            var accumulator: Float = .zero
+            for permutation in permutations {
+              var fineIndices = 2 &* SIMD3(indexX, indexY, indexZ)
+              fineIndices &+= permutation
+              let fineAddress = createAddress(
+                fineIndices, gridSize: fineGridSize)
+              
+              // Read from the fine grid.
+              let fineValue = fineGrid[fineAddress]
+              accumulator += (1.0 / 8) * fineValue
+            }
+            
+            // Write to the coarse grid.
+            let coarseIndices = SIMD3(indexX, indexY, indexZ)
+            let coarseAddress = createAddress(
+              coarseIndices, gridSize: coarseGridSize)
+            coarseGrid[coarseAddress] = accumulator
+          }
+        }
+      }
+      return coarseGrid
+    }
+    
+    func prolong(_ coarseGrid: [Float]) -> [Float] {
+      var fineGrid = [Float](repeating: .zero, count: coarseGrid.count * 8)
+      let coarseGridSize = createGridSize(cellCount: coarseGrid.count)
+      let fineGridSize = coarseGridSize * 2
+      
+      // Create a list of index permutations.
+      let permutations = createLevelTransferPermutations()
+      
+      // Iterate over the coarse grid.
+      for indexZ in 0..<coarseGridSize {
+        for indexY in 0..<coarseGridSize {
+          for indexX in 0..<coarseGridSize {
+            // Read from the coarse grid.
+            let coarseIndices = SIMD3(indexX, indexY, indexZ)
+            let coarseAddress = createAddress(
+              coarseIndices, gridSize: coarseGridSize)
+            let coarseValue = coarseGrid[coarseAddress]
+            
+            // Iterate over the footprint on the finer grid.
+            for permutation in permutations {
+              var fineIndices = 2 &* SIMD3(indexX, indexY, indexZ)
+              fineIndices &+= permutation
+              let fineAddress = createAddress(
+                fineIndices, gridSize: fineGridSize)
+              
+              // Write to the fine grid.
+              fineGrid[fineAddress] = coarseValue
+            }
+          }
+        }
+      }
+      return fineGrid
+    }
+    
+    func createEdgePermutations() -> [SIMD3<Int16>] {
+      var permutations: [SIMD3<Int16>] = []
+      permutations.append(SIMD3(1, 1, 0))
+      permutations.append(SIMD3(1, 0, 1))
+      permutations.append(SIMD3(0, 1, 1))
+      permutations.append(SIMD3(1, -1, 0))
+      permutations.append(SIMD3(1, 0, -1))
+      permutations.append(SIMD3(0, 1, -1))
+      permutations += permutations.map { 0 &- $0 }
+      return permutations
+    }
+    
+    // The two types of cells that are updated in alternation.
+    enum Sweep {
+      case red
+      case black
+    }
+    
+    // A descriptor for a relaxation.
+    struct RelaxationDescriptor {
+      var sweep: Sweep?
+      var red: [Float]?
+      var black: [Float]?
+      var rightHandSide: [Float]?
+    }
+    
+    func smooth(
+      solution: inout [Float],
+      rightHandSide: [Float],
+      iterations: Int = 4
+    ) {
+      // Set up the relaxations.
+      var (red, black) = split(solution: solution)
+      var relaxationDesc = RelaxationDescriptor()
+      relaxationDesc.rightHandSide = rightHandSide
+      
+      for _ in 0..<iterations {
+        // Gauss-Seidel: Red
+        relaxationDesc.sweep = .red
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        red = relax(descriptor: relaxationDesc)
+        
+        // Gauss-Seidel: Black
+        relaxationDesc.sweep = .black
+        relaxationDesc.red = red
+        relaxationDesc.black = black
+        black = relax(descriptor: relaxationDesc)
+      }
+      
+      // Clean up after the relaxations.
+      solution = merge(red: red, black: black)
+    }
+    
+    func relax(descriptor: RelaxationDescriptor) -> [Float] {
+      guard let sweep = descriptor.sweep,
+            let red = descriptor.red,
+            let black = descriptor.black,
+            let rightHandSide = descriptor.rightHandSide else {
+        fatalError("Descriptor was incomplete.")
+      }
+      
+      // Allocate memory for the written solution values.
+      var output = [Float](repeating: .zero, count: red.count)
+      let gridSize = createGridSize(cellCount: rightHandSide.count)
+      let h = createSpacing(gridSize: gridSize)
+      
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize)
+      let edgePermutations = createEdgePermutations()
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            // Mask out either the red or black cells.
+            let parity = indexX ^ indexY ^ indexZ
+            let isRed = (parity & 1) == 0
+            guard isRed == (sweep == .red) else {
+              continue
+            }
+            
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let (cellValue, residual) = convolutionKernel(
+              sweep: sweep,
+              red: red,
+              black: black,
+              solution: nil,
+              rightHandSide: rightHandSide,
+              
+              gridSize: gridSize,
+              h: h,
+              useMehrstellen: useMehrstellen,
+              edgePermutations: edgePermutations,
+              cellIndices: cellIndices,
+              cellAddress: cellAddress)
+            
+            let weight = useMehrstellen ? Float(-4) : Float(-6)
+            let Δt: Float = (h * h) / weight
+            output[cellAddress / 2] = cellValue + Δt * residual
+          }
+        }
+      }
+      return output
+    }
+    
+    // The negative of b - Ax, which is Ax - b.
+    func negativeResidual(
+      solution: [Float], rightHandSide: [Float]
+    ) -> [Float] {
+      var output = [Float](repeating: .zero, count: solution.count)
+      let gridSize = createGridSize(cellCount: solution.count)
+      let h = createSpacing(gridSize: gridSize)
+      
+      // Determine whether to use Mehrstellen.
+      let useMehrstellen = shouldUseMehrstellen(gridSize: gridSize)
+      let edgePermutations = createEdgePermutations()
+      
+      // Iterate over the cells.
+      for indexZ in 0..<gridSize {
+        for indexY in 0..<gridSize {
+          for indexX in 0..<gridSize {
+            let cellIndices = SIMD3(indexX, indexY, indexZ)
+            let cellAddress = createAddress(cellIndices, gridSize: gridSize)
+            let (_, residual) = convolutionKernel(
+              sweep: nil,
+              red: nil,
+              black: nil,
+              solution: solution,
+              rightHandSide: rightHandSide,
+              
+              gridSize: gridSize,
+              h: h,
+              useMehrstellen: useMehrstellen,
+              edgePermutations: edgePermutations,
+              cellIndices: cellIndices,
+              cellAddress: cellAddress)
+            
+            output[cellAddress] = -residual
+          }
+        }
+      }
+      return output
+    }
+    
+    // Execute the convolution kernel.
+    @_transparent
+    func convolutionKernel(
+      sweep: Sweep?,
+      red: [Float]?,
+      black: [Float]?,
+      solution: [Float]?,
+      rightHandSide: [Float],
+      
+      gridSize: Int16,
+      h: Float,
+      useMehrstellen: Bool,
+      edgePermutations: [SIMD3<Int16>],
+      cellIndices: SIMD3<Int16>,
+      cellAddress: Int
+    ) -> (cellValue: Float, residual: Float) {
+      // Iterate over the faces.
+      var Lu: Float = .zero
+      var f: Float = .zero
+      for faceID in 0..<6 {
+        let coordinateID = faceID / 2
+        let coordinateShift = (faceID % 2 == 0) ? -1 : 1
+        
+        // Locate the neighboring cell.
+        var neighborIndices = cellIndices
+        neighborIndices[coordinateID] += Int16(coordinateShift)
+        guard all(neighborIndices .>= 0),
+              all(neighborIndices .< gridSize) else {
+          continue
+        }
+        let neighborAddress = createAddress(
+          neighborIndices, gridSize: gridSize)
+        
+        // Read the neighbor value from memory.
+        var neighborValue: Float
+        if sweep == .red {
+          neighborValue = black.unsafelyUnwrapped[neighborAddress / 2]
+        } else if sweep == .black {
+          neighborValue = red.unsafelyUnwrapped[neighborAddress / 2]
+        } else {
+          neighborValue = solution.unsafelyUnwrapped[neighborAddress]
+        }
+        let weight = useMehrstellen ? Float(1.0 / 3) : Float(1)
+        Lu += weight / (h * h) * neighborValue
+        
+        // Read the RHS value from memory.
+        if useMehrstellen {
+          f += Float(1.0 / 12) * rightHandSide[neighborAddress]
+        }
+      }
+      
+      // Iterate over the edges.
+      if useMehrstellen {
+        for edgePermutation in edgePermutations {
+          // Locate the neighboring cell.
+          var neighborIndices = cellIndices
+          neighborIndices &+= edgePermutation
+          guard all(neighborIndices .>= 0),
+                all(neighborIndices .< gridSize) else {
+            continue
+          }
+          let neighborAddress = createAddress(
+            neighborIndices, gridSize: gridSize)
+          
+          // Read the neighbor value from memory.
+          var neighborValue: Float
+          if sweep == .red {
+            neighborValue = red.unsafelyUnwrapped[neighborAddress / 2]
+          } else if sweep == .black {
+            neighborValue = black.unsafelyUnwrapped[neighborAddress / 2]
+          } else {
+            neighborValue = solution.unsafelyUnwrapped[neighborAddress]
+          }
+          Lu += Float(1.0 / 6) / (h * h) * neighborValue
+        }
+      }
+      
+      // Read the cell value from memory.
+      var cellValue: Float
+      if sweep == .red {
+        cellValue = red.unsafelyUnwrapped[cellAddress / 2]
+      } else if sweep == .black {
+        cellValue = black.unsafelyUnwrapped[cellAddress / 2]
+      } else {
+        cellValue = solution.unsafelyUnwrapped[cellAddress]
+      }
+      do {
+        let weight = useMehrstellen ? Float(-4) : Float(-6)
+        Lu += weight / (h * h) * cellValue
+      }
+      
+      // Read the RHS value from memory.
+      do {
+        let weight = useMehrstellen ? Float(1.0 / 2) : Float(1)
+        f += weight * rightHandSide[cellAddress]
+      }
+      
+      // Return the residual and cell value.
+      let residual = f - Lu
+      return (cellValue, residual)
     }
   }
 }

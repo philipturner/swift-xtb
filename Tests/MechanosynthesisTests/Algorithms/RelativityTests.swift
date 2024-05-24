@@ -256,7 +256,7 @@ final class RelativityTests: XCTestCase {
       let γ = createGamma(Ψ: wavefunction)
       var hamiltonianΨ = hamiltonian(Ψ: wavefunction, γ: γ)
       
-      for iterationID in 0..<5 {
+      for _ in 0..<5 {
         // Find the Rayleigh quotient.
         let ΨHΨ = integral(wavefunction, hamiltonianΨ)
         let ΨΨ  = integral(wavefunction, wavefunction)
