@@ -57,19 +57,6 @@ for nodeID in orbital.octree.nodes.indices {
     // Retrieve the node.
     let node = mesh.orbital.octree.nodes[Int(nodeID)]
     
-    // Calculate the wavefunction amplitude for each child.
-    var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
-    var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
-    var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-    x = x * node.spacing + node.center.x
-    y = y * node.spacing + node.center.y
-    z = z * node.spacing + node.center.z
-    var amplitude = orbital.basisFunction.amplitude(x: x, y: y, z: z)
-    
-    // Mark unoccupied cells with NAN.
-    let mask32 = SIMD8<UInt32>(truncatingIfNeeded: node.branchesMask)
-    amplitude.replace(with: .nan, where: mask32 .!= 255)
-    
     // Iterate over the children.
     for branchID in 0..<8 {
       let childOffset = node.branchesMask[branchID]
@@ -82,6 +69,19 @@ for nodeID in orbital.octree.nodes.indices {
       
       traverseOctreeNode(nodeID: childNodeID, levelID: levelID + 1)
     }
+    
+    // Calculate the wavefunction amplitude for each child.
+    var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+    var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+    var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+    x = x * node.spacing + node.center.x
+    y = y * node.spacing + node.center.y
+    z = z * node.spacing + node.center.z
+    var amplitude = orbital.basisFunction.amplitude(x: x, y: y, z: z)
+    
+    // Mark unoccupied cells with NAN.
+    let mask32 = SIMD8<UInt32>(truncatingIfNeeded: node.branchesMask)
+    amplitude.replace(with: .nan, where: mask32 .!= 255)
     
     // Locate this node within the level.
     var nodeLinearIndex: UInt32 = .zero
@@ -96,6 +96,11 @@ for nodeID in orbital.octree.nodes.indices {
       nodeLinearIndex += nodeOffset[1] * dimensions[0]
       nodeLinearIndex += nodeOffset[2] * dimensions[0] * dimensions[1]
     }
+    
+    // Write data for every cell that terminates at this level.
+    // - Doing this in a single statement, to avoid memory copies from CoW.
+    voxel.levels[Int(levelID)]
+      .data[Int(nodeLinearIndex)] = amplitude
   }
   
   print()
