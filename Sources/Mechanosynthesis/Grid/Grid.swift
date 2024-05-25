@@ -9,12 +9,12 @@ public struct GridDescriptor {
   /// The start of the smallest bounding box that encloses the data.
   ///
   /// Units: 1 cubic Bohr
-  public var offset: SIMD3<Int>?
+  public var offset: SIMD3<Int32>?
   
   /// The size of the smallest bounding box that encloses the data.
   ///
   /// Units: 1 cubic Bohr
-  public var dimensions: SIMD3<Int>?
+  public var dimensions: SIMD3<UInt32>?
   
   public init() {
     
@@ -37,10 +37,10 @@ public struct Voxel {
 /// radius.
 public struct Grid {
   /// The start of the smallest bounding box that encloses the data.
-  public var offset: SIMD3<Int>
+  public var offset: SIMD3<Int32>
   
   /// The size of the smallest bounding box that encloses the data.
-  public var dimensions: SIMD3<Int>
+  public var dimensions: SIMD3<UInt32>
   
   /// Encapsulates the data for valid 1x1x1 Bohr cells.
   public var highestLevel: Level
@@ -69,7 +69,7 @@ public struct Grid {
     highestLevel = Level(descriptor: levelDesc)
     
     // Allocate an array of voxels.
-    let voxelCount = dimensions[0] * dimensions[1] * dimensions[2]
+    let voxelCount = Int(dimensions[0] * dimensions[1] * dimensions[2])
     voxels = Array(repeating: nil, count: voxelCount)
   }
 }

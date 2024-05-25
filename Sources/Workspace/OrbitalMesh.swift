@@ -21,8 +21,8 @@ struct OrbitalMesh {
   // Creates an empty grid with the required bounds.
   static func createGrid(orbital: HydrogenicOrbital) -> Grid {
     // Allocate variables to accumulate the mesh bounds.
-    var minimumBound: SIMD3<Int> = .init(repeating: .max)
-    var maximumBound: SIMD3<Int> = .init(repeating: -.max)
+    var minimumBound: SIMD3<Int32> = .init(repeating: .max)
+    var maximumBound: SIMD3<Int32> = .init(repeating: -.max)
 
     // Iterate over the octree nodes.
     let orbital = ansatz.orbitals[0]
@@ -33,18 +33,21 @@ struct OrbitalMesh {
       }
       
       // Find the bounds of this node.
-      let lowerCorner = SIMD3<Int>(node.center - node.spacing / 2)
-      let upperCorner = SIMD3<Int>(node.center + node.spacing / 2)
+      let lowerCorner = SIMD3<Int32>(node.center - node.spacing / 2)
+      let upperCorner = SIMD3<Int32>(node.center + node.spacing / 2)
       
       // Merge with the bounds of the entire mesh.
-      minimumBound.replace(with: lowerCorner, where: lowerCorner .< minimumBound)
-      maximumBound.replace(with: upperCorner, where: upperCorner .> maximumBound)
+      minimumBound
+        .replace(with: lowerCorner, where: lowerCorner .< minimumBound)
+      maximumBound
+        .replace(with: upperCorner, where: upperCorner .> maximumBound)
     }
     
     // Create the grid.
     var gridDesc = GridDescriptor()
     gridDesc.offset = minimumBound
-    gridDesc.dimensions = maximumBound &- minimumBound
+    gridDesc.dimensions = SIMD3<UInt32>(
+      truncatingIfNeeded: maximumBound &- minimumBound)
     return Grid(descriptor: gridDesc)
   }
   
@@ -57,11 +60,12 @@ struct OrbitalMesh {
       }
       
       // Locate this chunk within the grid.
-      let lowerCorner = SIMD3<Int>(node.center - node.spacing / 2)
-      let voxelIndexOffset = lowerCorner &- grid.offset
+      let lowerCorner = SIMD3<Int32>(node.center - node.spacing / 2)
+      let voxelIndexOffset = SIMD3<UInt32>(
+        truncatingIfNeeded: lowerCorner &- grid.offset)
       let chunkIndex = voxelIndexOffset / 2
       
-      var chunkLinearIndex: Int = .zero
+      var chunkLinearIndex: UInt32 = .zero
       do {
         let dimensions = grid.dimensions / 2
         chunkLinearIndex += chunkIndex[0]
@@ -83,7 +87,7 @@ struct OrbitalMesh {
       amplitude.replace(with: .nan, where: mask32 .!= 255)
       
       // Write data for every cell that terminates at 1x1x1.
-      grid.highestLevel.data[chunkLinearIndex] = amplitude
+      grid.highestLevel.data[Int(chunkLinearIndex)] = amplitude
     }
   }
 }

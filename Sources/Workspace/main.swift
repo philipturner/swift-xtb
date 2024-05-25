@@ -37,27 +37,16 @@ for nodeID in orbital.octree.nodes.indices {
     continue
   }
   
-  // Locate this chunk within the grid.
-  let voxelOffsetFloat = node.center - SIMD3<Float>(mesh.grid.offset)
-  let voxelOffset = SIMD3<Int>(voxelOffsetFloat.rounded(.down))
-  
-  var voxelLinearIndex: Int = .zero
-  do {
-    let dimensions = mesh.grid.dimensions
-    voxelLinearIndex += voxelOffset[0]
-    voxelLinearIndex += voxelOffset[1] * dimensions[0]
-    voxelLinearIndex += voxelOffset[2] * dimensions[0] * dimensions[1]
-  }
-  
   // Create an empty voxel.
   var voxel = Voxel()
+  let voxelMinimum = node.center.rounded(.down)
   
   // Search through the children recursively.
   func traverseOctreeNode(nodeID: UInt32, levelID: UInt32) {
     // Ensure the current level is allocated.
     if voxel.levels.count == levelID {
       var levelDesc = LevelDescriptor()
-      let gridSize = 1 << levelID
+      let gridSize = UInt32(1) << levelID
       levelDesc.dimensions = SIMD3(repeating: gridSize)
       let level = Level(descriptor: levelDesc)
       voxel.levels.append(level)
@@ -67,7 +56,6 @@ for nodeID in orbital.octree.nodes.indices {
     
     // Retrieve the node.
     let node = mesh.orbital.octree.nodes[Int(nodeID)]
-    print("\(levelID) - \(node.center)")
     
     // Calculate the wavefunction amplitude for each child.
     var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
@@ -94,8 +82,36 @@ for nodeID in orbital.octree.nodes.indices {
       
       traverseOctreeNode(nodeID: childNodeID, levelID: levelID + 1)
     }
+    
+    // Locate this node within the level.
+    var nodeLinearIndex: UInt32 = .zero
+    do {
+      var nodeOffsetFloat = node.center - voxelMinimum
+      let gridSize = UInt32(1) << levelID
+      nodeOffsetFloat *= Float(gridSize)
+      
+      let nodeOffset = SIMD3<UInt32>(nodeOffsetFloat.rounded(.down))
+      let dimensions = SIMD3<UInt32>(repeating: gridSize)
+      nodeLinearIndex += nodeOffset[0]
+      nodeLinearIndex += nodeOffset[1] * dimensions[0]
+      nodeLinearIndex += nodeOffset[2] * dimensions[0] * dimensions[1]
+    }
   }
   
   print()
   traverseOctreeNode(nodeID: UInt32(nodeID), levelID: 0)
+  for level in voxel.levels {
+    print(level.data)
+  }
+  
+  // Locate this chunk within the grid.
+  var voxelLinearIndex: UInt32 = .zero
+  do {
+    let voxelOffsetFloat = node.center - SIMD3<Float>(mesh.grid.offset)
+    let voxelOffset = SIMD3<UInt32>(voxelOffsetFloat.rounded(.down))
+    let dimensions = mesh.grid.dimensions
+    voxelLinearIndex += voxelOffset[0]
+    voxelLinearIndex += voxelOffset[1] * dimensions[0]
+    voxelLinearIndex += voxelOffset[2] * dimensions[0] * dimensions[1]
+  }
 }

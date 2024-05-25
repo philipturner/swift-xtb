@@ -7,7 +7,7 @@
 
 public struct LevelDescriptor {
   /// The number of chunks along each axis.
-  public var dimensions: SIMD3<Int>?
+  public var dimensions: SIMD3<UInt32>?
   
   public init() {
     
@@ -34,7 +34,8 @@ public struct Level {
     }
     
     // Allocate an array of chunks.
-    let chunkCount = dimensions[0] * dimensions[1] * dimensions[2]
-    data = Array(repeating: SIMD8(repeating: .nan), count: chunkCount)
+    let chunkCount = Int(dimensions[0] * dimensions[1] * dimensions[2])
+    data = Array(
+      repeating: SIMD8(repeating: .nan), count: chunkCount)
   }
 }
