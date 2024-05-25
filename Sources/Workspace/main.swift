@@ -31,5 +31,33 @@ var mesh = OrbitalMesh(orbital: orbital)
 
 // Fill in the voxels.
 for node in orbital.octree.nodes {
+  guard node.spacing <= 1 else {
+    // Only consider nodes where the spacing is 1 Bohr or less.
+    continue
+  }
   
+  // Locate this chunk within the grid.
+  let voxelOffsetFloat = node.center - SIMD3<Float>(mesh.grid.offset)
+  let voxelOffset = SIMD3<Int>(voxelOffsetFloat.rounded(.down))
+  
+  var voxelLinearIndex: Int = .zero
+  do {
+    let dimensions = mesh.grid.dimensions
+    voxelLinearIndex += voxelOffset[0]
+    voxelLinearIndex += voxelOffset[1] * dimensions[0]
+    voxelLinearIndex += voxelOffset[2] * dimensions[0] * dimensions[1]
+  }
+  
+  // If the voxel does not already exist, create it.
+  if mesh.grid.voxels[voxelLinearIndex] == nil {
+    
+    let voxel = Voxel()
+    mesh.grid.voxels[voxelLinearIndex] = voxel
+  }
+  var voxel = mesh.grid.voxels[voxelLinearIndex]
+  
+  // TODO: Respect copy-on-write semantics when the voxels get really deep,
+  // and touching them the wrong way incurs a large memory copy.
+  
+  // Allocate memory for the wavefunction amplitude data.
 }
