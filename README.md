@@ -17,5 +17,6 @@ Goals:
   - Large-core pseudopotentials interact with the XC functional, polluting simulation results.
   - Similar to the issue with the AO basis: BSSE pollutes simulation results.
 
-TODO: Keep the ansatz tests! They are a rigorous check for correctness and performance.
+TODO: Change the meaning of fragment count.
+TODO: Multithread the ansatz generation.
 TODO: Change the workspace to a Swift executable module.
