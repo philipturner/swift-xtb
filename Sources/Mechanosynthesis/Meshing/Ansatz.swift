@@ -41,11 +41,11 @@ public struct AnsatzDescriptor {
 
 /// An initial guess at an atom's electronic structure.
 public struct Ansatz {
-  public var spinDownOrbitals: [HydrogenicOrbital] = []
+  /// The occupied spin-orbitals.
+  public var orbitals: [HydrogenicOrbital] = []
   
-  public var spinNeutralOrbitals: [HydrogenicOrbital] = []
-  
-  public var spinUpOrbitals: [HydrogenicOrbital] = []
+  /// The number of electrons in each orbital.
+  public var occupations: [Int] = []
   
   public init(descriptor: AnsatzDescriptor) {
     guard let atomicNumber = descriptor.atomicNumber,
@@ -53,8 +53,6 @@ public struct Ansatz {
           let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was incomplete.")
     }
-    
-    let checkpoint0 = CACurrentMediaTime()
     
     // Check that charge and spin are valid.
     guard let spinPolarization = Int(exactly: descriptor.netSpin * 2) else {
@@ -95,18 +93,8 @@ public struct Ansatz {
       spinDownOccupations: spinDownOccupations,
       spinUpOccupations: spinUpOccupations)
     
-    let checkpoint1 = CACurrentMediaTime()
-    
-    // This loop would be a great place to parallelize across multiple CPU
-    // cores. However, we are not permitted to use multicore CPU or hardware
-    // acceleration yet. Some very important performance investigations may
-    // require a context that is entirely single-core CPU.
-    //
-    // Even the smallest examples (625 fragments, Z=1) take at least 300 μs.
-    
+    // Find the parameters to initialize every orbital.
     var orbitalDescriptors: [HydrogenicOrbitalDescriptor] = []
-    var orbitalSpins: [Float] = []
-    
     for n in shellCharges.indices {
       let neutralOccupation = spinNeutralOccupations[n]
       let downOccupation = spinDownOccupations[n]
@@ -133,11 +121,9 @@ public struct Ansatz {
           orbitalDescriptors.append(orbitalDesc)
           
           if remainingNeutralOrbitals > 0 {
-            orbitalSpins.append(0)
-          } else if spinPolarization > 0 {
-            orbitalSpins.append(0.5)
+            occupations.append(2)
           } else {
-            orbitalSpins.append(-0.5)
+            occupations.append(1)
           }
           
           remainingOrbitals -= 1
@@ -148,109 +134,35 @@ public struct Ansatz {
       }
     }
     
-    let checkpoint2 = CACurrentMediaTime()
-    
-    var orbitals = orbitalDescriptors.map {
+    // Initialize the orbitals in parallel.
+    orbitals = orbitalDescriptors.map {
       HydrogenicOrbital(descriptor: $0)
     }
     
-    let checkpoint3 = CACurrentMediaTime()
-    
-    for orbitalID in orbitals.indices {
-      let orbital = orbitals[orbitalID]
-      let spin = orbitalSpins[orbitalID]
-      if spin == 0 {
-        spinNeutralOrbitals.append(orbital)
-      } else if spin == 0.5 {
-        spinUpOrbitals.append(orbital)
-      } else {
-        spinDownOrbitals.append(orbital)
-      }
+    // Check that the occupations sum to the electron count (TEMPORARY).
+    guard occupations.reduce(0, +) == electronCount else {
+      fatalError("Occupations were invalid.")
     }
     
-    let checkpoint4 = CACurrentMediaTime()
+    #if false
+    let serialQueue = DispatchQueue(label: "Ansatz.init")
+    var orbitalsArray = [HydrogenicOrbital?](
+      repeating: nil, count: orbitalDescriptors.count)
     
-    // MARK: - Profiling
-    
-    let latencies: [Double] = [
-      checkpoint1 - checkpoint0,
-      checkpoint2 - checkpoint1,
-      checkpoint3 - checkpoint2,
-      checkpoint4 - checkpoint3,
-    ]
-    
-    print()
-    print("Z:", atomicNumber)
-    for latencyID in latencies.indices {
-      let latency = latencies[latencyID]
-      let latencyMicroseconds = Int(latency * 1e6)
-      print(latencyMicroseconds, "μs", terminator: " ")
-      
-      if latencyID == 2, orbitalDescriptors.count > 1 {
-        let start = CACurrentMediaTime()
-        
-        DispatchQueue.concurrentPerform(
-          iterations: orbitalDescriptors.count
-        ) { z in
-          let orbitalDesc = orbitalDescriptors[z]
-          let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
-          _ = orbital
-        }
-        let end = CACurrentMediaTime()
-        
-        let latency = end - start
-        let latencyMicroseconds = Int(latency * 1e6)
-        print("->", terminator: " ")
-        print(latencyMicroseconds, "μs", terminator: " ")
+    DispatchQueue.concurrentPerform(
+      iterations: orbitalDescriptors.count
+    ) { z in
+      let orbitalDesc = orbitalDescriptors[z]
+      let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
+      serialQueue.sync {
+        orbitalsArray[z] = orbital
       }
-      if latencyID == 2, orbitalDescriptors.count > 1 {
-        let start = CACurrentMediaTime()
-        let serialQueue = DispatchQueue(label: "Ansatz.init")
-        var orbitalsArray = [HydrogenicOrbital?](
-          repeating: nil, count: orbitalDescriptors.count)
-        
-        DispatchQueue.concurrentPerform(
-          iterations: orbitalDescriptors.count
-        ) { z in
-          let orbitalDesc = orbitalDescriptors[z]
-          let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
-          serialQueue.sync {
-            orbitalsArray[z] = orbital
-          }
-        }
-        let sanitizedOrbitals = serialQueue.sync { 
-          orbitalsArray.map { $0! }
-        }
-        
-        
-        orbitals = sanitizedOrbitals
-        spinNeutralOrbitals = []
-        spinDownOrbitals = []
-        spinUpOrbitals = []
-        for orbitalID in orbitals.indices {
-          let orbital = orbitals[orbitalID]
-          let spin = orbitalSpins[orbitalID]
-          if spin == 0 {
-            spinNeutralOrbitals.append(orbital)
-          } else if spin == 0.5 {
-            spinUpOrbitals.append(orbital)
-          } else {
-            spinDownOrbitals.append(orbital)
-          }
-        }
-        
-        
-        
-        let end = CACurrentMediaTime()
-        
-        
-        
-        let latency = end - start
-        let latencyMicroseconds = Int(latency * 1e6)
-        print("->", terminator: " ")
-        print(latencyMicroseconds, "μs", terminator: " ")
-      }
-      print()
     }
+    let sanitizedOrbitals = serialQueue.sync {
+      orbitalsArray.map { $0! }
+    }
+    
+    orbitals = sanitizedOrbitals
+    #endif
   }
 }
