@@ -134,34 +134,28 @@ public struct Ansatz {
     }
     
     // Initialize the orbitals in parallel.
-    orbitals = orbitalDescriptors.map {
-      HydrogenicOrbital(descriptor: $0)
-    }
-    
-    // Check that the occupations sum to the electron count (TEMPORARY).
-    guard occupations.reduce(0, +) == electronCount else {
-      fatalError("Occupations were invalid.")
-    }
-    
-    #if false
-    let serialQueue = DispatchQueue(label: "Ansatz.init")
-    var orbitalsArray = [HydrogenicOrbital?](
-      repeating: nil, count: orbitalDescriptors.count)
-    
-    DispatchQueue.concurrentPerform(
-      iterations: orbitalDescriptors.count
-    ) { z in
-      let orbitalDesc = orbitalDescriptors[z]
-      let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
-      serialQueue.sync {
-        orbitalsArray[z] = orbital
+    if orbitalDescriptors.count > 1 {
+      let serialQueue = DispatchQueue(label: "Ansatz.init(descriptor:)")
+      var completedTasks = [HydrogenicOrbital?](
+        repeating: nil, count: orbitalDescriptors.count)
+      
+      // Dispatch each orbital as a separate task.
+      DispatchQueue.concurrentPerform(
+        iterations: orbitalDescriptors.count
+      ) { z in
+        let orbitalDesc = orbitalDescriptors[z]
+        let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
+        serialQueue.sync {
+          completedTasks[z] = orbital
+        }
+      }
+      orbitals = serialQueue.sync {
+        completedTasks.map { $0! }
+      }
+    } else {
+      orbitals = orbitalDescriptors.map {
+        HydrogenicOrbital(descriptor: $0)
       }
     }
-    let sanitizedOrbitals = serialQueue.sync {
-      orbitalsArray.map { $0! }
-    }
-    
-    orbitals = sanitizedOrbitals
-    #endif
   }
 }
