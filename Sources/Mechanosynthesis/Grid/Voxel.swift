@@ -5,17 +5,21 @@
 //  Created by Philip Turner on 5/16/24.
 //
 
-struct VoxelDescriptor {
-  // The number of mipmap levels.
-  var depth: Int?
+public struct VoxelDescriptor {
+  /// The number of mipmap levels.
+  public var depth: Int?
+  
+  public init() {
+    
+  }
 }
 
-// A data structure encapsulating one cubic Bohr.
-struct Voxel {
-  // A list of levels, going from coarse to the finest level available.
-  var levels: [Level] = []
+/// A series of fine uniform grids spanning one cubic Bohr.
+public struct Voxel {
+  /// A list of levels, going from coarse to the finest level available.
+  public var levels: [Level] = []
   
-  init(descriptor: VoxelDescriptor) {
+  public init(descriptor: VoxelDescriptor) {
     guard let depth = descriptor.depth else {
       fatalError("Descriptor was incomplete.")
     }

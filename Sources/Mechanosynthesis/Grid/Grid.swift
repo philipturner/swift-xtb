@@ -6,14 +6,14 @@
 //
 
 public struct GridDescriptor {
-  // The start of the smallest bounding box that encloses the data.
-  //
-  // Units: 1 cubic Bohr
+  /// The start of the smallest bounding box that encloses the data.
+  ///
+  /// Units: 1 cubic Bohr
   public var offset: SIMD3<Int>?
   
-  // The size of the smallest bounding box that encloses the data.
-  //
-  // Units: 1 cubic Bohr
+  /// The size of the smallest bounding box that encloses the data.
+  ///
+  /// Units: 1 cubic Bohr
   public var dimensions: SIMD3<Int>?
   
   public init() {
@@ -21,22 +21,22 @@ public struct GridDescriptor {
   }
 }
 
-// A coarse, uniform grid encapsulating a region of the domain.
-//
-// The offset and dimensions are specified in integer multiples of the Bohr
-// radius.
+/// A coarse, uniform grid encapsulating a region of the domain.
+///
+/// The offset and dimensions are specified in integer multiples of the Bohr
+/// radius.
 public struct Grid {
-  // The start of the smallest bounding box that encloses the data.
+  /// The start of the smallest bounding box that encloses the data.
   public var offset: SIMD3<Int>
   
-  // The size of the smallest bounding box that encloses the data.
+  /// The size of the smallest bounding box that encloses the data.
   public var dimensions: SIMD3<Int>
   
-  // Encapsulates the data for valid 1x1x1 Bohr cells.
-  var highestLevel: Level
+  /// Encapsulates the data for valid 1x1x1 Bohr cells.
+  public var highestLevel: Level
   
-  // The remaining levels of the grid, which are allocated sparsely.
-  var voxels: [Voxel?]
+  /// The remaining levels of the grid, which are allocated sparsely.
+  public var voxels: [Voxel?]
   
   public init(descriptor: GridDescriptor) {
     guard let offset = descriptor.offset,
