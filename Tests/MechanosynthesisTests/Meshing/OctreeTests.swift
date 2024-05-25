@@ -20,10 +20,10 @@ final class OctreeTests: XCTestCase {
       // 00040004
       let shifted2 = (forwardSum1 & 0x0000FF000000FF00) << 16
       let forwardSum2 = (forwardSum1 &+ shifted2) & 0xFF000000FF000000
-      output += (forwardSum1 & 0x0000FF000000FF00) * (0x0101 << 8)
+      output &+= (forwardSum1 & 0x0000FF000000FF00) &* (0x0101 << 8)
       
       // 01234567
-      output += forwardSum2 * (0x01010101) << 8
+      output &+= forwardSum2 &* (0x01010101) << 8
       return unsafeBitCast(output, to: SIMD8<UInt8>.self)
     }
     

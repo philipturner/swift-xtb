@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 2/19/24.
 //
 
+import Dispatch
+
 /// A configuration for an initial guess.
 public struct AnsatzDescriptor {
   /// Required. The number of protons in the atom's nucleus.
@@ -88,9 +90,9 @@ public struct Ansatz {
     // cores. However, we are not permitted to use multicore CPU or hardware
     // acceleration yet. Some very important performance investigations may
     // require a context that is entirely single-core CPU.
+    //
+    // Even the smallest examples (625 fragments, Z=1) take at least 300 μs.
     
-    // TODO: Time how long the loop takes. If it's long enough, parallelize
-    // across CPU cores in work units defined by fragment count.
     for n in shellCharges.indices {
       let spinDownOccupation = spinDownOccupations[n]
       let spinNeutralOccupation = spinNeutralOccupations[n]

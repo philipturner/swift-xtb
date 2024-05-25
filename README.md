@@ -19,3 +19,4 @@ Goals:
 
 TODO: Multithread the ansatz generation.
 TODO: Change the workspace to a Swift executable module.
+TODO: Then, commit the changes to the main repository.
