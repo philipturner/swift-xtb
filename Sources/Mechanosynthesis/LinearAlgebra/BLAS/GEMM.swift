@@ -67,8 +67,8 @@ struct GEMM {
       &N,
       &K,
       &ALPHA,
-      leftOperand, &LDA,
-      rightOperand, &LDB,
+      UnsafeMutablePointer(mutating: leftOperand), &LDA,
+      UnsafeMutablePointer(mutating: rightOperand), &LDB,
       &BETA,
       accumulator, &LDC)
   }

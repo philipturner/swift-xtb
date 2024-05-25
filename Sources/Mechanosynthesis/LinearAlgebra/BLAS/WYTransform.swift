@@ -122,7 +122,7 @@ struct WYTransform {
           &N,
           &ALPHA,
           X, &INCX,
-          Y, &INCY,
+          UnsafeMutablePointer(mutating: Y), &INCY,
           A, &LDA)
 #endif
       }
@@ -174,8 +174,8 @@ struct WYTransform {
         &N,
         &K,
         &ALPHA,
-        A, &LDA,
-        B, &LDB,
+        UnsafeMutablePointer(mutating: A), &LDA,
+        UnsafeMutablePointer(mutating: B), &LDB,
         &BETA,
         C, &LDC)
 #endif

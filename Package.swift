@@ -10,17 +10,11 @@ var targets: [Target] = []
 
 var platforms: [SupportedPlatform] = []
 #if canImport(Darwin)
-platforms.append(.macOS(.v14))
+platforms.append(.macOS(.v13))
 #endif
 
 var cSettings: [CSetting] = []
 var swiftSettings: [SwiftSetting] = []
-#if canImport(Darwin)
-cSettings.append(
-  .define("ACCELERATE_NEW_LAPACK"))
-swiftSettings.append(
-  .define("ACCELERATE_NEW_LAPACK"))
-#endif
 
 // MARK: - Package Dependencies
 
@@ -53,7 +47,6 @@ targets.append(
 
 let package = Package(
   name: "Mechanosynthesis",
-  platforms: platforms,
   products: [
     .library(
       name: "Mechanosynthesis",

@@ -112,7 +112,7 @@ extension Diagonalization {
         &K,
         &ALPHA,
         A, &LDA,
-        B, &LDB,
+        UnsafeMutablePointer(mutating: B), &LDB,
         &BETA,
         C, &LDC)
 #endif
@@ -142,7 +142,7 @@ extension Diagonalization {
         &M,
         &N,
         &ALPHA,
-        X, &INCX,
+        UnsafeMutablePointer(mutating: X), &INCX,
         Y, &INCY,
         A, &LDA)
 #endif
@@ -185,7 +185,7 @@ extension Diagonalization {
         &K,
         &ALPHA,
         A, &LDA,
-        B, &LDB,
+        UnsafeMutablePointer(mutating: B), &LDB,
         &BETA,
         C, &LDC)
 #endif
@@ -216,7 +216,7 @@ extension Diagonalization {
         &N,
         &ALPHA,
         X, &INCX,
-        Y, &INCY,
+        UnsafeMutablePointer(mutating: Y), &INCY,
         A, &LDA)
 #endif
     }

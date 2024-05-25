@@ -6,9 +6,6 @@
 //
 
 import Numerics
-#if canImport(simd)
-import simd
-#endif
 
 // A configuration for a basis function.
 struct BasisFunctionDescriptor {
@@ -56,16 +53,12 @@ public struct BasisFunction {
         output *= shellRadiusPart
       }
       
-      // Unsure how to make transcendentals faster on other platforms yet.
       let input = -shellRadiusPart / 2 * 1.4426950408889607
       var expValue: SIMD8<Float> = .zero
-      #if canImport(simd)
-      expValue = exp2(input)
-      #else
       for laneID in 0..<8 {
+        // Unsure how to vectorize transcendentals on all platforms.
         expValue[laneID] = Float.exp2(input[laneID])
       }
-      #endif
       output *= expValue
       output *= L(shellRadiusPart)
       return output
