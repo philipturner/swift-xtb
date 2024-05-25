@@ -16,7 +16,3 @@ Goals:
 - No pseudopotentials
   - Large-core pseudopotentials interact with the XC functional, polluting simulation results.
   - Similar to the issue with the AO basis: BSSE pollutes simulation results.
-
-TODO: Multithread the ansatz generation.
-TODO: Change the workspace to a Swift executable module.
-TODO: Then, commit the changes to the main repository.

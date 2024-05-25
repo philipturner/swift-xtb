@@ -6,7 +6,6 @@
 //
 
 import Dispatch
-import QuartzCore
 
 /// A configuration for an initial guess.
 public struct AnsatzDescriptor {
