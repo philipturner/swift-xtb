@@ -73,9 +73,9 @@ struct OrbitalMesh {
       var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
       var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
       var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-      x = node.spacing * x + node.center[0]
-      y = node.spacing * y + node.center[1]
-      z = node.spacing * z + node.center[2]
+      x = x * node.spacing + node.center.x
+      y = y * node.spacing + node.center.y
+      z = z * node.spacing + node.center.z
       var amplitude = orbital.basisFunction.amplitude(x: x, y: y, z: z)
       
       // Mark unoccupied cells with NAN.

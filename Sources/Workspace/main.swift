@@ -30,9 +30,10 @@ let orbital = ansatz.orbitals[0]
 var mesh = OrbitalMesh(orbital: orbital)
 
 // Fill in the voxels.
-for node in orbital.octree.nodes {
-  guard node.spacing <= 1 else {
-    // Only consider nodes where the spacing is 1 Bohr or less.
+for nodeID in orbital.octree.nodes.indices {
+  let node = orbital.octree.nodes[nodeID]
+  guard node.spacing == 1 else {
+    // Only consider nodes where the spacing is 1 Bohr.
     continue
   }
   
@@ -48,16 +49,53 @@ for node in orbital.octree.nodes {
     voxelLinearIndex += voxelOffset[2] * dimensions[0] * dimensions[1]
   }
   
-  // If the voxel does not already exist, create it.
-  if mesh.grid.voxels[voxelLinearIndex] == nil {
+  // Create an empty voxel.
+  var voxel = Voxel()
+  
+  // Search through the children recursively.
+  func traverseOctreeNode(nodeID: UInt32, levelID: UInt32) {
+    // Ensure the current level is allocated.
+    if voxel.levels.count == levelID {
+      var levelDesc = LevelDescriptor()
+      let gridSize = 1 << levelID
+      levelDesc.dimensions = SIMD3(repeating: gridSize)
+      let level = Level(descriptor: levelDesc)
+      voxel.levels.append(level)
+      
+      print("Allocated a new level: \(levelID)")
+    }
     
-    let voxel = Voxel()
-    mesh.grid.voxels[voxelLinearIndex] = voxel
+    // Retrieve the node.
+    let node = mesh.orbital.octree.nodes[Int(nodeID)]
+    print("\(levelID) - \(node.center)")
+    
+    // Calculate the wavefunction amplitude for each child.
+    var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
+    var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
+    var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
+    x = x * node.spacing + node.center.x
+    y = y * node.spacing + node.center.y
+    z = z * node.spacing + node.center.z
+    var amplitude = orbital.basisFunction.amplitude(x: x, y: y, z: z)
+    
+    // Mark unoccupied cells with NAN.
+    let mask32 = SIMD8<UInt32>(truncatingIfNeeded: node.branchesMask)
+    amplitude.replace(with: .nan, where: mask32 .!= 255)
+    
+    // Iterate over the children.
+    for branchID in 0..<8 {
+      let childOffset = node.branchesMask[branchID]
+      guard childOffset < 255 else {
+        continue
+      }
+      let childOffset32 = UInt32(truncatingIfNeeded: childOffset)
+      let childNodeID = node.branchesIndex + childOffset32
+      print(nodeID, childNodeID)
+      
+      traverseOctreeNode(nodeID: childNodeID, levelID: levelID + 1)
+    }
   }
-  var voxel = mesh.grid.voxels[voxelLinearIndex]
   
-  // TODO: Respect copy-on-write semantics when the voxels get really deep,
-  // and touching them the wrong way incurs a large memory copy.
-  
-  // Allocate memory for the wavefunction amplitude data.
+  print()
+  traverseOctreeNode(nodeID: UInt32(nodeID), levelID: 0)
 }
