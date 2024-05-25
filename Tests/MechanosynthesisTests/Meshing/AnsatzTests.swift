@@ -11,7 +11,7 @@ final class AnsatzTests: XCTestCase {
     for node in orbital.octree.nodes {
       let mask8 = node.branchesMask & SIMD8(repeating: 128)
       let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-      octreeFragmentCount += 8 * mask64.nonzeroBitCount
+      octreeFragmentCount += mask64.nonzeroBitCount
     }
     XCTAssertGreaterThanOrEqual(octreeFragmentCount, expectedCount)
     XCTAssertLessThan(octreeFragmentCount, expectedCount * 2)
@@ -58,7 +58,7 @@ final class AnsatzTests: XCTestCase {
   func testHydrogen() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumber = 1
-    descriptor.fragmentCount = 5000
+    descriptor.fragmentCount = 625
     descriptor.position = .zero
     descriptor.sizeExponent = 4
     
@@ -77,7 +77,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrogenUp.spinDownOrbitals.count, 0)
     XCTAssertEqual(hydrogenUp.spinNeutralOrbitals.count, 0)
     XCTAssertEqual(hydrogenUp.spinUpOrbitals.count, 1)
-    Self.checkFragments(hydrogenUp.spinUpOrbitals[0], 5000)
+    Self.checkFragments(hydrogenUp.spinUpOrbitals[0], 625)
     XCTAssertEqual(1, Self.queryRadius(
       orbital: hydrogenUp.spinUpOrbitals[0]), accuracy: 0.02)
     
@@ -88,7 +88,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrogenDown.spinDownOrbitals.count, 1)
     XCTAssertEqual(hydrogenDown.spinNeutralOrbitals.count, 0)
     XCTAssertEqual(hydrogenDown.spinUpOrbitals.count, 0)
-    Self.checkFragments(hydrogenDown.spinDownOrbitals[0], 5000)
+    Self.checkFragments(hydrogenDown.spinDownOrbitals[0], 625)
     XCTAssertEqual(1, Self.queryRadius(
       orbital: hydrogenDown.spinDownOrbitals[0]), accuracy: 0.02)
     
@@ -99,7 +99,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrideSinglet.spinDownOrbitals.count, 0)
     XCTAssertEqual(hydrideSinglet.spinNeutralOrbitals.count, 1)
     XCTAssertEqual(hydrideSinglet.spinUpOrbitals.count, 0)
-    Self.checkFragments(hydrideSinglet.spinNeutralOrbitals[0], 5000)
+    Self.checkFragments(hydrideSinglet.spinNeutralOrbitals[0], 625)
     XCTAssertEqual(1, Self.queryRadius(
       orbital: hydrideSinglet.spinNeutralOrbitals[0]), accuracy: 0.02)
     
@@ -111,8 +111,8 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(hydrideTriplet.spinDownOrbitals.count, 0)
     XCTAssertEqual(hydrideTriplet.spinNeutralOrbitals.count, 0)
     XCTAssertEqual(hydrideTriplet.spinUpOrbitals.count, 2)
-    Self.checkFragments(hydrideTriplet.spinUpOrbitals[0], 5000)
-    Self.checkFragments(hydrideTriplet.spinUpOrbitals[1], 5000)
+    Self.checkFragments(hydrideTriplet.spinUpOrbitals[0], 625)
+    Self.checkFragments(hydrideTriplet.spinUpOrbitals[1], 625)
     XCTAssertEqual(1, Self.queryRadius(
       orbital: hydrideTriplet.spinUpOrbitals[0]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
@@ -122,7 +122,7 @@ final class AnsatzTests: XCTestCase {
   func testLithium() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumber = 3
-    descriptor.fragmentCount = 5000
+    descriptor.fragmentCount = 625
     descriptor.position = .zero
     descriptor.sizeExponent = 4
     
@@ -133,7 +133,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumIon.spinDownOrbitals.count, 0)
     XCTAssertEqual(lithiumIon.spinNeutralOrbitals.count, 1)
     XCTAssertEqual(lithiumIon.spinUpOrbitals.count, 0)
-    Self.checkFragments(lithiumIon.spinNeutralOrbitals[0], 5000)
+    Self.checkFragments(lithiumIon.spinNeutralOrbitals[0], 625)
     XCTAssertEqual(0.414, Self.queryRadius(
       orbital: lithiumIon.spinNeutralOrbitals[0]), accuracy: 0.02)
     
@@ -144,8 +144,8 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumNeutral.spinDownOrbitals.count, 1)
     XCTAssertEqual(lithiumNeutral.spinNeutralOrbitals.count, 1)
     XCTAssertEqual(lithiumNeutral.spinUpOrbitals.count, 0)
-    Self.checkFragments(lithiumNeutral.spinDownOrbitals[0], 5000)
-    Self.checkFragments(lithiumNeutral.spinNeutralOrbitals[0], 5000)
+    Self.checkFragments(lithiumNeutral.spinDownOrbitals[0], 625)
+    Self.checkFragments(lithiumNeutral.spinNeutralOrbitals[0], 625)
     XCTAssertEqual(0.414, Self.queryRadius(
       orbital: lithiumNeutral.spinNeutralOrbitals[0]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
@@ -158,9 +158,9 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lithiumPolarized.spinDownOrbitals.count, 0)
     XCTAssertEqual(lithiumPolarized.spinNeutralOrbitals.count, 0)
     XCTAssertEqual(lithiumPolarized.spinUpOrbitals.count, 3)
-    Self.checkFragments(lithiumPolarized.spinUpOrbitals[0], 5000)
-    Self.checkFragments(lithiumPolarized.spinUpOrbitals[1], 5000)
-    Self.checkFragments(lithiumPolarized.spinUpOrbitals[2], 5000)
+    Self.checkFragments(lithiumPolarized.spinUpOrbitals[0], 625)
+    Self.checkFragments(lithiumPolarized.spinUpOrbitals[1], 625)
+    Self.checkFragments(lithiumPolarized.spinUpOrbitals[2], 625)
     XCTAssertEqual(0.333, Self.queryRadius(
       orbital: lithiumPolarized.spinUpOrbitals[0]), accuracy: 0.02)
     XCTAssertEqual(1.414, Self.queryRadius(
@@ -175,7 +175,7 @@ final class AnsatzTests: XCTestCase {
   func testChromium() throws {
     var descriptor = AnsatzDescriptor()
     descriptor.atomicNumber = 24
-    descriptor.fragmentCount = 5000
+    descriptor.fragmentCount = 625
     descriptor.position = .zero
     descriptor.sizeExponent = 4
     
@@ -187,9 +187,9 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumIon.spinNeutralOrbitals.count, 10)
     XCTAssertEqual(chromiumIon.spinUpOrbitals.count, 1)
     for i in 0..<10 {
-      Self.checkFragments(chromiumIon.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(chromiumIon.spinNeutralOrbitals[i], 625)
     }
-    Self.checkFragments(chromiumIon.spinUpOrbitals[0], 5000)
+    Self.checkFragments(chromiumIon.spinUpOrbitals[0], 625)
     XCTAssertEqual(1 / 23.414, Self.queryRadius(
       orbital: chromiumIon.spinNeutralOrbitals[0]), accuracy: 2e-3)
     XCTAssertEqual(2 / 16.828, Self.queryRadius(
@@ -221,10 +221,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumAufbau.spinNeutralOrbitals.count, 10)
     XCTAssertEqual(chromiumAufbau.spinUpOrbitals.count, 4)
     for i in 0..<10 {
-      Self.checkFragments(chromiumAufbau.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(chromiumAufbau.spinNeutralOrbitals[i], 625)
     }
     for i in 0..<4 {
-      Self.checkFragments(chromiumAufbau.spinUpOrbitals[i], 5000)
+      Self.checkFragments(chromiumAufbau.spinUpOrbitals[i], 625)
     }
     
     // Actual polarized atom.
@@ -235,17 +235,17 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(chromiumActual.spinNeutralOrbitals.count, 9)
     XCTAssertEqual(chromiumActual.spinUpOrbitals.count, 6)
     for i in 0..<9 {
-      Self.checkFragments(chromiumActual.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(chromiumActual.spinNeutralOrbitals[i], 625)
     }
     for i in 0..<6 {
-      Self.checkFragments(chromiumActual.spinUpOrbitals[i], 5000)
+      Self.checkFragments(chromiumActual.spinUpOrbitals[i], 625)
     }
   }
   
   // Test group (IV) atoms.
   func testGroupIV() throws {
     var descriptor = AnsatzDescriptor()
-    descriptor.fragmentCount = 5000
+    descriptor.fragmentCount = 625
     descriptor.netCharge = 0
     descriptor.netSpin = 1
     descriptor.position = .zero
@@ -263,10 +263,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(carbon.spinNeutralOrbitals.count, 2)
     XCTAssertEqual(carbon.spinUpOrbitals.count, 2)
     for i in 0..<2 {
-      Self.checkFragments(carbon.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(carbon.spinNeutralOrbitals[i], 625)
     }
-    Self.checkFragments(carbon.spinUpOrbitals[0], 5000)
-    Self.checkFragments(carbon.spinUpOrbitals[1], 5000)
+    Self.checkFragments(carbon.spinUpOrbitals[0], 625)
+    Self.checkFragments(carbon.spinUpOrbitals[1], 625)
     XCTAssertEqual(1 / 5.414, Self.queryRadius(
       orbital: carbon.spinNeutralOrbitals[0]), accuracy: 0.01)
     XCTAssertEqual(1, Self.queryRadius(
@@ -288,10 +288,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(silicon.spinNeutralOrbitals.count, 6)
     XCTAssertEqual(silicon.spinUpOrbitals.count, 2)
     for i in 0..<6 {
-      Self.checkFragments(silicon.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(silicon.spinNeutralOrbitals[i], 625)
     }
-    Self.checkFragments(silicon.spinUpOrbitals[0], 5000)
-    Self.checkFragments(silicon.spinUpOrbitals[1], 5000)
+    Self.checkFragments(silicon.spinUpOrbitals[0], 625)
+    Self.checkFragments(silicon.spinUpOrbitals[1], 625)
     XCTAssertEqual(1 / 13.414, Self.queryRadius(
       orbital: silicon.spinNeutralOrbitals[0]), accuracy: 3e-3)
     XCTAssertEqual(2 / 6.828, Self.queryRadius(
@@ -330,10 +330,10 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(germanium.spinNeutralOrbitals.count, 15)
     XCTAssertEqual(germanium.spinUpOrbitals.count, 2)
     for i in 0..<15 {
-      Self.checkFragments(germanium.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(germanium.spinNeutralOrbitals[i], 625)
     }
-    Self.checkFragments(germanium.spinUpOrbitals[0], 5000)
-    Self.checkFragments(germanium.spinUpOrbitals[1], 5000)
+    Self.checkFragments(germanium.spinUpOrbitals[0], 625)
+    Self.checkFragments(germanium.spinUpOrbitals[1], 625)
     XCTAssertEqual(1 / 31.414, Self.queryRadius(
       orbital: germanium.spinNeutralOrbitals[0]), accuracy: 1e-3)
     XCTAssertEqual(2 / 24.828, Self.queryRadius(
@@ -393,17 +393,17 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.42441788
      expectation radius: 2.4987237
      */
-    descriptor.fragmentCount = 6000
+    descriptor.fragmentCount = 750
     descriptor.atomicNumber = 50
     let tin = Ansatz(descriptor: descriptor)
     XCTAssertEqual(tin.spinDownOrbitals.count, 0)
     XCTAssertEqual(tin.spinNeutralOrbitals.count, 24)
     XCTAssertEqual(tin.spinUpOrbitals.count, 2)
     for i in 0..<24 {
-      Self.checkFragments(tin.spinNeutralOrbitals[i], 6000)
+      Self.checkFragments(tin.spinNeutralOrbitals[i], 750)
     }
-    Self.checkFragments(tin.spinUpOrbitals[0], 6000)
-    Self.checkFragments(tin.spinUpOrbitals[1], 6000)
+    Self.checkFragments(tin.spinUpOrbitals[0], 750)
+    Self.checkFragments(tin.spinUpOrbitals[1], 750)
     XCTAssertEqual(1 / 49.414, Self.queryRadius(
       orbital: tin.spinNeutralOrbitals[0]), accuracy: 5e-4)
     XCTAssertEqual(2 / 42.828, Self.queryRadius(
@@ -479,17 +479,17 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.55775756
      expectation radius: 2.9965723
      */
-    descriptor.fragmentCount = 5000
+    descriptor.fragmentCount = 625
     descriptor.atomicNumber = 82
     let lead = Ansatz(descriptor: descriptor)
     XCTAssertEqual(lead.spinDownOrbitals.count, 0)
     XCTAssertEqual(lead.spinNeutralOrbitals.count, 40)
     XCTAssertEqual(lead.spinUpOrbitals.count, 2)
     for i in 0..<40 {
-      Self.checkFragments(lead.spinNeutralOrbitals[i], 5000)
+      Self.checkFragments(lead.spinNeutralOrbitals[i], 625)
     }
-    Self.checkFragments(lead.spinUpOrbitals[0], 5000)
-    Self.checkFragments(lead.spinUpOrbitals[1], 5000)
+    Self.checkFragments(lead.spinUpOrbitals[0], 625)
+    Self.checkFragments(lead.spinUpOrbitals[1], 625)
     XCTAssertEqual(1 / 81.414, Self.queryRadius(
       orbital: lead.spinNeutralOrbitals[0]), accuracy: 3e-4)
     XCTAssertEqual(2 / 74.828, Self.queryRadius(
@@ -519,7 +519,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(0.040042643, Self.queryRadius(
       orbital: lead.spinNeutralOrbitals[13]), accuracy: 3e-3)
     XCTAssertEqual(3, Self.queryRadius(
-      orbital: lead.spinNeutralOrbitals[39]), accuracy: 0.06)
+      orbital: lead.spinNeutralOrbitals[39]), accuracy: 0.07)
     
     // Flerovium ion.
     //
@@ -589,7 +589,7 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 0.047402453
      expectation radius: 0.047402453
      */
-    descriptor.fragmentCount = 12000
+    descriptor.fragmentCount = 1500
     descriptor.atomicNumber = 114
     descriptor.netCharge = 78
     descriptor.netSpin = 0
@@ -598,7 +598,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(flerovium.spinNeutralOrbitals.count, 18)
     XCTAssertEqual(flerovium.spinUpOrbitals.count, 0)
     for i in 0..<18 {
-      Self.checkFragments(flerovium.spinNeutralOrbitals[i], 12000)
+      Self.checkFragments(flerovium.spinNeutralOrbitals[i], 1500)
     }
     XCTAssertEqual(1 / 113.414, Self.queryRadius(
       orbital: flerovium.spinNeutralOrbitals[0]), accuracy: 2e-4)

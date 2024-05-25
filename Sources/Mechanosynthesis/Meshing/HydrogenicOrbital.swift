@@ -178,19 +178,19 @@ public struct HydrogenicOrbital {
           }
           
           // 1x1x1 cell coordinating compute work
-          // 2x2x2 cell < threshold
-          // 4x4x4 cell < threshold / 8
+          // 2x2x2 cell < threshold / 8
+          // 4x4x4 cell < threshold / 64
           let importanceMax = importanceMetric.max()
-          if importanceMax < threshold {
+          if importanceMax < threshold / 8 {
             contracted[nodeID] = true
             contractedIsZero = false
           }
         } else {
           // 1x1x1 cell coordinating compute work
-          // 2x2x2 cell > threshold * 8
-          // 4x4x4 cell > threshold
+          // 2x2x2 cell > threshold
+          // 4x4x4 cell > threshold / 8
           var mask32 = SIMD8<UInt32>(repeating: .zero)
-          mask32.replace(with: 1, where: importanceMetric .> threshold * 8)
+          mask32.replace(with: 1, where: importanceMetric .> threshold)
           var mask8 = SIMD8<UInt8>(truncatingIfNeeded: mask32)
           mask8 &= branchesMask &>> 7
           
@@ -252,7 +252,7 @@ public struct HydrogenicOrbital {
             for node in octree.nodes {
               let mask8 = node.branchesMask & SIMD8(repeating: 128)
               let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-              octreeFragmentCount += 8 * mask64.nonzeroBitCount
+              octreeFragmentCount += mask64.nonzeroBitCount
             }
             if octreeFragmentCount <= fragmentCount {
               break
@@ -285,7 +285,7 @@ public struct HydrogenicOrbital {
           for node in octree.nodes {
             let mask8 = node.branchesMask & SIMD8(repeating: 128)
             let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-            octreeFragmentCount += 8 * mask64.nonzeroBitCount
+            octreeFragmentCount += mask64.nonzeroBitCount
           }
           fatalError("""
             Meshing failed to converge after 50 iterations.
@@ -299,7 +299,7 @@ public struct HydrogenicOrbital {
       for node in octree.nodes {
         let mask8 = node.branchesMask & SIMD8(repeating: 128)
         let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-        octreeFragmentCount += 8 * mask64.nonzeroBitCount
+        octreeFragmentCount += mask64.nonzeroBitCount
       }
       
       if octreeFragmentCount >= fragmentCount {

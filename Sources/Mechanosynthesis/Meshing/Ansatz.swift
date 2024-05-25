@@ -10,11 +10,8 @@ public struct AnsatzDescriptor {
   /// Required. The number of protons in the atom's nucleus.
   public var atomicNumber: UInt8?
   
-  // TODO: Change the meaning of the fragment count, so that 5000 becomes 625.
-  // Then, increase the default value to 1000.
-  
   /// Required. The minimum number of fragments to split the electron into.
-  public var fragmentCount: Int = 5000
+  public var fragmentCount: Int = 1000
   
   /// Required. The net charge on the atom.
   public var netCharge: Int = .zero
