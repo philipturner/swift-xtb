@@ -37,9 +37,8 @@ public struct OctreeNode: Equatable {
   /// 'UInt32.max'.
   public var branchesIndex: UInt32
   
-  /// If any children have grand-children, they are marked in this mask. Such
-  /// children are stored in compacted order. If the child is a leaf node, it
-  /// isn't marked.
+  /// The relative locations of children that branch to deeper levels of the
+  /// tree. If a child terminates at the current node, the value is 'UInt8.max'.
   public var branchesMask: SIMD8<UInt8>
   
   @_transparent

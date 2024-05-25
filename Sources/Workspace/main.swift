@@ -8,7 +8,19 @@
 import Mechanosynthesis
 import Numerics
 
-print("Hello, world!")
+var ansatzDesc = AnsatzDescriptor()
+ansatzDesc.atomicNumber = 1
+ansatzDesc.netSpin = 0.5
+ansatzDesc.position = .zero
+ansatzDesc.sizeExponent = 4
+let ansatz = Ansatz(descriptor: ansatzDesc)
+print(ansatz.orbitals.count)
+print(ansatz.occupations)
 
-var array: [Int?] = [nil]
-print(array[0]!)
+let orbital = ansatz.orbitals[0]
+print(orbital.octree.nodes.count)
+
+var fragmentCount: Int = .zero
+for node in orbital.octree.nodes {
+  
+}
