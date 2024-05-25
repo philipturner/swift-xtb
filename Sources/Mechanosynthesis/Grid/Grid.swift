@@ -21,6 +21,16 @@ public struct GridDescriptor {
   }
 }
 
+/// A series of fine uniform grids spanning one cubic Bohr.
+public struct Voxel {
+  /// A list of levels, going from coarse to the finest level available.
+  public var levels: [Level] = []
+  
+  public init() {
+    
+  }
+}
+
 /// A coarse, uniform grid encapsulating a region of the domain.
 ///
 /// The offset and dimensions are specified in integer multiples of the Bohr

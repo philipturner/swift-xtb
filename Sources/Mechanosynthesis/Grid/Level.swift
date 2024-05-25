@@ -6,7 +6,7 @@
 //
 
 public struct LevelDescriptor {
-  // The number of chunks along each axis.
+  /// The number of chunks along each axis.
   public var dimensions: SIMD3<Int>?
   
   public init() {
@@ -21,10 +21,9 @@ public struct Level {
   /// Reorders data at the 2x2x2 granularity, to improve memory locality and
   /// decrease the overhead of dispatching compute work. The cells within
   /// each 2x2x2 chunk are stored in Morton order.
+  ///
+  /// Unoccupied cells have `NAN` for the data value.
   public var data: [SIMD8<Float>]
-  
-  /// Whether each cell is part of the "valid" region.
-  public var mask: [UInt8]
   
   public init(descriptor: LevelDescriptor) {
     guard let dimensions = descriptor.dimensions else {
@@ -37,6 +36,5 @@ public struct Level {
     // Allocate an array of chunks.
     let chunkCount = dimensions[0] * dimensions[1] * dimensions[2]
     data = Array(repeating: SIMD8(repeating: .nan), count: chunkCount)
-    mask = Array(repeating: 0b0000_0000, count: chunkCount)
   }
 }
