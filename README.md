@@ -17,10 +17,4 @@ Goals:
   - Large-core pseudopotentials interact with the XC functional, polluting simulation results.
   - Similar to the issue with the AO basis: BSSE pollutes simulation results.
 
-Dependencies:
-- DFT-D4
-  - PythonKit-style linking to avoid compiler issues.
-- libxc
-  - Linked at compile-time for now.
-- OpenCL
-  - SIMD-scoped shuffles through either Khronos extensions or assembly injection.
+TODO: Remove the dependency on the new Accelerate.

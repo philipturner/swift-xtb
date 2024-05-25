@@ -22,12 +22,31 @@ swiftSettings.append(
   .define("ACCELERATE_NEW_LAPACK"))
 #endif
 
+// MARK: - libxc
+
+var libxcLinkerSettings: [LinkerSetting] = []
+if let path = ProcessInfo.processInfo.environment["XC_LIBRARY_PATH"] {
+  libxcLinkerSettings = [
+    .unsafeFlags(["-L\(path)"]),
+    .linkedLibrary("xc"),
+  ]
+}
+targets.append(
+  .target(
+    name: "libxc",
+    dependencies: [],
+    linkerSettings: libxcLinkerSettings))
+targets.append(
+  .testTarget(
+    name: "libxcTests",
+    dependencies: ["libxc"]))
+
 // MARK: - Package Dependencies
 
 var packageDependencies: [Package.Dependency] = []
 packageDependencies.append(
   .package(
-    url: "https://github.com/philipturner/swift-numerics", 
+    url: "https://github.com/philipturner/swift-numerics",
     branch: "Quaternions"))
 
 var targetDependencies: [Target.Dependency] = []
