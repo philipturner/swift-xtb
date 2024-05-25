@@ -7,6 +7,8 @@
 
 import Mechanosynthesis
 
+// This does not belong in the 'Mechanosynthesis' library. It should be copied
+// from source whenever it is used.
 struct OrbitalMesh {
   var orbital: HydrogenicOrbital
   var grid: Grid
