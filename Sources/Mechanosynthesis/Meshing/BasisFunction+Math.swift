@@ -1,5 +1,5 @@
 //
-//  Math.swift
+//  BasisFunction+Math.swift
 //
 //
 //  Created by Philip Turner on 2/13/24.

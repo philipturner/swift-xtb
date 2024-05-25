@@ -17,7 +17,7 @@ struct Voxel {
   
   init(descriptor: VoxelDescriptor) {
     guard let depth = descriptor.depth else {
-      fatalError("Descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
     guard depth > 0 else {
       fatalError("Voxel must contain at least one level.")

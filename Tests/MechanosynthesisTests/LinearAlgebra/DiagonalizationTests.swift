@@ -587,7 +587,7 @@ final class DiagonalizationTests: XCTestCase {
   
   // Reproduce the LAPACK benchmarking experiment where Accelerate's
   // two-stage solver failed.
-  func testAccelerateBug() throws {
+  func testBenchmark() throws {
     func benchmarkProblemSize(n: Int, trialCount: Int) {
       // Generate the eigenvalues.
       var Λ = [Float](repeating: 0, count: n * n)

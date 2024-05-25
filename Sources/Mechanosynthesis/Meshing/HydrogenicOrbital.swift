@@ -1,13 +1,14 @@
 //
-//  WaveFunction.swift
+//  HydrogenicOrbital.swift
 //
 //
 //  Created by Philip Turner on 2/13/24.
 //
 
-struct WaveFunctionDescriptor {
+// A configuration for a hydrogenic orbital.
+struct HydrogenicOrbitalDescriptor {
   // The functional form of the initial guess.
-  var atomicOrbital: AtomicOrbital?
+  var basisFunction: BasisFunction?
   
   // The minimum number of fragments to split each electron into.
   var fragmentCount: Int?
@@ -19,24 +20,23 @@ struct WaveFunctionDescriptor {
   var sizeExponent: Int?
 }
 
-public struct WaveFunction {
-  /// The values of the wavefunction at each octree node.
-  public var cellValues: [SIMD8<Float>] = []
-  
-  /// The atomic orbital that generates the initial guess.
-  var atomicOrbital: AtomicOrbital
-  
+/// A hydrogenic orbital, with a topology that divides real space into regions
+/// of high charge density.
+public struct HydrogenicOrbital {
   /// The octree that stores the structure of the wavefunction.
   public var octree: Octree
   
-  init(descriptor: WaveFunctionDescriptor) {
-    guard let atomicOrbital = descriptor.atomicOrbital,
+  /// The basis function that generated the amplitudes.
+  public var basisFunction: BasisFunction
+  
+  init(descriptor: HydrogenicOrbitalDescriptor) {
+    guard let basisFunction = descriptor.basisFunction,
           let fragmentCount = descriptor.fragmentCount,
           let nucleusPosition = descriptor.nucleusPosition,
           let sizeExponent = descriptor.sizeExponent else {
-      fatalError("Descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
-    self.atomicOrbital = atomicOrbital
+    self.basisFunction = basisFunction
     
     var octreeDesc = OctreeDescriptor()
     octreeDesc.sizeExponent = sizeExponent
@@ -60,7 +60,7 @@ public struct WaveFunction {
       y = y * spacing + centerDelta.y
       z = z * spacing + centerDelta.z
       
-      let output = atomicOrbital.waveFunction(x: x, y: y, z: z)
+      let output = basisFunction.amplitude(x: x, y: y, z: z)
       return output
     }
     
@@ -178,19 +178,19 @@ public struct WaveFunction {
           }
           
           // 1x1x1 cell coordinating compute work
-          // 2x2x2 cell < threshold
-          // 4x4x4 cell < threshold / 8
+          // 2x2x2 cell < threshold / 8
+          // 4x4x4 cell < threshold / 64
           let importanceMax = importanceMetric.max()
-          if importanceMax < threshold {
+          if importanceMax < threshold / 8 {
             contracted[nodeID] = true
             contractedIsZero = false
           }
         } else {
           // 1x1x1 cell coordinating compute work
-          // 2x2x2 cell > threshold * 8
-          // 4x4x4 cell > threshold
+          // 2x2x2 cell > threshold
+          // 4x4x4 cell > threshold / 8
           var mask32 = SIMD8<UInt32>(repeating: .zero)
-          mask32.replace(with: 1, where: importanceMetric .> threshold * 8)
+          mask32.replace(with: 1, where: importanceMetric .> threshold)
           var mask8 = SIMD8<UInt8>(truncatingIfNeeded: mask32)
           mask8 &= branchesMask &>> 7
           
@@ -252,7 +252,7 @@ public struct WaveFunction {
             for node in octree.nodes {
               let mask8 = node.branchesMask & SIMD8(repeating: 128)
               let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-              octreeFragmentCount += 8 * mask64.nonzeroBitCount
+              octreeFragmentCount += mask64.nonzeroBitCount
             }
             if octreeFragmentCount <= fragmentCount {
               break
@@ -285,10 +285,10 @@ public struct WaveFunction {
           for node in octree.nodes {
             let mask8 = node.branchesMask & SIMD8(repeating: 128)
             let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-            octreeFragmentCount += 8 * mask64.nonzeroBitCount
+            octreeFragmentCount += mask64.nonzeroBitCount
           }
           fatalError("""
-            Wave function failed to converge after 50 iterations.
+            Meshing failed to converge after 50 iterations.
             Fragment Count: \(octreeFragmentCount)
             Probability Multiplier: \(probabilityMultiplier)
             """)
@@ -299,36 +299,13 @@ public struct WaveFunction {
       for node in octree.nodes {
         let mask8 = node.branchesMask & SIMD8(repeating: 128)
         let mask64 = unsafeBitCast(mask8, to: UInt64.self)
-        octreeFragmentCount += 8 * mask64.nonzeroBitCount
+        octreeFragmentCount += mask64.nonzeroBitCount
       }
       
       if octreeFragmentCount >= fragmentCount {
         break
       } else if probabilityMultiplier == 1 {
         fatalError("Could not create octree with the specified fragment count.")
-      }
-    }
-    
-    for node in octree.nodes {
-      // Lookup table for child nodes.
-      var lx = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
-      var ly = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
-      var lz = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-      let centerDelta = node.center - nucleusPosition
-      lx = lx * node.spacing + centerDelta.x
-      ly = ly * node.spacing + centerDelta.y
-      lz = lz * node.spacing + centerDelta.z
-      
-      for branchID in 0..<8 {
-        var x = SIMD8<Float>(0, 1, 0, 1, 0, 1, 0, 1) * 0.5 - 0.25
-        var y = SIMD8<Float>(0, 0, 1, 1, 0, 0, 1, 1) * 0.5 - 0.25
-        var z = SIMD8<Float>(0, 0, 0, 0, 1, 1, 1, 1) * 0.5 - 0.25
-        x = x * node.spacing / 2 + lx[branchID]
-        y = y * node.spacing / 2 + ly[branchID]
-        z = z * node.spacing / 2 + lz[branchID]
-        
-        let Ψ = atomicOrbital.waveFunction(x: x, y: y, z: z)
-        cellValues.append(Ψ)
       }
     }
   }

@@ -10,7 +10,7 @@ struct LevelDescriptor {
   var dimensions: SIMD3<Int>?
 }
 
-// A uniform grid encapsulating one mipmap level of a sparse voxel.
+// A uniform grid encapsulating one mipmap level of a voxel.
 struct Level {
   // The chunks in the level.
   //
@@ -24,7 +24,7 @@ struct Level {
   
   init(descriptor: LevelDescriptor) {
     guard let dimensions = descriptor.dimensions else {
-      fatalError("Descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
     guard all(dimensions .> 0) else {
       fatalError("Chunk count must be nonzero.")

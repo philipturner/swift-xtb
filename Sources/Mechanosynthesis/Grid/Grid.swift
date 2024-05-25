@@ -21,7 +21,7 @@ public struct GridDescriptor {
   }
 }
 
-// A uniform grid encapsulating a compact region of the domain.
+// A coarse, uniform grid encapsulating a region of the domain.
 //
 // The offset and dimensions are specified in integer multiples of the Bohr
 // radius.
@@ -41,7 +41,7 @@ public struct Grid {
   public init(descriptor: GridDescriptor) {
     guard let offset = descriptor.offset,
           let dimensions = descriptor.dimensions else {
-      fatalError("Descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
     guard all(dimensions .> 0) else {
       fatalError("Voxel count must be nonzero.")
