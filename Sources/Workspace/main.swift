@@ -9,8 +9,14 @@ import Mechanosynthesis
 import Numerics
 
 // Tasks:
-// - Learn how to set up a mesh for the hydrogen atom.
-// - Wrap the grid generation code into a function, store in 'Workspace'.
+// - Create code that can fill in the wavefunction amplitude at each voxel.
+// - Test out OrbitalMesh on the origin-centered N atom.
+// - Create code that can shift the nuclei into a mostly centered coordinate
+//   space, creating a good octree. Then, fuse the shift into 'grid.offset'.
+// - Test out OrbitalMesh on the N2 molecule.
+// - Create code that can fuse the meshes from a large number of electrons into
+//   a global simulation domain.
+//   - There would be a "master" mesh whose amplitude is zero everywhere.
 
 // Create an ansatz for the electronic structure.
 var ansatzDesc = AnsatzDescriptor()
@@ -21,8 +27,9 @@ ansatzDesc.sizeExponent = 4
 let ansatz = Ansatz(descriptor: ansatzDesc)
 
 let orbital = ansatz.orbitals[0]
-let mesh = OrbitalMesh(orbital: orbital)
+var mesh = OrbitalMesh(orbital: orbital)
 
 // Fill in the voxels.
-
-
+for node in orbital.octree.nodes {
+  
+}
