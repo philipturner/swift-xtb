@@ -63,7 +63,7 @@ public struct Octree {
   
   public init(descriptor: OctreeDescriptor) {
     guard let sizeExponent = descriptor.sizeExponent else {
-      fatalError("Descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
     
     let origin: SIMD3<Float> = .zero

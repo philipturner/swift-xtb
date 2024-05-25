@@ -1,5 +1,5 @@
 //
-//  AtomicOrbital.swift
+//  BasisFunction.swift
 //
 //
 //  Created by Philip Turner on 2/12/24.
@@ -10,7 +10,8 @@ import Numerics
 import simd
 #endif
 
-struct AtomicOrbitalDescriptor {
+// A configuration for a basis function.
+struct BasisFunctionDescriptor {
   // Effective nuclear charge.
   var Z: Float?
   
@@ -24,18 +25,19 @@ struct AtomicOrbitalDescriptor {
   var m: Int?
 }
 
-struct AtomicOrbital {
+/// A basis function for a hydrogenic orbital.
+public struct BasisFunction {
   var normalizationFactor: Float
   var radialPart: (SIMD8<Float>) -> SIMD8<Float>
   var angularPart: (
     SIMD8<Float>, SIMD8<Float>, SIMD8<Float>, SIMD8<Float>) -> SIMD8<Float>
   
-  init(descriptor: AtomicOrbitalDescriptor) {
+  init(descriptor: BasisFunctionDescriptor) {
     guard let Z = descriptor.Z,
           let n = descriptor.n,
           let l = descriptor.l,
           let m = descriptor.m else {
-      fatalError("Atomic orbital descriptor was invalid.")
+      fatalError("Descriptor was incomplete.")
     }
     
     // Correction to achieve the same scaling behavior as actual atomic
@@ -55,7 +57,6 @@ struct AtomicOrbital {
       }
       
       // Unsure how to make transcendentals faster on other platforms yet.
-      // It may become irrelevant when everything is ported to GPU.
       let input = -shellRadiusPart / 2 * 1.4426950408889607
       var expValue: SIMD8<Float> = .zero
       #if canImport(simd)
@@ -72,8 +73,11 @@ struct AtomicOrbital {
     angularPart = cubicHarmonic(l: l, m: m)
   }
   
-  // Enter the position in a coordinate space where the nucleus is the origin.
-  func waveFunction(
+  /// Vectorized function for finding the wavefunction amplitude at particular
+  /// points in real space.
+  ///
+  /// Enter the position in a coordinate space where the nucleus is the origin.
+  public func amplitude(
     x: SIMD8<Float>,
     y: SIMD8<Float>,
     z: SIMD8<Float>
