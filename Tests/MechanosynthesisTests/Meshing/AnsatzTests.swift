@@ -55,7 +55,22 @@ final class AnsatzTests: XCTestCase {
       }
     }
     
-    return Float(sum) * Float(2.0 / 3)
+    // Scale by a factor that depends on the angular momentum.
+    var output = Float(sum)
+    switch (orbital.basisFunction.n, orbital.basisFunction.l) {
+    case (_, 0):
+      output *= Float(2.0 / 3)
+    case (2, 1):
+      output *= Float(4.0 / 5)
+    case (3, 1):
+      output *= Float(13.0 / 18)
+    case (3, 2):
+      output *= Float(6.0 / 7)
+    default:
+      // Did not derive the scale factors for the remaining cases.
+      output *= Float(2.0 / 3)
+    }
+    return output
   }
   
   func testHydrogen() throws {
@@ -150,7 +165,7 @@ final class AnsatzTests: XCTestCase {
       orbital: lithiumPolarized.orbitals[0]), accuracy: 0.02)
     XCTAssertEqual(1.414, Self.queryRadius(
       orbital: lithiumPolarized.orbitals[1]), accuracy: 0.03)
-    XCTAssertEqual(1.414 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(1.414, Self.queryRadius(
       orbital: lithiumPolarized.orbitals[2]), accuracy: 0.03)
   }
   
@@ -179,19 +194,19 @@ final class AnsatzTests: XCTestCase {
       orbital: chromiumIon.orbitals[0]), accuracy: 2e-3)
     XCTAssertEqual(2 / 16.828, Self.queryRadius(
       orbital: chromiumIon.orbitals[1]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 16.828, Self.queryRadius(
       orbital: chromiumIon.orbitals[2]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 16.828, Self.queryRadius(
       orbital: chromiumIon.orbitals[3]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 16.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 16.828, Self.queryRadius(
       orbital: chromiumIon.orbitals[4]), accuracy: 4e-3)
     XCTAssertEqual(0.375, Self.queryRadius(
       orbital: chromiumIon.orbitals[5]), accuracy: 0.01)
-    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+    XCTAssertEqual(0.375, Self.queryRadius(
       orbital: chromiumIon.orbitals[6]), accuracy: 0.01)
-    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+    XCTAssertEqual(0.375, Self.queryRadius(
       orbital: chromiumIon.orbitals[7]), accuracy: 0.01)
-    XCTAssertEqual(0.375 * 12 / 13, Self.queryRadius(
+    XCTAssertEqual(0.375, Self.queryRadius(
       orbital: chromiumIon.orbitals[8]), accuracy: 0.01)
     XCTAssertEqual(0.2906231, Self.queryRadius(
       orbital: chromiumIon.orbitals[9]), accuracy: 0.01)
@@ -272,11 +287,11 @@ final class AnsatzTests: XCTestCase {
       orbital: silicon.orbitals[0]), accuracy: 3e-3)
     XCTAssertEqual(2 / 6.828, Self.queryRadius(
       orbital: silicon.orbitals[1]), accuracy: 6e-3)
-    XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 6.828, Self.queryRadius(
       orbital: silicon.orbitals[2]), accuracy: 6e-3)
-    XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 6.828, Self.queryRadius(
       orbital: silicon.orbitals[3]), accuracy: 6e-3)
-    XCTAssertEqual(2 / 6.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 6.828, Self.queryRadius(
       orbital: silicon.orbitals[4]), accuracy: 6e-3)
     XCTAssertEqual(1.5, Self.queryRadius(
       orbital: silicon.orbitals[5]), accuracy: 0.04)
@@ -314,29 +329,29 @@ final class AnsatzTests: XCTestCase {
       orbital: germanium.orbitals[0]), accuracy: 1e-3)
     XCTAssertEqual(2 / 24.828, Self.queryRadius(
       orbital: germanium.orbitals[1]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 24.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 24.828, Self.queryRadius(
       orbital: germanium.orbitals[2]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 24.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 24.828, Self.queryRadius(
       orbital: germanium.orbitals[3]), accuracy: 4e-3)
-    XCTAssertEqual(2 / 24.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 24.828, Self.queryRadius(
       orbital: germanium.orbitals[4]), accuracy: 4e-3)
-    XCTAssertEqual(0.36382768, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[5]), accuracy: 0.02)
-    XCTAssertEqual(0.3367374, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[6]), accuracy: 0.02)
-    XCTAssertEqual(0.3367374, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[7]), accuracy: 0.02)
-    XCTAssertEqual(0.3367374, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[8]), accuracy: 0.02)
-    XCTAssertEqual(0.28296816, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[9]), accuracy: 0.02)
-    XCTAssertEqual(0.28296816, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[10]), accuracy: 0.02)
-    XCTAssertEqual(0.2829506, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[11]), accuracy: 0.02)
-    XCTAssertEqual(0.28296816, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[12]), accuracy: 0.02)
-    XCTAssertEqual(0.28294447, Self.queryRadius(
+    XCTAssertEqual(3 / 8.25, Self.queryRadius(
       orbital: germanium.orbitals[13]), accuracy: 0.02)
     XCTAssertEqual(2, Self.queryRadius(
       orbital: germanium.orbitals[14]), accuracy: 0.08)
@@ -384,29 +399,29 @@ final class AnsatzTests: XCTestCase {
       orbital: tin.orbitals[0]), accuracy: 5e-4)
     XCTAssertEqual(2 / 42.828, Self.queryRadius(
       orbital: tin.orbitals[1]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 42.828, Self.queryRadius(
       orbital: tin.orbitals[2]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 42.828, Self.queryRadius(
       orbital: tin.orbitals[3]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 42.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 42.828, Self.queryRadius(
       orbital: tin.orbitals[4]), accuracy: 1e-3)
-    XCTAssertEqual(0.114265166, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[5]), accuracy: 6e-3)
-    XCTAssertEqual(0.105806686, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[6]), accuracy: 6e-3)
-    XCTAssertEqual(0.105806686, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[7]), accuracy: 6e-3)
-    XCTAssertEqual(0.105806686, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[8]), accuracy: 6e-3)
-    XCTAssertEqual(0.08886481, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[9]), accuracy: 6e-3)
-    XCTAssertEqual(0.08886481, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[10]), accuracy: 6e-3)
-    XCTAssertEqual(0.08887705, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[11]), accuracy: 6e-3)
-    XCTAssertEqual(0.08886481, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[12]), accuracy: 6e-3)
-    XCTAssertEqual(0.088864505, Self.queryRadius(
+    XCTAssertEqual(3 / 26.25, Self.queryRadius(
       orbital: tin.orbitals[13]), accuracy: 6e-3)
     XCTAssertEqual(2.5, Self.queryRadius(
       orbital: tin.orbitals[23]), accuracy: 0.06)
@@ -465,33 +480,34 @@ final class AnsatzTests: XCTestCase {
     for orbital in lead.orbitals {
       Self.checkFragments(orbital, 750)
     }
+    
     XCTAssertEqual(1 / 81.414, Self.queryRadius(
       orbital: lead.orbitals[0]), accuracy: 3e-4)
     XCTAssertEqual(2 / 74.828, Self.queryRadius(
       orbital: lead.orbitals[1]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 74.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 74.828, Self.queryRadius(
       orbital: lead.orbitals[2]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 74.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 74.828, Self.queryRadius(
       orbital: lead.orbitals[3]), accuracy: 1e-3)
-    XCTAssertEqual(2 / 74.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 74.828, Self.queryRadius(
       orbital: lead.orbitals[4]), accuracy: 1e-3)
-    XCTAssertEqual(0.051483016, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[5]), accuracy: 3e-3)
-    XCTAssertEqual(0.04767065, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[6]), accuracy: 3e-3)
-    XCTAssertEqual(0.04767065, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[7]), accuracy: 3e-3)
-    XCTAssertEqual(0.04767065, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[8]), accuracy: 3e-3)
-    XCTAssertEqual(0.0400402, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[9]), accuracy: 3e-3)
-    XCTAssertEqual(0.0400402, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[10]), accuracy: 3e-3)
-    XCTAssertEqual(0.040046137, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[11]), accuracy: 3e-3)
-    XCTAssertEqual(0.0400402, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[12]), accuracy: 3e-3)
-    XCTAssertEqual(0.040042643, Self.queryRadius(
+    XCTAssertEqual(3 / 58.25, Self.queryRadius(
       orbital: lead.orbitals[13]), accuracy: 3e-3)
     XCTAssertEqual(3, Self.queryRadius(
       orbital: lead.orbitals[39]), accuracy: 0.07)
@@ -575,33 +591,34 @@ final class AnsatzTests: XCTestCase {
     for orbital in flerovium.orbitals {
       Self.checkFragments(orbital, 1500)
     }
+    
     XCTAssertEqual(1 / 113.414, Self.queryRadius(
       orbital: flerovium.orbitals[0]), accuracy: 2e-4)
     XCTAssertEqual(2 / 106.828, Self.queryRadius(
       orbital: flerovium.orbitals[1]), accuracy: 3e-4)
-    XCTAssertEqual(2 / 106.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 106.828, Self.queryRadius(
       orbital: flerovium.orbitals[2]), accuracy: 3e-4)
-    XCTAssertEqual(2 / 106.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 106.828, Self.queryRadius(
       orbital: flerovium.orbitals[3]), accuracy: 3e-4)
-    XCTAssertEqual(2 / 106.828 * 5 / 6, Self.queryRadius(
+    XCTAssertEqual(2 / 106.828, Self.queryRadius(
       orbital: flerovium.orbitals[4]), accuracy: 3e-4)
-    XCTAssertEqual(0.033228643, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[5]), accuracy: 1e-3)
-    XCTAssertEqual(0.030767119, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[6]), accuracy: 1e-3)
-    XCTAssertEqual(0.030767119, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[7]), accuracy: 1e-3)
-    XCTAssertEqual(0.030767119, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[8]), accuracy: 1e-3)
-    XCTAssertEqual(0.02584201, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[9]), accuracy: 1e-3)
-    XCTAssertEqual(0.02584201, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[10]), accuracy: 1e-3)
-    XCTAssertEqual(0.025841631, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[11]), accuracy: 1e-3)
-    XCTAssertEqual(0.02584201, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[12]), accuracy: 1e-3)
-    XCTAssertEqual(0.02584289, Self.queryRadius(
+    XCTAssertEqual(3 / 90.25, Self.queryRadius(
       orbital: flerovium.orbitals[13]), accuracy: 1e-3)
     XCTAssertEqual(0.049465608, Self.queryRadius(
       orbital: flerovium.orbitals[14]), accuracy: 1e-3)
