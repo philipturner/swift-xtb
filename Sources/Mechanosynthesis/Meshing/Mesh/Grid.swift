@@ -6,13 +6,13 @@
 //
 
 public struct GridDescriptor<Element> {
-  // The lower corner of the bounding box enclosing the cells.
+  // Required. The lower corner of the bounding box enclosing the cells.
   public var offset: SIMD3<UInt32> = .zero
   
-  // The size of the bounding box enclosing the cells.
+  // Required. The size of the bounding box enclosing the cells.
   public var dimensions: SIMD3<UInt32>?
   
-  // An empty element to fill the grid with.
+  // Required. An empty element to initialize the grid with.
   public var emptyElement: Element?
   
   public init() {
