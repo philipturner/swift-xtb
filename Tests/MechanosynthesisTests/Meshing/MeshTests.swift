@@ -10,6 +10,8 @@ import Numerics
 //   - Study how the rotational asymmetry of the p-orbitals impacts the
 //     generated mesh. Superimpose three rotated versions of the octree for
 //     spatially polarized orbitals.
+//   - Provide an API to control the orientation of cubic harmonics in Ansatz
+//     (principal axes; Float32, unlike MM4RigidBody).
 //
 // Ideas for test coverage:
 // - Depict a cross-section of each resolution level's span in comments.
