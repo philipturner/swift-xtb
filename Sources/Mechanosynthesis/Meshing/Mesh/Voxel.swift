@@ -10,6 +10,10 @@ public struct CoarseVoxelDescriptor {
   //
   // The grid's offset is relative to the lower corner of this voxel.
   public var fineVoxels: Grid<FineVoxel>?
+  
+  public init() {
+    
+  }
 }
 
 // A large region of real space.
@@ -38,4 +42,8 @@ public struct FineVoxel {
   // The levels are ordered from coarsest to finest. Their offsets are relative
   // to the lower corner of this voxel.
   public var fineLevels: [Grid<SIMD8<Float>>] = []
+  
+  public init() {
+    
+  }
 }

@@ -3,9 +3,10 @@ import Mechanosynthesis
 import Numerics
 
 // Ideas for test systems:
-// - N2 molecule with a (N-)** **(N+) ansatz.
-// - H2O molecule with a H* *O* *H ansatz.
-// - C2H2 molecule with a H* *(C-) (C+)* *H ansatz.
+// - F2 molecule with an F* *F ansatz
+//   - Span the longest diagonal of a fine voxel, to maximize the number of
+//     performance edge cases triggered.
+// - C2H2 molecule with an H* *(C-) (C+)* *H ansatz.
 //
 // Ideas for test coverage:
 // - Depict a cross-section of each resolution level's span in comments.

@@ -34,7 +34,6 @@ public struct Mesh {
     spacing = 1 << sizeExponent
     
     // Find the bounding box of the coarse grid.
-    print()
     var minimum: SIMD3<Int32> = .init(repeating: .max)
     var maximum: SIMD3<Int32> = .init(repeating: -.max)
     for octree in descriptor.octrees {
@@ -58,23 +57,40 @@ public struct Mesh {
         // Find the bounding box of the node.
         let nodeMinimum = SIMD3<Int32>(node.center - node.spacing / 2)
         let nodeMaximum = SIMD3<Int32>(node.center + node.spacing / 2)
-        minimum.replace(with: nodeMinimum, where: nodeMinimum .< minimum)
-        maximum.replace(with: nodeMaximum, where: nodeMaximum .> maximum)
-        print("node:")
-        print("\(node.center - node.spacing / 2) -> \(nodeMinimum)")
-        print("\(node.center + node.spacing / 2) -> \(nodeMaximum)")
+        guard all(nodeMinimum % Int32(spacing) .== 0),
+              all(nodeMaximum % Int32(spacing) .== 0) else {
+          fatalError("Node bounds were not aligned to spacing.")
+        }
+        
+        // Find the nearest integer multiple of the voxel spacing.
+        let alignedMinimum = nodeMinimum / Int32(spacing)
+        let alignedMaximum = nodeMaximum / Int32(spacing)
+        minimum.replace(with: alignedMinimum, where: alignedMinimum .< minimum)
+        maximum.replace(with: alignedMaximum, where: alignedMaximum .> maximum)
       }
     }
     guard all(minimum .< maximum) else {
       // This happens when there are no octrees.
       fatalError("Mesh bounds could not be established.")
     }
-    print()
-    print("mesh:")
-    print("minimum: \(minimum)")
-    print("maximum: \(maximum)")
     
-    fatalError("Not implemented.")
+    // Create an empty grid of fine voxels.
+    var fineGridDesc = GridDescriptor<FineVoxel>()
+    fineGridDesc.dimensions = .zero
+    fineGridDesc.emptyElement = FineVoxel()
+    let emptyFineGrid = Grid(descriptor: fineGridDesc)
+    
+    // Create an empty coarse voxel.
+    var coarseVoxelDesc = CoarseVoxelDescriptor()
+    coarseVoxelDesc.fineVoxels = emptyFineGrid
+    let emptyCoarseVoxel = CoarseVoxel(descriptor: coarseVoxelDesc)
+    
+    // Create a grid of coarse voxels.
+    var coarseGridDesc = GridDescriptor<CoarseVoxel>()
+    coarseGridDesc.offset = minimum
+    coarseGridDesc.dimensions = SIMD3(truncatingIfNeeded: maximum &- minimum)
+    coarseGridDesc.emptyElement = emptyCoarseVoxel
+    coarseVoxels = Grid(descriptor: coarseGridDesc)
   }
 }
 
