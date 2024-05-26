@@ -6,7 +6,14 @@
 //
 
 public struct LevelDescriptor {
-  /// The number of chunks along each axis.
+  /// The start of the smallest bounding box that encloses the data.
+  ///
+  /// Units: cell spacing (twice the chunk spacing)
+  public var offset: SIMD3<Int32>?
+  
+  /// The size of the smallest bounding box that encloses the data.
+  ///
+  /// Units: cell spacing (twice the chunk spacing)
   public var dimensions: SIMD3<UInt32>?
   
   public init() {
@@ -16,6 +23,12 @@ public struct LevelDescriptor {
 
 /// A uniform grid encapsulating one mipmap level of a voxel.
 public struct Level {
+  /// The start of the smallest bounding box that encloses the data.
+  public var offset: SIMD3<Int32>
+  
+  /// The size of the smallest bounding box that encloses the data.
+  public var dimensions: SIMD3<UInt32>
+  
   /// The chunks in the level.
   ///
   /// Reorders data at the 2x2x2 granularity, to improve memory locality and

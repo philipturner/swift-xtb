@@ -36,12 +36,6 @@ public struct Voxel {
 /// The offset and dimensions are specified in integer multiples of the Bohr
 /// radius.
 public struct Grid {
-  /// The start of the smallest bounding box that encloses the data.
-  public var offset: SIMD3<Int32>
-  
-  /// The size of the smallest bounding box that encloses the data.
-  public var dimensions: SIMD3<UInt32>
-  
   /// Encapsulates the data for valid 1x1x1 Bohr cells.
   public var highestLevel: Level
   
