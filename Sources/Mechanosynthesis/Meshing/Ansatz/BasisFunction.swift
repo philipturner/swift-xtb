@@ -7,25 +7,43 @@
 
 import Numerics
 
-// A configuration for a basis function.
-struct BasisFunctionDescriptor {
-  // Effective nuclear charge.
-  var Z: Float?
+/// A configuration for a basis function.
+public struct BasisFunctionDescriptor {
+  /// Required. Effective nuclear charge.
+  public var Z: Float?
   
-  // Primary quantum number.
-  var n: Int?
+  /// Required. Primary quantum number.
+  public var n: Int?
   
-  // Angular momentum quantum number.
-  var l: Int?
+  /// Required. Angular momentum quantum number.
+  public var l: Int?
   
-  // Magnetic quantum number.
-  var m: Int?
+  /// Required. Magnetic quantum number.
+  public var m: Int?
 }
 
 /// A basis function for a hydrogenic orbital.
 public struct BasisFunction {
-  private var _radialPart: (SIMD8<Float>) -> SIMD8<Float>
-  private var _angularPart: (
+  /// Effective nuclear charge.
+  public var Z: Float
+  
+  /// Primary quantum number.
+  public var n: Int
+  
+  /// Angular momentum quantum number.
+  public var l: Int
+  
+  /// Magnetic quantum number.
+  public var m: Int
+  
+  @usableFromInline
+  var normalizationFactor: Float
+  
+  @usableFromInline
+  var L: (SIMD8<Float>) -> SIMD8<Float>
+  
+  @usableFromInline
+  var Y: (
     SIMD8<Float>, SIMD8<Float>, SIMD8<Float>) -> SIMD8<Float>
   
   init(descriptor: BasisFunctionDescriptor) {
@@ -35,43 +53,47 @@ public struct BasisFunction {
           let m = descriptor.m else {
       fatalError("Descriptor was incomplete.")
     }
+    self.Z = Z
+    self.n = n
+    self.l = l
+    self.m = m
     
     // Correction to achieve the same scaling behavior as actual atomic
     // orbitals: remove the division by 'n' from the shell part.
     let shellPart = Float(2 * Z)
-    var normalizationFactor = Float(factorial(n - l - 1))
+    normalizationFactor = Float(factorial(n - l - 1))
     normalizationFactor /= Float(2 * n * factorial(n + l))
     normalizationFactor *= shellPart * shellPart * shellPart
     normalizationFactor.formSquareRoot()
     
-    let L = laguerrePolynomial(alpha: Float(2 * l + 1), n: n - l - 1)
-    _radialPart = { [normalizationFactor] r in
-      var output: SIMD8<Float> = .init(repeating: normalizationFactor)
-      
-      // Define the shell-radius part.
-      let shellRadiusPart = shellPart * r
-      for _ in 0..<l {
-        output *= shellRadiusPart
-      }
-      
-      let input = -shellRadiusPart / 2 * 1.4426950408889607
-      var expValue: SIMD8<Float> = .zero
-      for laneID in 0..<8 {
-        // Unsure how to vectorize transcendentals on all platforms.
-        expValue[laneID] = Float.exp2(input[laneID])
-      }
-      output *= expValue
-      output *= L(shellRadiusPart)
-      return output
-    }
-    _angularPart = cubicHarmonic(l: l, m: m)
+    L = laguerrePolynomial(
+      alpha: Float(2 * l + 1), n: n - l - 1)
+    Y = cubicHarmonic(l: l, m: m)
   }
   
   /// Vectorized function for calculating the radial part.
   ///
   /// - Parameter r: The distance from the nucleus.
+  @_transparent
   public func radialPart(r: SIMD8<Float>) -> SIMD8<Float> {
-    return _radialPart(r)
+    var output: SIMD8<Float> = .init(repeating: normalizationFactor)
+    
+    // Define the shell-radius part.
+    let shellPart = Float(2 * Z)
+    let shellRadiusPart = shellPart * r
+    for _ in 0..<l {
+      output *= shellRadiusPart
+    }
+    
+    let input = -shellRadiusPart / 2 * 1.4426950408889607
+    var expValue: SIMD8<Float> = .zero
+    for laneID in 0..<8 {
+      // Unsure how to vectorize transcendentals on all platforms.
+      expValue[laneID] = Float.exp2(input[laneID])
+    }
+    output *= expValue
+    output *= L(shellRadiusPart)
+    return output
   }
   
   /// Vectorized function for calculating the angular part.
@@ -82,12 +104,13 @@ public struct BasisFunction {
   ///                the nucleus's position.
   /// - Parameter z: The z-coordinate of the vector separating the point from
   ///                the nucleus's position.
+  @_transparent
   public func angularPart(
     x: SIMD8<Float>,
     y: SIMD8<Float>,
     z: SIMD8<Float>
   ) -> SIMD8<Float> {
-    return _angularPart(x, y, z)
+    return Y(x, y, z)
   }
 }
 

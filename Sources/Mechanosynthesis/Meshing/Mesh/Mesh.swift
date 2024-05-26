@@ -104,15 +104,6 @@ public struct Mesh {
       coarseVoxels = Grid(descriptor: coarseGridDesc)
     }
     
-    // TODO: If an octree is the same as the one immediately before it, omit
-    // the octree. This is a reasonable optimization, expecting the orbitals to
-    // be sorted. Just like how other software assumes atoms are sorted in
-    // Morton order.
-    // - First, check whether the number of nodes is equal.
-    // - Next, check whether the cells are equal.
-    // - Verify that this speeds up, not slows down, the execution time for
-    //   first-row elements. Otherwise, consider a different solution.
-    
     let nodesToVoxelsMap = mapNodesToVoxels(octree: descriptor.octrees[0])
   }
 }
