@@ -7,7 +7,89 @@
 
 import Mechanosynthesis
 
-#if false
+/// A series of fine uniform grids spanning one cubic Bohr.
+public struct Voxel {
+  /// A list of levels, going from coarse to the finest level available.
+  public var levels: [Level] = []
+  
+  public init() {
+    
+  }
+}
+
+/// A coarse, uniform grid encapsulating a region of the domain.
+public struct Grid {
+  /// A list of levels, going from fine (1x1x1 Bohr) to the coarsest level
+  /// available.
+  public var levels: [Level] = []
+  
+  /// The remaining levels of the grid, which are allocated sparsely.
+  ///
+  /// The dimensions must match the 1x1x1 level.
+  public var voxels: [Voxel?] = []
+  
+  public init() {
+    
+  }
+}
+
+public struct LevelDescriptor {
+  /// The start of the smallest bounding box that encloses the data.
+  ///
+  /// Units: cell spacing (twice as fine as chunk spacing)
+  public var offset: SIMD3<Int32>?
+  
+  /// The size of the smallest bounding box that encloses the data.
+  ///
+  /// Units: cell spacing (twice as fine as chunk spacing)
+  public var dimensions: SIMD3<UInt32>?
+  
+  public init() {
+    
+  }
+}
+
+/// A uniform grid encapsulating one mipmap level of a voxel.
+public struct Level {
+  /// The start of the smallest bounding box that encloses the data.
+  public var offset: SIMD3<Int32>
+  
+  /// The size of the smallest bounding box that encloses the data.
+  public var dimensions: SIMD3<UInt32>
+  
+  /// The chunks in the level.
+  ///
+  /// Reorders data at the 2x2x2 granularity, to improve memory locality and
+  /// decrease the overhead of dispatching compute work. The cells within
+  /// each 2x2x2 chunk are stored in Morton order.
+  ///
+  /// Unoccupied cells have `NAN` for the data value.
+  public var data: [SIMD8<Float>]
+  
+  public init(descriptor: LevelDescriptor) {
+    guard let offset = descriptor.offset,
+          let dimensions = descriptor.dimensions else {
+      fatalError("Descriptor was incomplete.")
+    }
+    guard all(dimensions .> 0) else {
+      fatalError("Chunk count must be nonzero.")
+    }
+    guard all(offset % 2 .== 0),
+          all(dimensions % 2 .== 0) else {
+      fatalError("Level must be aligned to a multiple of 2x2x2 cells.")
+    }
+    self.offset = offset
+    self.dimensions = dimensions
+    
+    // Allocate an array of chunks.
+    let chunkDimensions = dimensions / 2
+    let chunkCount = Int(
+      chunkDimensions[0] * chunkDimensions[1] * chunkDimensions[2])
+    data = Array(
+      repeating: SIMD8(repeating: .nan), count: chunkCount)
+  }
+}
+
 struct OrbitalMesh {
   var orbital: HydrogenicOrbital
   var grid: Grid
@@ -176,4 +258,3 @@ struct OrbitalMesh {
     }
   }
 }
-#endif
