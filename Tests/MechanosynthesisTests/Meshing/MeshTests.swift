@@ -6,7 +6,10 @@ import Numerics
 // - F2 molecule with an F* *F ansatz
 //   - Span the longest diagonal of a fine voxel, to maximize the number of
 //     performance edge cases triggered.
-// - C2H2 molecule with an H* *(C-) (C+)* *H ansatz.
+// - C2H2 molecule with an H* *C* *C* *H ansatz.
+//   - Study how the rotational asymmetry of the p-orbitals impacts the
+//     generated mesh. Superimpose three rotated versions of the octree for
+//     spatially polarized orbitals.
 //
 // Ideas for test coverage:
 // - Depict a cross-section of each resolution level's span in comments.

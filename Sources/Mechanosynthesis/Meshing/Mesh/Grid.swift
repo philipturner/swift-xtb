@@ -22,10 +22,10 @@ public struct GridDescriptor<Element> {
 
 public struct Grid<Element> {
   // The lower corner of the bounding box enclosing the cells.
-  public var offset: SIMD3<Int32> = .zero
+  public var offset: SIMD3<Int32>
   
   // The size of the bounding box enclosing the cells.
-  public var dimensions: SIMD3<UInt32>?
+  public var dimensions: SIMD3<UInt32>
   
   // A uniform grid of elements.
   public var cells: [Element]
@@ -38,6 +38,8 @@ public struct Grid<Element> {
     guard all(dimensions .>= 0) else {
       fatalError("Cannot have negative dimensions.")
     }
+    offset = descriptor.offset
+    self.dimensions = dimensions
     
     // Allocate an array for the cells.
     let cellCount = dimensions[0] * dimensions[1] * dimensions[2]

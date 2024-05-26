@@ -84,22 +84,26 @@ public struct Mesh {
       fatalError("Mesh bounds could not be established.")
     }
     
-    // Create an empty grid of fine voxels.
-    var fineGridDesc = GridDescriptor<FineVoxel>()
-    fineGridDesc.dimensions = .zero
-    fineGridDesc.emptyElement = FineVoxel()
-    let emptyFineGrid = Grid(descriptor: fineGridDesc)
+    do {
+      // Create an empty grid of fine voxels.
+      var fineGridDesc = GridDescriptor<FineVoxel>()
+      fineGridDesc.dimensions = .zero
+      fineGridDesc.emptyElement = FineVoxel()
+      let emptyFineGrid = Grid(descriptor: fineGridDesc)
+      
+      // Create an empty coarse voxel.
+      var coarseVoxelDesc = CoarseVoxelDescriptor()
+      coarseVoxelDesc.fineVoxels = emptyFineGrid
+      let emptyCoarseVoxel = CoarseVoxel(descriptor: coarseVoxelDesc)
+      
+      // Create a grid of coarse voxels.
+      var coarseGridDesc = GridDescriptor<CoarseVoxel>()
+      coarseGridDesc.offset = minimum
+      coarseGridDesc.dimensions = SIMD3(truncatingIfNeeded: maximum &- minimum)
+      coarseGridDesc.emptyElement = emptyCoarseVoxel
+      coarseVoxels = Grid(descriptor: coarseGridDesc)
+    }
     
-    // Create an empty coarse voxel.
-    var coarseVoxelDesc = CoarseVoxelDescriptor()
-    coarseVoxelDesc.fineVoxels = emptyFineGrid
-    let emptyCoarseVoxel = CoarseVoxel(descriptor: coarseVoxelDesc)
-    
-    // Create a grid of coarse voxels.
-    var coarseGridDesc = GridDescriptor<CoarseVoxel>()
-    coarseGridDesc.offset = minimum
-    coarseGridDesc.dimensions = SIMD3(truncatingIfNeeded: maximum &- minimum)
-    coarseGridDesc.emptyElement = emptyCoarseVoxel
-    coarseVoxels = Grid(descriptor: coarseGridDesc)
+    let nodesToVoxelsMap = mapNodesToVoxels(octree: descriptor.octrees[0])
   }
 }
