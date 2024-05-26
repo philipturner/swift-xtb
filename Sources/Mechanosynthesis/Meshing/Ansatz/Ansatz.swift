@@ -157,5 +157,14 @@ public struct Ansatz {
         HydrogenicOrbital(descriptor: $0)
       }
     }
+    
+//    // Find the unique sets of quantum numbers.
+//    var uniqueDescriptors: [HydrogenicOrbitalDescriptor] = []
+//    var uniqueOctrees: [SIMD2<Int>: HydrogenicOrbital] = [:]
+//    
+//    // Initialize the orbitals.
+//    orbitals = orbitalDescriptors.map {
+//      HydrogenicOrbital(descriptor: $0)
+//    }
   }
 }

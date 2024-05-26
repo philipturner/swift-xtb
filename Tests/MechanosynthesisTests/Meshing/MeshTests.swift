@@ -7,9 +7,10 @@ import Numerics
 //   - Span the longest diagonal of a fine voxel, to maximize the number of
 //     performance edge cases triggered.
 // - C2H2 molecule with an H* *C* *C* *H ansatz
-//   - Omit orbitals with m > -l, ensure results are the same. Establish this
-//     as good practice, but it's something the user should do. The library
-//     should not be responsible for de-duplicating octrees.
+//   - Omit orbitals with m > -l, ensure results are the same.
+//   - Include a heuristic in Mesh that checks consecutive octrees, and
+//     de-duplicates them if they're the exact same. Ensure this leads to a net
+//     speedup, not a net slowdown.
 //
 // Ideas for test coverage:
 // - Depict a cross-section of each resolution level's span in comments.
