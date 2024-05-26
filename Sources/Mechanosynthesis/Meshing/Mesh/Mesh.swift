@@ -35,16 +35,33 @@ public struct Mesh {
   public var spacing: Int
   
   public init(descriptor: MeshDescriptor) {
+    // Check the correctness of the size exponent.
     guard let sizeExponent = descriptor.sizeExponent else {
       fatalError("Descriptor was incomplete.")
     }
     guard sizeExponent > 0 else {
       fatalError("Coarse voxel spacing must be at least 2 Bohr.")
     }
+    
+    // Set the coarse voxel spacing.
     spacing = 1 << sizeExponent
+    Self.checkOctreeSizes(
+      octrees: descriptor.octrees,
+      spacing: spacing)
+    
+    // Detach the nodes from the octrees.
+    let nodes = Self.detachOctreeNodes(
+      octrees: descriptor.octrees,
+      positions: descriptor.positions,
+      spacing: spacing)
     
     // Create an empty grid with the smallest possible bounding box.
-    coarseVoxels = Self.createCoarseGrid(descriptor: descriptor)
+    let coarseBoundingBox = Self.createCoarseBoundingBox(
+      nodes: nodes,
+      spacing: spacing)
+    coarseVoxels = Self.createCoarseGrid(
+      minimum: coarseBoundingBox.minimum,
+      maximum: coarseBoundingBox.maximum)
     
     // Data Transformations
     // sizeExponent -> spacing
@@ -53,5 +70,6 @@ public struct Mesh {
     //   octree, coarseVoxelGrid bounding box -> map
     // prefix sum the slot count for each octree
     // detach the nodes from the octrees, place into an array for each voxel
+    print(nodes.count)
   }
 }

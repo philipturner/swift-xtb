@@ -6,55 +6,110 @@
 //
 
 extension Mesh {
-  // Creates an empty coarse grid from the descriptor.
-  static func createCoarseGrid(
-    descriptor: MeshDescriptor
-  ) -> Grid<CoarseVoxel> {
-    let spacing = 1 << descriptor.sizeExponent!
-    
-    // Find the bounding box of the coarse grid.
-    var minimum: SIMD3<Int32> = .init(repeating: .max)
-    var maximum: SIMD3<Int32> = .init(repeating: -.max)
-    for octree in descriptor.octrees {
+  static func checkOctreeSizes(
+    octrees: [Octree],
+    spacing: Int
+  ) {
+    for octree in octrees {
       // The highest octree level must span 2 * coarse voxel spacing,
       // so that either half of the octree is 1 * coarse voxel spacing.
       let expectedSpacing = Float(2 * spacing)
       guard octree.nodes[0].spacing >= expectedSpacing else {
         fatalError("Octree must be large enough to fit the coarse voxels.")
       }
-      
-      for node in octree.nodes {
-        // There are some topologies where no nodes will meet this criterion.
-        // For example, if the octree terminates with only a single node.
-        //
-        // Remember, the coarse voxel spacing is twice the resolution of the
-        // actual data that is stored.
-        guard node.spacing == Float(spacing) else {
-          continue
-        }
-        
-        // Find the bounding box of the node.
-        let nodeMinimum = SIMD3<Int32>(node.center - node.spacing / 2)
-        let nodeMaximum = SIMD3<Int32>(node.center + node.spacing / 2)
-        guard all(nodeMinimum % Int32(spacing) .== 0),
-              all(nodeMaximum % Int32(spacing) .== 0) else {
-          fatalError("Node bounds were not aligned to spacing.")
-        }
-        
-        // Find the nearest integer multiple of the voxel spacing.
-        let alignedMinimum = nodeMinimum / Int32(spacing)
-        let alignedMaximum = nodeMaximum / Int32(spacing)
-        minimum.replace(with: alignedMinimum, where: alignedMinimum .< minimum)
-        maximum.replace(with: alignedMaximum, where: alignedMaximum .> maximum)
+    }
+  }
+  
+  // Transform the nodes into a common coordinate space, then detach them from
+  // their parent octrees.
+  static func detachOctreeNodes(
+    octrees: [Octree],
+    positions: [SIMD3<Int32>]?,
+    spacing: Int
+  ) -> [OctreeNode] {
+    // Find the position of each octree in the global coordinate space.
+    var octreePositions: [SIMD3<Int32>]
+    if let positions {
+      octreePositions = positions
+    } else {
+      octreePositions = Array(repeating: .zero, count: octrees.count)
+    }
+    guard octreePositions.count == octrees.count else {
+      fatalError("Number of positions did not match number of octrees.")
+    }
+    for position in octreePositions {
+      guard all(position % Int32(spacing) .== 0) else {
+        fatalError("Octree position must be aligned to coarse voxel spacing.")
       }
+    }
+    
+    // Collect up the nodes into a single array.
+    var output: [OctreeNode] = []
+    for octreeID in octrees.indices {
+      let octree = octrees[octreeID]
+      let octreePosition = octreePositions[octreeID]
+      
+      // Iterate over the nodes within this octree.
+      for nodeID in octree.nodes.indices {
+        // Shift the node's center.
+        var node = octree.nodes[nodeID]
+        var center = node.center
+        center += SIMD3<Float>(octreePosition)
+        node.centerAndSpacing = SIMD4(center, node.spacing)
+        
+        // Remove references to other nodes.
+        node.parentIndex = .max
+        node.branchesIndex = .max
+        node.branchesMask.replace(
+          with: SIMD8.zero, where: node.branchesMask .!= 255)
+        output.append(node)
+      }
+    }
+    return output
+  }
+  
+  // Creates an empty coarse grid from the correctly shifted nodes.
+  static func createCoarseBoundingBox(
+    nodes: [OctreeNode],
+    spacing: Int
+  ) -> (
+    minimum: SIMD3<Int32>,
+    maximum: SIMD3<Int32>
+  ) {
+    // Find the bounding box of the coarse grid.
+    var minimum: SIMD3<Int32> = .init(repeating: .max)
+    var maximum: SIMD3<Int32> = .init(repeating: -.max)
+    for node in nodes {
+      // There are octree topologies where no nodes will meet this criterion.
+      // For example, if the octree terminates with only a single node.
+      //
+      // Remember, the coarse voxel spacing is twice the resolution of the
+      // actual data that is stored.
+      guard node.spacing == Float(spacing) else {
+        continue
+      }
+      
+      // Find the bounding box of the node.
+      let nodeMinimum = SIMD3<Int32>(node.center - node.spacing / 2)
+      let nodeMaximum = SIMD3<Int32>(node.center + node.spacing / 2)
+      guard all(nodeMinimum % Int32(spacing) .== 0),
+            all(nodeMaximum % Int32(spacing) .== 0) else {
+        fatalError("Node bounds were not aligned to spacing.")
+      }
+      
+      // Find the nearest integer multiple of the voxel spacing.
+      let alignedMinimum = nodeMinimum / Int32(spacing)
+      let alignedMaximum = nodeMaximum / Int32(spacing)
+      minimum.replace(with: alignedMinimum, where: alignedMinimum .< minimum)
+      maximum.replace(with: alignedMaximum, where: alignedMaximum .> maximum)
     }
     guard all(minimum .< maximum) else {
       // This happens when there are no octrees.
       fatalError("Mesh bounds could not be established.")
     }
     
-    // Create the coarse grid.
-    return Self.createCoarseGrid(minimum: minimum, maximum: maximum)
+    // Return the bounding box.
+    return (minimum, maximum)
   }
   
   // Creates an empty coarse grid from the bounding box.
@@ -82,17 +137,15 @@ extension Mesh {
 }
 
 extension Mesh {
-  // Maps octree nodes to coarse voxels.
-  //
-  // Unsure how to proceed with fine voxels for now.
-  func mapNodesToCoarseVoxels(octree: Octree) -> [SIMD2<UInt32>] {
+  // Map octree nodes to coarse voxels.
+  func mapNodesToCoarseVoxels(_ nodes: [OctreeNode]) -> [[OctreeNode]] {
     // Create an accumulator for each voxel, just for this octree.
     var voxelAccumulators = [UInt32](
       repeating: .zero, count: coarseVoxels.cells.count)
     
     // Iterate over the nodes.
     var nodesToCoarseVoxelsMap: [SIMD2<UInt32>] = []
-    for node in octree.nodes {
+    for node in nodes {
       guard node.spacing <= Float(spacing) else {
         // Append something here, to preserve the index in the array of nodes.
         let mappedLocation = SIMD2<UInt32>(repeating: .max)
@@ -122,6 +175,7 @@ extension Mesh {
       let mappedLocation = SIMD2(voxelID, slotID)
       nodesToCoarseVoxelsMap.append(mappedLocation)
     }
-    return nodesToCoarseVoxelsMap
+    
+    fatalError("Not implemented.")
   }
 }
