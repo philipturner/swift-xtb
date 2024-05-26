@@ -139,7 +139,7 @@ extension Mesh {
 extension Mesh {
   // Map octree nodes to coarse voxels.
   func mapNodesToCoarseVoxels(_ nodes: [OctreeNode]) -> [[OctreeNode]] {
-    // Create an accumulator for each voxel, just for this octree.
+    // Create an accumulator for each voxel.
     var voxelAccumulators = [UInt32](
       repeating: .zero, count: coarseVoxels.cells.count)
     
@@ -174,6 +174,20 @@ extension Mesh {
       voxelAccumulators[Int(voxelID)] = slotID + 1
       let mappedLocation = SIMD2(voxelID, slotID)
       nodesToCoarseVoxelsMap.append(mappedLocation)
+    }
+    
+    // Create an array for each voxel.
+    var voxelArrays = [[OctreeNode]](
+      repeating: [], count: coarseVoxels.cells.count)
+    for voxelID in coarseVoxels.cells.indices {
+      let nodeCount = voxelAccumulators[voxelID]
+      let emptyNode = OctreeNode(
+        centerAndSpacing: SIMD4(repeating: .nan),
+        parentIndex: UInt32.max,
+        branchesIndex: UInt32.max,
+        branchesMask: SIMD8(repeating: UInt8.max))
+      let emptyArray = Array(repeating: emptyNode, count: Int(nodeCount))
+      voxelArrays.append(emptyArray)
     }
     
     fatalError("Not implemented.")

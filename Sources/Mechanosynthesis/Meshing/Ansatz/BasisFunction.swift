@@ -85,6 +85,7 @@ public struct BasisFunction {
       output *= shellRadiusPart
     }
     
+    // Hard-coded the logarithm of e in base 2.
     let input = -shellRadiusPart / 2 * 1.4426950408889607
     var expValue: SIMD8<Float> = .zero
     for laneID in 0..<8 {
