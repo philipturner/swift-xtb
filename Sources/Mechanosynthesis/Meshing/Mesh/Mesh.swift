@@ -9,6 +9,16 @@ public struct MeshDescriptor {
   // Required. The set of octrees to generate the topology from.
   public var octrees: [Octree] = []
   
+  // Optional. The shift of each octree with respect to the origin.
+  //
+  // To initialize the ansatz easily and accurately, the octree should be
+  // origin-centered and with minimal size exponent. This setting
+  // allows different origin-centered meshes to be created for different
+  // atoms, then fused after shifting to the actual position.
+  //
+  // Each shift must be a multiple of the coarse voxel spacing.
+  public var positions: [SIMD3<Int32>]?
+  
   // Required. The power-2 size of coarse voxels, in Bohr.
   public var sizeExponent: Int?
   
@@ -91,11 +101,5 @@ public struct Mesh {
     coarseGridDesc.dimensions = SIMD3(truncatingIfNeeded: maximum &- minimum)
     coarseGridDesc.emptyElement = emptyCoarseVoxel
     coarseVoxels = Grid(descriptor: coarseGridDesc)
-  }
-}
-
-extension Mesh {
-  public mutating func append(contentsOf other: Mesh) {
-    fatalError("Not implemented.")
   }
 }
