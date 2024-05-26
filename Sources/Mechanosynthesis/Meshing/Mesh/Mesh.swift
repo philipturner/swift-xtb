@@ -71,5 +71,6 @@ public struct Mesh {
     // prefix sum the slot count for each octree
     // detach the nodes from the octrees, place into an array for each voxel
     print(nodes.count)
+    mapNodesToCoarseVoxels(nodes)
   }
 }

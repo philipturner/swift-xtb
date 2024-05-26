@@ -143,7 +143,7 @@ extension Mesh {
     var voxelAccumulators = [UInt32](
       repeating: .zero, count: coarseVoxels.cells.count)
     
-    // Iterate over the nodes.
+    // Find the indices for each node.
     var nodesToCoarseVoxelsMap: [SIMD2<UInt32>] = []
     for node in nodes {
       guard node.spacing <= Float(spacing) else {
@@ -189,6 +189,9 @@ extension Mesh {
       let emptyArray = Array(repeating: emptyNode, count: Int(nodeCount))
       voxelArrays.append(emptyArray)
     }
+    
+    // Transfer each node to its corresponding array.
+    
     
     fatalError("Not implemented.")
   }

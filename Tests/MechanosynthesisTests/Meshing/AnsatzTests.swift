@@ -214,7 +214,6 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(4 / 4.414, Self.queryRadius(
       orbital: chromiumIon.orbitals[10]), accuracy: 0.04)
     
-    
     // Aufbau polarized atom.
     descriptor.netCharge = 0
     descriptor.netSpin = 2
