@@ -26,7 +26,7 @@ public struct HydrogenicOrbital {
   /// The octree that stores the structure of the wavefunction.
   public var octree: Octree
   
-  /// The basis function that generated the amplitudes.
+  /// The basis function for the orbital.
   public var basisFunction: BasisFunction
   
   init(descriptor: HydrogenicOrbitalDescriptor) {
@@ -42,8 +42,7 @@ public struct HydrogenicOrbital {
     octreeDesc.sizeExponent = sizeExponent
     self.octree = Octree(descriptor: octreeDesc)
     
-    // Cache the integrals so they don't need to be recomputed. Defer the
-    // initialization of 'cellValues' until after the octree is done.
+    // Cache the integrals so they don't need to be recomputed.
     var densityIntegrals: [SIMD8<Float>] = []
     var gradientIntegrals: [SIMD8<Float>] = []
     densityIntegrals.append(SIMD8(repeating: .nan))
@@ -60,8 +59,13 @@ public struct HydrogenicOrbital {
       y = y * spacing + centerDelta.y
       z = z * spacing + centerDelta.z
       
-      let output = basisFunction.amplitude(x: x, y: y, z: z)
-      return output
+      // Omit the angular part to ensure the mesh is rotationally invariant.
+      //
+      // NOTE: There is an opportunity to reduce the compute cost of ansatz
+      // generation. Orbitals within the same sub-shell have the same mesh.
+      let r = (x * x + y * y + z * z).squareRoot()
+      let R = basisFunction.radialPart(r)
+      return basisFunction.normalizationFactor * R
     }
     
     // Evaluate the density and square gradient over all of real space. Operate

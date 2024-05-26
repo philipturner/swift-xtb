@@ -453,7 +453,6 @@ final class AnsatzTests: XCTestCase {
      expectation radius: 2.9965723
      */
     descriptor.atomicNumber = 82
-    descriptor.fragmentCount = 625
     let lead = Ansatz(descriptor: descriptor)
     XCTAssertEqual(lead.orbitals.count, 42)
     XCTAssertEqual(lead.occupations[0], 2)
@@ -461,7 +460,7 @@ final class AnsatzTests: XCTestCase {
     XCTAssertEqual(lead.occupations[40], 1)
     XCTAssertEqual(lead.occupations[41], 1)
     for orbital in lead.orbitals {
-      Self.checkFragments(orbital, 625)
+      Self.checkFragments(orbital, 750)
     }
     XCTAssertEqual(1 / 81.414, Self.queryRadius(
       orbital: lead.orbitals[0]), accuracy: 3e-4)
