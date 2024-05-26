@@ -41,7 +41,17 @@ public struct Mesh {
     guard sizeExponent > 0 else {
       fatalError("Coarse voxel spacing must be at least 2 Bohr.")
     }
-    coarseVoxels = Self.createCoarseGrid(descriptor: descriptor)
     spacing = 1 << sizeExponent
+    
+    // Create an empty grid with the smallest possible bounding box.
+    coarseVoxels = Self.createCoarseGrid(descriptor: descriptor)
+    
+    // Data Transformations
+    // sizeExponent -> spacing
+    // descriptor -> coarseVoxels
+    // for each octree
+    //   octree, coarseVoxelGrid bounding box -> map
+    // prefix sum the slot count for each octree
+    // detach the nodes from the octrees, place into an array for each voxel
   }
 }
