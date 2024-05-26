@@ -7,7 +7,7 @@
 
 public struct GridDescriptor<Element> {
   // Required. The lower corner of the bounding box enclosing the cells.
-  public var offset: SIMD3<UInt32> = .zero
+  public var offset: SIMD3<Int32> = .zero
   
   // Required. The size of the bounding box enclosing the cells.
   public var dimensions: SIMD3<UInt32>?
@@ -22,7 +22,7 @@ public struct GridDescriptor<Element> {
 
 public struct Grid<Element> {
   // The lower corner of the bounding box enclosing the cells.
-  public var offset: SIMD3<UInt32> = .zero
+  public var offset: SIMD3<Int32> = .zero
   
   // The size of the bounding box enclosing the cells.
   public var dimensions: SIMD3<UInt32>?
