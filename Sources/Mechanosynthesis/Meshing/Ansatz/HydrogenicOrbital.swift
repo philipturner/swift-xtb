@@ -48,6 +48,7 @@ public struct HydrogenicOrbital {
     densityIntegrals.append(SIMD8(repeating: .nan))
     gradientIntegrals.append(SIMD8(repeating: .nan))
     
+    @_transparent
     func createCellValues(
       center: SIMD3<Float>, spacing: Float
     ) -> SIMD8<Float> {
@@ -61,12 +62,15 @@ public struct HydrogenicOrbital {
       
       // Omit the angular part to ensure the mesh is rotationally invariant.
       //
+      // In addition, omit the scaling by 1 / (4 * Float.pi).squareRoot().
+      // This optimization slightly reduces the compute cost, without
+      // changing the relative weighting of the cells.
+      
       // NOTE: There is an opportunity to reduce the compute cost of ansatz
       // generation. Orbitals within the same sub-shell have the same mesh.
       let r = (x * x + y * y + z * z).squareRoot()
       let R = basisFunction.radialPart(r: r)
-      let Y = 1 / (4 * Float.pi).squareRoot()
-      return R * Y
+      return basisFunction.radialPart(r: r)
     }
     
     // Evaluate the density and square gradient over all of real space. Operate
