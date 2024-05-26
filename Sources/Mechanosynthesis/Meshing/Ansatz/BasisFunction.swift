@@ -24,10 +24,9 @@ struct BasisFunctionDescriptor {
 
 /// A basis function for a hydrogenic orbital.
 public struct BasisFunction {
-  var normalizationFactor: Float
-  var radialPart: (SIMD8<Float>) -> SIMD8<Float>
-  var angularPart: (
-    SIMD8<Float>, SIMD8<Float>, SIMD8<Float>, SIMD8<Float>) -> SIMD8<Float>
+  private var _radialPart: (SIMD8<Float>) -> SIMD8<Float>
+  private var _angularPart: (
+    SIMD8<Float>, SIMD8<Float>, SIMD8<Float>) -> SIMD8<Float>
   
   init(descriptor: BasisFunctionDescriptor) {
     guard let Z = descriptor.Z,
@@ -40,15 +39,17 @@ public struct BasisFunction {
     // Correction to achieve the same scaling behavior as actual atomic
     // orbitals: remove the division by 'n' from the shell part.
     let shellPart = Float(2 * Z)
-    normalizationFactor = Float(factorial(n - l - 1))
+    var normalizationFactor = Float(factorial(n - l - 1))
     normalizationFactor /= Float(2 * n * factorial(n + l))
     normalizationFactor *= shellPart * shellPart * shellPart
     normalizationFactor.formSquareRoot()
     
     let L = laguerrePolynomial(alpha: Float(2 * l + 1), n: n - l - 1)
-    radialPart = { r in
+    _radialPart = { [normalizationFactor] r in
+      var output: SIMD8<Float> = .init(repeating: normalizationFactor)
+      
+      // Define the shell-radius part.
       let shellRadiusPart = shellPart * r
-      var output: SIMD8<Float> = .one
       for _ in 0..<l {
         output *= shellRadiusPart
       }
@@ -63,22 +64,30 @@ public struct BasisFunction {
       output *= L(shellRadiusPart)
       return output
     }
-    angularPart = cubicHarmonic(l: l, m: m)
+    _angularPart = cubicHarmonic(l: l, m: m)
   }
   
-  /// Vectorized function for finding the wavefunction amplitude at particular
-  /// points in real space.
+  /// Vectorized function for calculating the radial part.
   ///
-  /// Enter the position in a coordinate space where the nucleus is the origin.
-  public func amplitude(
+  /// - Parameter r: The distance from the nucleus.
+  public func radialPart(r: SIMD8<Float>) -> SIMD8<Float> {
+    return _radialPart(r)
+  }
+  
+  /// Vectorized function for calculating the angular part.
+  ///
+  /// - Parameter x: The x-coordinate of the vector separating the point from
+  ///                the nucleus's position.
+  /// - Parameter y: The y-coordinate of the vector separating the point from
+  ///                the nucleus's position.
+  /// - Parameter z: The z-coordinate of the vector separating the point from
+  ///                the nucleus's position.
+  public func angularPart(
     x: SIMD8<Float>,
     y: SIMD8<Float>,
     z: SIMD8<Float>
   ) -> SIMD8<Float> {
-    let r = (x * x + y * y + z * z).squareRoot()
-    let R = radialPart(r)
-    let Y = angularPart(x, y, z, r)
-    return normalizationFactor * R * Y
+    return _angularPart(x, y, z)
   }
 }
 

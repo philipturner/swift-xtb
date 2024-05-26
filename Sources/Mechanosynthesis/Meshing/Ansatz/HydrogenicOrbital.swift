@@ -64,8 +64,9 @@ public struct HydrogenicOrbital {
       // NOTE: There is an opportunity to reduce the compute cost of ansatz
       // generation. Orbitals within the same sub-shell have the same mesh.
       let r = (x * x + y * y + z * z).squareRoot()
-      let R = basisFunction.radialPart(r)
-      return basisFunction.normalizationFactor * R
+      let R = basisFunction.radialPart(r: r)
+      let Y = 1 / (4 * Float.pi).squareRoot()
+      return R * Y
     }
     
     // Evaluate the density and square gradient over all of real space. Operate

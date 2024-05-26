@@ -44,15 +44,18 @@ final class AnsatzTests: XCTestCase {
         y = y * node.spacing / 2 + ly[branchID]
         z = z * node.spacing / 2 + lz[branchID]
         
-        let Ψ = orbital.basisFunction.amplitude(x: x, y: y, z: z)
-        let d3r = node.spacing * node.spacing * node.spacing / 64
         let r = (x * x + y * y + z * z).squareRoot()
+        let R = orbital.basisFunction.radialPart(r: r)
+        let Y = 1 / (4 * Float.pi).squareRoot()
+        
+        let Ψ = R * Y
+        let d3r = node.spacing * node.spacing * node.spacing / 64
         let ΨrΨ = Ψ * r * Ψ * d3r
         sum += Double(ΨrΨ.sum())
       }
     }
     
-    return Float(sum) * 2 / 3
+    return Float(sum) * Float(2.0 / 3)
   }
   
   func testHydrogen() throws {

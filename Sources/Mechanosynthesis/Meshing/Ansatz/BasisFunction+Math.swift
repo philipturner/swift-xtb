@@ -35,8 +35,7 @@ func cubicHarmonic(
 ) -> (
   _ x: SIMD8<Float>,
   _ y: SIMD8<Float>,
-  _ z: SIMD8<Float>,
-  _ r: SIMD8<Float>
+  _ z: SIMD8<Float>
 ) -> SIMD8<Float> {
   var factorial: Int = 1
   for i in 0...l {
@@ -47,7 +46,7 @@ func cubicHarmonic(
   // The basis set from Wikipedia, which contains up to f-orbitals:
   // https://en.wikipedia.org/wiki/Cubic_harmonic
   if l == 0 {
-    return { _, _, _, _ in
+    return { _, _, _ in
       var output = Nc / SIMD8<Float>.one
       switch m {
       case 0: output *= 1
@@ -56,8 +55,10 @@ func cubicHarmonic(
       return output
     }
   } else if l == 1 {
-    return { x, y, z, r in
+    return { x, y, z in
+      let r = (x * x + y * y + z * z).squareRoot()
       var output = Nc / r
+      
       switch m {
       case 0: output *= z
       case -1: output *= x
@@ -67,8 +68,10 @@ func cubicHarmonic(
       return output
     }
   } else if l == 2 {
-    return { x, y, z, r in
+    return { x, y, z in
+      let r = (x * x + y * y + z * z).squareRoot()
       var output = Nc / (r * r)
+      
       switch m {
       case 0:
         output *= 3 * z * z - r * r
@@ -82,7 +85,8 @@ func cubicHarmonic(
       return output
     }
   } else if l == 3 {
-    return { x, y, z, r in
+    return { x, y, z in
+      let r = (x * x + y * y + z * z).squareRoot()
       var output = Nc / (r * r * r)
       
       // Prevent the compiler from taking a long time to type-check this.
