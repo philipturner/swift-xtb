@@ -7,8 +7,7 @@
 
 import Mechanosynthesis
 
-// This does not belong in the 'Mechanosynthesis' library. It should be copied
-// from source whenever it is used.
+#if false
 struct OrbitalMesh {
   var orbital: HydrogenicOrbital
   var grid: Grid
@@ -16,9 +15,6 @@ struct OrbitalMesh {
   init(orbital: HydrogenicOrbital) {
     self.orbital = orbital
     self.grid = Self.createGrid(orbital: orbital)
-    
-    createHighestLevel()
-    createVoxels()
   }
   
   // Creates an empty grid with the required bounds.
@@ -180,3 +176,4 @@ struct OrbitalMesh {
     }
   }
 }
+#endif
