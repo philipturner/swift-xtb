@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 3/11/24.
 //
 
-import QuartzCore
-
 /// A configuration for an eigendecomposition.
 public struct DiagonalizationDescriptor {
   /// A symmetric matrix of FP32 numbers.
@@ -132,8 +130,17 @@ public struct Diagonalization {
   }
   
   mutating func createMatrix(descriptor: DiagonalizationDescriptor) {
-    matrix = Array(repeating: .zero, count: problemSize * problemSize)
-    memcpy(&matrix, descriptor.matrix!, problemSize * problemSize * 4)
+    // Allocate a new array.
+    let elementCount = problemSize * problemSize
+    matrix = Array(repeating: .zero, count: elementCount)
+    
+    // Copy the elements over, avoiding unsafe behavior from CoW.
+    for elementID in 0..<elementCount {
+      let descriptorElement = descriptor.matrix.unsafelyUnwrapped[elementID]
+      matrix[elementID] = descriptorElement
+    }
+    
+    // Retrieve the pointer and use it for the remaining computations.
     matrixPointer = matrix.withContiguousMutableStorageIfAvailable {
       $0.baseAddress!
     }!
@@ -153,62 +160,25 @@ public struct Diagonalization {
     var bulgeReflectors: [Float] = []
 
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.
-    let checkpoint0 = CACurrentMediaTime()
     createMatrix(descriptor: descriptor)
     bandReflectors = reduceToBandForm()
 
     // If the matrix is already in tridiagonal form, there is no work to do.
-    let checkpoint1 = CACurrentMediaTime()
     if blockSize > 1 {
       bulgeReflectors = chaseBulges()
     }
 
     // Acquire the eigenvectors (using the LAPACK divide-and-conquer until all
     // other bottlenecks are suppressed).
-    let checkpoint2 = CACurrentMediaTime()
     solveTridiagonalEigenproblem()
 
     // If the matrix was already in tridiagonal form, there is no work to do.
-    let checkpoint3 = CACurrentMediaTime()
     if blockSize > 1 {
       backTransform(bulgeReflectors: bulgeReflectors)
     }
 
     // Expand the bandwidth from 'blockSize' to 'problemSize'.
-    let checkpoint4 = CACurrentMediaTime()
     backTransform(bandReflectors: bandReflectors)
     destroyMatrix()
-    let checkpoint5 = CACurrentMediaTime()
-
-    #if false
-    // Report diagnostics for debugging performance.
-    if problemSize >= 100 {
-      let time01 = 1e6 * (checkpoint1 - checkpoint0)
-      let time12 = 1e6 * (checkpoint2 - checkpoint1)
-      let time23 = 1e6 * (checkpoint3 - checkpoint2)
-      let time34 = 1e6 * (checkpoint4 - checkpoint3)
-      let time45 = 1e6 * (checkpoint5 - checkpoint4)
-      let times = SIMD8(time01, time12, time23, time34, time45, 0, 0, 0)
-      
-      let total = times.sum()
-      let percents = times / total * 100
-      func format(_ number: Double) -> String {
-        String(format: "%.1f", number)
-      }
-      func printPart(index: Int, label: String) {
-        print("[\(format(percents[index]))%", terminator: ", ")
-        print(format(times[index]), terminator: " μs] - ")
-        print(label)
-      }
-      
-      print()
-      print("[n = \(problemSize)] Performance Breakdown:")
-      printPart(index: 0, label: "Reduction to band form")
-      printPart(index: 1, label: "Bulge chasing")
-      printPart(index: 2, label: "Divide and conquer")
-      printPart(index: 3, label: "Back transformation (2nd stage)")
-      printPart(index: 4, label: "Back transformation (1st stage)")
-    }
-    #endif
   }
 }
