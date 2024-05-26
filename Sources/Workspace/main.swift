@@ -21,12 +21,3 @@ import Numerics
 // - Create code that can fuse the meshes from a large number of electrons into
 //   a global simulation domain.
 //   - There would be a "master" mesh whose amplitude is zero everywhere.
-
-// Create an ansatz for the electronic structure.
-var ansatzDesc = AnsatzDescriptor()
-ansatzDesc.atomicNumber = 1
-ansatzDesc.netSpin = 0.5
-ansatzDesc.position = .zero
-ansatzDesc.sizeExponent = 4
-let ansatz = Ansatz(descriptor: ansatzDesc)
-
