@@ -19,8 +19,6 @@ let ansatz = Ansatz(descriptor: ansatzDesc)
 // Create a mesh from the ansatz.
 var meshDesc = MeshDescriptor()
 meshDesc.octrees = ansatz.orbitals.map(\.octree)
-meshDesc.sizeExponent = 2
+meshDesc.positions = [.zero]
+meshDesc.sizeExponent = 3
 let mesh = Mesh(descriptor: meshDesc)
-print(mesh.spacing)
-print(mesh.coarseVoxels.dimensions)
-print(mesh.coarseVoxels.cells.count)
