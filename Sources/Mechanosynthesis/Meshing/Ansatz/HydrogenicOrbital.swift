@@ -65,9 +65,6 @@ public struct HydrogenicOrbital {
       // In addition, omit the scaling by 1 / (4 * Float.pi).squareRoot().
       // This optimization slightly reduces the compute cost, without
       // changing the relative weighting of the cells.
-      
-      // NOTE: There is an opportunity to reduce the compute cost of ansatz
-      // generation. Orbitals within the same sub-shell have the same mesh.
       let r = (x * x + y * y + z * z).squareRoot()
       return basisFunction.radialPart(r: r)
     }

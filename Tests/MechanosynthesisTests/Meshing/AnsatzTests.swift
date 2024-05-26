@@ -46,7 +46,7 @@ final class AnsatzTests: XCTestCase {
         
         let r = (x * x + y * y + z * z).squareRoot()
         let R = orbital.basisFunction.radialPart(r: r)
-        let Y: Float = 0.2820947918
+        let Y = 1 / (4 * Float.pi).squareRoot()
         
         let Ψ = R * Y
         let d3r = node.spacing * node.spacing * node.spacing / 64
