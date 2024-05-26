@@ -133,8 +133,21 @@ public struct Ansatz {
       }
     }
     
-    // Find the unique octrees.
-    let uniqueDescriptors = orbitalDescriptors.filter {
+    // Create the orbitals.
+    orbitals = Self.createOrbitals(descriptors: orbitalDescriptors)
+  }
+  
+  // Generate the octrees for the set of orbitals, while eliding unnecessary
+  // computations and parallelizing the rest.
+  //
+  // The matching stage is technically O(n^2), but it takes ~1000x less
+  // time than octree generation (where n ≤ 118). The matching algorithm was
+  // chosen because of its simplicity.
+  static func createOrbitals(
+    descriptors: [HydrogenicOrbitalDescriptor]
+  ) -> [HydrogenicOrbital] {
+    // De-duplicate the descriptors with the same magnetic quantum number.
+    let uniqueDescriptors = descriptors.filter {
       $0.basisFunction!.m == -$0.basisFunction!.l
     }
     
@@ -164,17 +177,10 @@ public struct Ansatz {
       }
     }
     
-    // TODO: Encapsulate this part in a static function.
-    
-    // Map the unique octrees back to the duplicated octrees.
-    //
-    // This matching algorithm is technically O(n^2), but it takes ~1000x less
-    // time than octree generation (where n ≤ 118). The algorithm was chosen
-    // because of its simplicity.
-    
     // Iterate over the duplicated descriptors.
-    for orbitalID in orbitalDescriptors.indices {
-      let duplicatedDescriptor = orbitalDescriptors[orbitalID]
+    var output: [HydrogenicOrbital] = []
+    for orbitalID in descriptors.indices {
+      let duplicatedDescriptor = descriptors[orbitalID]
       let duplicatedFunction = duplicatedDescriptor.basisFunction!
       
       // Iterate over the unique descriptors.
@@ -197,7 +203,8 @@ public struct Ansatz {
       // Overwrite the matched orbital's basis function with your own.
       var copiedOrbital = uniqueOrbitals[matchedDescriptorID]
       copiedOrbital.basisFunction = duplicatedFunction
-      orbitals.append(copiedOrbital)
+      output.append(copiedOrbital)
     }
+    return output
   }
 }
