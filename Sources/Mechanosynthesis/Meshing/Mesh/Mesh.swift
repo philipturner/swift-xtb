@@ -56,15 +56,18 @@ public struct Mesh {
       spacing: spacing)
     
     // Create an empty grid with the smallest possible bounding box.
-    let coarseBoundingBox = Self.createCoarseBoundingBox(
+    let globalBoundingBox = Self.createGlobalBoundingBox(
       nodes: nodes,
       spacing: spacing)
     coarseVoxels = Self.createCoarseGrid(
-      minimum: coarseBoundingBox.minimum,
-      maximum: coarseBoundingBox.maximum)
+      minimum: globalBoundingBox.minimum,
+      maximum: globalBoundingBox.maximum)
     
     // Place the nodes into an array for each voxel.
-    let voxelArrays = mapNodesToCoarseVoxels(nodes)
+    let coarseNodeArrays = Self.mapNodesToCoarseVoxels(
+      nodes: nodes,
+      spacing: spacing,
+      coarseVoxels: coarseVoxels)
     
     // Next:
     // - Function that initializes all the bounding box accumulators that will
@@ -78,5 +81,20 @@ public struct Mesh {
     //   - grid of FineVoxel
     // - Stores information about occupied cells in 'levels' by a mask of
     //   Float.NaN.
+    for voxelID in coarseVoxels.cells.indices {
+      // Create the coarse voxel.
+      let nodes = coarseNodeArrays[voxelID]
+      var coarseVoxel = Self.createCoarseVoxel(
+        nodes: nodes,
+        spacing: spacing)
+      Self.fillCoarseLevels(
+        nodes: nodes,
+        coarseVoxel: &coarseVoxel)
+      
+      // Create the fine voxels within the coarse voxel.
+      
+      // Store in the grid of coarse voxels.
+      coarseVoxels.cells[voxelID] = coarseVoxel
+    }
   }
 }

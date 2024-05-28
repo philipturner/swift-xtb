@@ -69,7 +69,7 @@ extension Mesh {
   }
   
   // Creates an empty coarse grid from the correctly shifted nodes.
-  static func createCoarseBoundingBox(
+  static func createGlobalBoundingBox(
     nodes: [OctreeNode],
     spacing: Int
   ) -> (
@@ -138,7 +138,11 @@ extension Mesh {
 
 extension Mesh {
   // Map octree nodes to coarse voxels.
-  func mapNodesToCoarseVoxels(_ nodes: [OctreeNode]) -> [[OctreeNode]] {
+  static func mapNodesToCoarseVoxels(
+    nodes: [OctreeNode],
+    spacing: Int,
+    coarseVoxels: Grid<CoarseVoxel>
+  ) -> [[OctreeNode]] {
     // Create an accumulator for each voxel.
     var voxelAccumulators = [UInt32](
       repeating: .zero, count: coarseVoxels.cells.count)
@@ -242,5 +246,112 @@ extension Mesh {
     }
     
     return voxelArrays
+  }
+  
+  // Allocate the coarse levels (1 ≤ h < coarse voxel size) for the
+  // nodes. Use these allocations to create a new coarse voxel with the correct
+  // grid sizes.
+  static func createCoarseVoxel(
+    nodes: [OctreeNode],
+    spacing: Int
+  ) -> CoarseVoxel {
+    // Decode the size exponent from the mesh spacing.
+    //
+    // sizeExponent = 0
+    // error
+    //
+    // sizeExponent = 1
+    // array of FineVoxel / spacing = 1, count ≤ 8
+    // array of h = 1     / spacing = 2, count ≤ 1
+    //
+    // sizeExponent = 2
+    // array of FineVoxel / spacing = 1, count ≤ 64
+    // array of h = 1     / spacing = 2, count ≤ 8
+    // array of h = 2     / spacing = 4, count ≤ 1
+    //
+    // sizeExponent = 3
+    // array of FineVoxel / spacing = 1, count ≤ 512
+    // array of h = 1     / spacing = 2, count ≤ 64
+    // array of h = 2     / spacing = 4, count ≤ 8
+    // array of h = 4     / spacing = 8, count ≤ 1
+    let sizeExponent = spacing.trailingZeroBitCount
+    
+    // Allocate bounding box accumulators for each level tracked.
+    var levelMinima = [SIMD3<Int32>](
+      repeating: SIMD3(repeating: .max), count: 1 + sizeExponent)
+    var levelMaxima = [SIMD3<Int32>](
+      repeating: SIMD3(repeating: -.max), count: 1 + sizeExponent)
+    
+    // Iterate over all the voxels with an integer spacing.
+    for node in nodes {
+      guard node.spacing >= 1 else {
+        continue
+      }
+      
+      // Find the bounding box of the node.
+      let nodeMinimum = SIMD3<Int32>(node.center - node.spacing / 2)
+      let nodeMaximum = SIMD3<Int32>(node.center + node.spacing / 2)
+      let levelID = Int32(node.spacing).trailingZeroBitCount
+      
+      // Update the level's bounding box.
+      var levelMinimum = levelMinima[levelID]
+      var levelMaximum = levelMaxima[levelID]
+      levelMinimum.replace(
+        with: nodeMinimum, where: nodeMinimum .< levelMinimum)
+      levelMaximum.replace(
+        with: nodeMaximum, where: nodeMaximum .> levelMaximum)
+      levelMinima[levelID] = levelMinimum
+      levelMaxima[levelID] = levelMaximum
+    }
+    
+    // Iterate over the levels.
+    for levelID in 0..<(1 + sizeExponent) {
+      let minimum = levelMinima[levelID]
+      let maximum = levelMaxima[levelID]
+      
+      // If the level is empty , set the bounding box to zero.
+      if any(minimum .> maximum) {
+        levelMinima[levelID] = .zero
+        levelMaxima[levelID] = .zero
+      }
+    }
+    
+    // Create a grid of fine voxels.
+    var fineGridDesc = GridDescriptor<FineVoxel>()
+    fineGridDesc.offset = levelMinima[0]
+    fineGridDesc.dimensions = SIMD3(
+      truncatingIfNeeded: levelMaxima[0] &- levelMinima[0])
+    fineGridDesc.emptyElement = FineVoxel()
+    
+    // Create a coarse voxel.
+    var coarseVoxelDesc = CoarseVoxelDescriptor()
+    coarseVoxelDesc.fineVoxels = Grid(descriptor: fineGridDesc)
+    var coarseVoxel = CoarseVoxel(descriptor: coarseVoxelDesc)
+    
+    // Iterate over the levels stored as floating-point numbers.
+    for levelID in 1..<(1 + sizeExponent) {
+      let minimum = levelMinima[levelID]
+      let maximum = levelMaxima[levelID]
+      
+      // Create a grid of cells.
+      var levelDesc = GridDescriptor<SIMD8<Float>>()
+      levelDesc.offset = minimum
+      levelDesc.dimensions = SIMD3(truncatingIfNeeded: maximum &- minimum)
+      levelDesc.emptyElement = SIMD8(repeating: .nan)
+      let level = Grid(descriptor: levelDesc)
+      
+      // Append to the levels in ascending order of voxel size.
+      coarseVoxel.coarseLevels.append(level)
+    }
+    
+    return coarseVoxel
+  }
+  
+  // Fill the data for the coarse levels within a voxel.
+  static func fillCoarseLevels(
+    nodes: [OctreeNode],
+    coarseVoxel: inout CoarseVoxel
+  ) {
+    
   }
 }
