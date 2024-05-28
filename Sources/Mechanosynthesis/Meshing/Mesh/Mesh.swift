@@ -63,14 +63,20 @@ public struct Mesh {
       minimum: coarseBoundingBox.minimum,
       maximum: coarseBoundingBox.maximum)
     
-    // Data Transformations
-    // sizeExponent -> spacing
-    // descriptor -> coarseVoxels
-    // for each octree
-    //   octree, coarseVoxelGrid bounding box -> map
-    // prefix sum the slot count for each octree
-    // detach the nodes from the octrees, place into an array for each voxel
-    print(nodes.count)
-    mapNodesToCoarseVoxels(nodes)
+    // Place the nodes into an array for each voxel.
+    let voxelArrays = mapNodesToCoarseVoxels(nodes)
+    
+    // Next:
+    // - Function that initializes all the bounding box accumulators that will
+    //   be generated in parallel.
+    //   - (h = 2, spacing = 4)
+    //   - (h = 1, spacing = 2)
+    //   - h = 1
+    // - After reduction, it allocates memory for the respective arrays.
+    //   - grid of SIMD8<Float>
+    //   - grid of SIMD8<Float>
+    //   - grid of FineVoxel
+    // - Stores information about occupied cells in 'levels' by a mask of
+    //   Float.NaN.
   }
 }

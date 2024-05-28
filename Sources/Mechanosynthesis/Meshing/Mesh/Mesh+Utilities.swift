@@ -154,15 +154,17 @@ extension Mesh {
       }
       
       // Locate this node within the grid of voxels.
-      let coordinate = node.center / Float(spacing)
-      let coordinateDelta = coordinate - SIMD3<Float>(coarseVoxels.offset)
-      guard all(coordinateDelta .> 0),
-            all(coordinateDelta .< SIMD3(coarseVoxels.dimensions)) else {
-        fatalError("Voxel was out of bounds.")
-      }
       var voxelID: UInt32 = .zero
       do {
-        let deltaInt = SIMD3<UInt32>(coordinateDelta.rounded(.down))
+        var voxelCoordinate = node.center / Float(spacing)
+        voxelCoordinate -= SIMD3<Float>(coarseVoxels.offset)
+        guard all(voxelCoordinate .> 0),
+              all(voxelCoordinate .< SIMD3(coarseVoxels.dimensions)) else {
+          fatalError("Voxel was out of bounds.")
+        }
+        voxelCoordinate.round(.down)
+        
+        let deltaInt = SIMD3<UInt32>(voxelCoordinate)
         let dimensions = coarseVoxels.dimensions
         voxelID += deltaInt[0]
         voxelID += deltaInt[1] * dimensions[0]
@@ -177,8 +179,7 @@ extension Mesh {
     }
     
     // Create an array for each voxel.
-    var voxelArrays = [[OctreeNode]](
-      repeating: [], count: coarseVoxels.cells.count)
+    var voxelArrays: [[OctreeNode]] = []
     for voxelID in coarseVoxels.cells.indices {
       let nodeCount = voxelAccumulators[voxelID]
       let emptyNode = OctreeNode(
@@ -190,9 +191,56 @@ extension Mesh {
       voxelArrays.append(emptyArray)
     }
     
-    // Transfer each node to its corresponding array.
+    // Move each node to its corresponding voxel.
+    for nodeID in nodes.indices {
+      let map = nodesToCoarseVoxelsMap[nodeID]
+      let voxelID = map[0]
+      
+      guard voxelID < .max else {
+        // This node is too large to fit into the mesh.
+        continue
+      }
+      
+      // Fetch the node for modification and translocation.
+      var node = nodes[nodeID]
+      do {
+        // Translate the node by the grid offset (in atomic units).
+        var center = node.center
+        center -= SIMD3<Float>(coarseVoxels.offset) * Float(spacing)
+        
+        // Find the cell address (in multiples of coarse voxel spacing).
+        var voxelCoordinate = center / Float(spacing)
+        voxelCoordinate.round(.down)
+        
+        // Scale the cell address back into atomic units, then subtract from
+        // the center.
+        center -= voxelCoordinate * Float(spacing)
+        node.centerAndSpacing = SIMD4(center, node.spacing)
+        guard all(node.center .> 0),
+              all(node.center .< Float(spacing)) else {
+          fatalError("Node was not fully contained inside coarse voxel.")
+        }
+      }
+      
+      // Write the node to the appropriate array slot.
+      let slotID = map[1]
+      voxelArrays[Int(voxelID)][Int(slotID)] = node
+    }
     
+    // Check that all slots have been filled.
+    // - This will likely be a temporary check, removed after comprehensive
+    //   testing.
+    // - For now, it makes it easier to be sure that the meshing program is
+    //   running correctly.
+    for i in voxelArrays.indices {
+      for j in voxelArrays[i].indices {
+        let node = voxelArrays[i][j]
+        if node.center.x.isNaN {
+          fatalError("The nodes were not written correctly.")
+        }
+      }
+    }
     
-    fatalError("Not implemented.")
+    return voxelArrays
   }
 }
