@@ -25,6 +25,10 @@ let package = Package(
       dependencies: [
         .product(name: "Numerics", package: "swift-numerics"),
       ]),
+    .target(
+      name: "xTB",
+      dependencies: []),
+    
     .executableTarget(
       name: "Workspace",
       dependencies: [
@@ -32,9 +36,6 @@ let package = Package(
         "Meshing",
         .product(name: "Numerics", package: "swift-numerics"),
       ]),
-    
-    // TODO: Add an xtb target ("xTB") through runtime linking. Create an
-    // ergonomic Swift wrapper around it.
     
     .testTarget(
       name: "AlgorithmTests",
