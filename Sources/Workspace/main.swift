@@ -5,8 +5,7 @@
 //  Created by Philip Turner on 5/25/24.
 //
 
-import Mechanosynthesis
-import Numerics
+import Meshing
 
 // Create an ansatz for the nitrogen atom.
 var ansatzDesc = AnsatzDescriptor()

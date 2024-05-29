@@ -7,23 +7,45 @@ let package = Package(
   name: "Mechanosynthesis",
   products: [
     .library(
-      name: "Mechanosynthesis",
-      targets: ["Mechanosynthesis"]),
+      name: "LinearAlgebra",
+      targets: ["LinearAlgebra"]),
+    .library(
+      name: "Meshing",
+      targets: ["Meshing"]),
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
   ],
   targets: [
     .target(
-      name: "Mechanosynthesis",
+      name: "LinearAlgebra",
+      dependencies: []),
+    .target(
+      name: "Meshing",
       dependencies: [
         .product(name: "Numerics", package: "swift-numerics"),
       ]),
     .executableTarget(
       name: "Workspace",
-      dependencies: ["Mechanosynthesis"]),
+      dependencies: [
+        "LinearAlgebra", 
+        "Meshing",
+        .product(name: "Numerics", package: "swift-numerics"),
+      ]),
+    
+    // TODO: Add an xtb target ("xTB") through runtime linking. Create an
+    // ergonomic Swift wrapper around it.
+    
     .testTarget(
-      name: "MechanosynthesisTests",
-      dependencies: ["Mechanosynthesis"]),
+      name: "AlgorithmTests",
+      dependencies: [
+        "LinearAlgebra",
+        .product(name: "Numerics", package: "swift-numerics"),
+      ]),
+    .testTarget(
+      name: "MeshingTests",
+      dependencies: [
+        "Meshing"
+      ]),
   ]
 )

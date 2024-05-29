@@ -1,6 +1,4 @@
 import XCTest
-import Mechanosynthesis
-import Numerics
 
 final class RelativityTests: XCTestCase {
   // Test the recursive definition of kinetic energy.

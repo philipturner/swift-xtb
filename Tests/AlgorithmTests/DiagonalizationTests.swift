@@ -1,6 +1,5 @@
 import XCTest
-import Accelerate
-import Mechanosynthesis
+import LinearAlgebra
 import Numerics
 
 final class DiagonalizationTests: XCTestCase {
