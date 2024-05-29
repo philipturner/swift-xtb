@@ -21,10 +21,10 @@
 // ======================================================================== //
 //
 // Data for specific sample points:
-// - Took the Laplacian in whichever differential equation is references.
+// - Took the Laplacian in whichever differential equation is referenced.
 // - Compared the Laplacian term to the other terms (the right hand side).
 // - Subtracted RHS - LHS to create the residual.
-// - Normalized the residual by divinding it by the RHS.
+// - Normalized the residual by dividing it by the RHS.
 // - Reported the normalized residual to 7 decimal places.
 //
 // Data for integrals:

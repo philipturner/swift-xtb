@@ -133,29 +133,78 @@ public struct Ansatz {
       }
     }
     
+    // Create the orbitals.
+    orbitals = Self.createOrbitals(descriptors: orbitalDescriptors)
+  }
+  
+  // Generate the octrees for the set of orbitals, while eliding unnecessary
+  // computations and parallelizing the rest.
+  //
+  // The matching stage is technically O(n^2), but it takes ~1000x less
+  // time than octree generation (where n ≤ 118). The matching algorithm was
+  // chosen because of its simplicity.
+  static func createOrbitals(
+    descriptors: [HydrogenicOrbitalDescriptor]
+  ) -> [HydrogenicOrbital] {
+    // De-duplicate the descriptors with the same magnetic quantum number.
+    let uniqueDescriptors = descriptors.filter {
+      $0.basisFunction!.m == -$0.basisFunction!.l
+    }
+    
     // Initialize the orbitals in parallel.
-    if orbitalDescriptors.count > 1 {
+    var uniqueOrbitals: [HydrogenicOrbital]
+    if uniqueDescriptors.count > 1 {
       let serialQueue = DispatchQueue(label: "Ansatz.init(descriptor:)")
       var completedTasks = [HydrogenicOrbital?](
-        repeating: nil, count: orbitalDescriptors.count)
+        repeating: nil, count: uniqueDescriptors.count)
       
       // Dispatch each orbital as a separate task.
       DispatchQueue.concurrentPerform(
-        iterations: orbitalDescriptors.count
+        iterations: uniqueDescriptors.count
       ) { z in
-        let orbitalDesc = orbitalDescriptors[z]
+        let orbitalDesc = uniqueDescriptors[z]
         let orbital = HydrogenicOrbital(descriptor: orbitalDesc)
         serialQueue.sync {
           completedTasks[z] = orbital
         }
       }
-      orbitals = serialQueue.sync {
+      uniqueOrbitals = serialQueue.sync {
         completedTasks.map { $0! }
       }
     } else {
-      orbitals = orbitalDescriptors.map {
+      uniqueOrbitals = uniqueDescriptors.map {
         HydrogenicOrbital(descriptor: $0)
       }
     }
+    
+    // Iterate over the duplicated descriptors.
+    var output: [HydrogenicOrbital] = []
+    for orbitalID in descriptors.indices {
+      let duplicatedDescriptor = descriptors[orbitalID]
+      let duplicatedFunction = duplicatedDescriptor.basisFunction!
+      
+      // Iterate over the unique descriptors.
+      var matchedDescriptorID: Int?
+      for uniqueDescriptorID in uniqueDescriptors.indices {
+        let uniqueDescriptor = uniqueDescriptors[uniqueDescriptorID]
+        let uniqueFunction = uniqueDescriptor.basisFunction!
+        
+        // Compare the quantum numbers.
+        if duplicatedFunction.n == uniqueFunction.n,
+           duplicatedFunction.l == uniqueFunction.l {
+          matchedDescriptorID = uniqueDescriptorID
+          break
+        }
+      }
+      guard let matchedDescriptorID else {
+        fatalError("Could not match to a unique descriptor.")
+      }
+      
+      // Overwrite the matched orbital's basis function with your own.
+      var copiedOrbital = uniqueOrbitals[matchedDescriptorID]
+      copiedOrbital.basisFunction = duplicatedFunction
+      output.append(copiedOrbital)
+    }
+    return output
   }
 }

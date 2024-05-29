@@ -19,6 +19,9 @@ let package = Package(
       dependencies: [
         .product(name: "Numerics", package: "swift-numerics"),
       ]),
+    .executableTarget(
+      name: "Workspace",
+      dependencies: ["Mechanosynthesis"]),
     .testTarget(
       name: "MechanosynthesisTests",
       dependencies: ["Mechanosynthesis"]),
