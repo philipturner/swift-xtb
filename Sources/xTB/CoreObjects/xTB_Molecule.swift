@@ -22,11 +22,14 @@ struct xTB_MoleculeDescriptor {
 
 /// Molecular structure data class.
 class xTB_Molecule {
+  var mol: xtb_TMolecule?
+  
   // Keep a reference to the environment, so it is never deallocated while the
   // molecule is still in use.
   var environment: xTB_Environment
   
-  var mol: xtb_TMolecule?
+  // Used for allocating force arrays, etc.
+  var atomCount: Int
   
   /// Create new molecular structure data
   init(descriptor: xTB_MoleculeDescriptor) {
@@ -35,6 +38,7 @@ class xTB_Molecule {
       fatalError("Descriptor was incomplete.")
     }
     self.environment = environment
+    self.atomCount = atomicNumbers.count
     
     var natoms = Int32(atomicNumbers.count)
     var numbers = atomicNumbers.map(Int32.init)

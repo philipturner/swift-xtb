@@ -22,11 +22,11 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  var environment: xTB_Environment { molecule.environment }
+  var calc: xtb_TCalculator?
   
   var molecule: xTB_Molecule
   
-  var calc: xtb_TCalculator?
+  var environment: xTB_Environment { molecule.environment }
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
