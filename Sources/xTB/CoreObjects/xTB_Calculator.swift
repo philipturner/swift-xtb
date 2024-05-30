@@ -66,6 +66,11 @@ public class xTB_Calculator {
     // Create the backing molecule.
     self.molecule = xTB_Molecule(descriptor: descriptor)
     
+    // Initialize the positions.
+    if let positions = descriptor.positions {
+      setPositions(positions)
+    }
+    
     // Initialize the parameters.
     loadHamiltonian(descriptor.hamiltonian)
   }

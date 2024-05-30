@@ -22,7 +22,20 @@ public struct xTB_ExternalCharge {
 }
 
 extension xTB_Calculator {
-  public func setExternalCharges(_ externalCharges: [xTB_ExternalCharge]) {
+  // TODO: Delay the setter invocation until the next singlepoint.
+  
+  /// WARNING: Modifying this at the per-element granularity is very slow at
+  /// the moment.
+  public var externalCharges: [xTB_ExternalCharge] {
+    get {
+      fatalError("Getter not implemented.")
+    }
+    set {
+      setExternalCharges(newValue)
+    }
+  }
+  
+  func setExternalCharges(_ externalCharges: [xTB_ExternalCharge]) {
     // Erase the previous external potential.
     xtb_releaseExternalCharges(environment.pointer, pointer)
     

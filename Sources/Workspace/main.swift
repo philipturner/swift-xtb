@@ -15,25 +15,24 @@ xTB_Library.useLibrary(
   at: "/Users/philipturner/Documents/OpenMM/bypass_dependencies/libxtb.6.dylib")
 try! xTB_Library.loadLibrary()
 
-// Try out the xTB_Environment API.
+// Create an environment.
 let environment = xTB_Environment()
 environment.verbosity = .full
 environment.show()
 
-// Try out the xTB_Calculator API.
+// Create a calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = [7, 7]
 calculatorDesc.environment = environment
-
-// Create a calculator.
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
-calculator.setPositions([
+
+// Set the positions.
+calculator.positions = [
   SIMD3(0.000, 0.000, 0.000),
   SIMD3(0.110, 0.000, 0.000),
-])
-environment.show()
+]
 
-// Try out the xTB_ExternalCharge API.
+// Set the external charges.
 var externalCharges: [xTB_ExternalCharge] = []
 for chargeID in 0..<2 {
   var charge = xTB_ExternalCharge()
@@ -47,29 +46,6 @@ for chargeID in 0..<2 {
   }
   externalCharges.append(charge)
 }
-calculator.setExternalCharges(externalCharges)
-calculator.setExternalCharges(externalCharges)
+calculator.externalCharges = externalCharges
+calculator.externalCharges = externalCharges
 environment.show()
-
-/*
-
-// Try out the xTB_Molecule API.
-var moleculeDesc = xTB_MoleculeDescriptor()
-moleculeDesc.atomicNumbers = [7, 7]
-moleculeDesc.environment = environment
-
-// Create a molecule.
-let molecule = xTB_Molecule(descriptor: moleculeDesc)
-molecule.setPositions([
-  SIMD3(0.000, 0.000, 0.000),
-  SIMD3(0.110, 0.000, 0.000),
-])
-print(environment.status)
-
-// Create a calculator.
-var calculatorDesc = xTB_CalculatorDescriptor()
-calculatorDesc.molecule = molecule
-let calculator = xTB_Calculator(descriptor: calculatorDesc)
-print(environment.status)
-
-*/

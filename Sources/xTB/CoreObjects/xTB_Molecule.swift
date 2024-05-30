@@ -12,6 +12,9 @@ class xTB_Molecule {
   // Used for allocating force arrays, etc.
   var atomCount: Int
   
+  // The current value for the positions.
+  var positions: [SIMD3<Float>] = []
+  
   /// Create new molecular structure data
   init(descriptor: xTB_CalculatorDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers,
@@ -20,24 +23,17 @@ class xTB_Molecule {
     }
     self.atomCount = atomicNumbers.count
     
-    // Determine the positions.
+    // Create the positions.
     var positions64: [Double] = []
     for atomID in 0..<atomCount {
-      // Determine this atom's position.
-      var positionInBohr: SIMD3<Float>
-      if let positions = descriptor.positions {
-        // Convert the position from nm to Bohr.
-        let positionInNm = positions[atomID]
-        positionInBohr = positionInNm * Float(xTB_BohrPerNm)
-      } else {
-        // Bypass an error with initializing null positions.
-        let scalar = Float(atomID) * 1e-5
-        positionInBohr = SIMD3(repeating: scalar)
-      }
+      // Bypass an error with initializing null positions.
+      let scalar = Float(atomID) * 1e-5
+      let position = SIMD3(repeating: scalar)
+      positions.append(position)
       
       // Add to the packed array.
       for laneID in 0..<3 {
-        let element = positionInBohr[laneID]
+        let element = position[laneID]
         positions64.append(Double(element))
       }
     }
@@ -74,8 +70,20 @@ class xTB_Molecule {
 }
 
 extension xTB_Calculator {
-  /// Update coordinates (in nm).
-  public func setPositions(_ positions: [SIMD3<Float>]) {
+  // TODO: Delay the setter invocation until the next singlepoint.
+  
+  /// WARNING: Modifying this at the per-element granularity is very slow at
+  /// the moment.
+  public var positions: [SIMD3<Float>] {
+    get {
+      fatalError("Getter not implemented.")
+    }
+    set {
+      setPositions(newValue)
+    }
+  }
+  
+  func setPositions(_ positions: [SIMD3<Float>]) {
     guard positions.count == molecule.atomCount else {
       fatalError("Position count must match atom count.")
     }
