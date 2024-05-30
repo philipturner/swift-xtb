@@ -22,5 +22,17 @@ try! xTB_Library.loadLibrary()
 // Try out the xTB_Environment API.
 let environment = xTB_Environment()
 environment.verbosity = .full
-print(environment.status)
 environment.show()
+
+// Try out the xTB_Molecule API.
+var moleculeDesc = xTB_MoleculeDescriptor()
+moleculeDesc.atomicNumbers = [7, 7]
+moleculeDesc.environment = environment
+
+// Create a molecule.
+let molecule = xTB_Molecule(descriptor: moleculeDesc)
+molecule.setPositions([
+  SIMD3(0.000, 0.000, 0.000),
+  SIMD3(0.110, 0.000, 0.000),
+])
+print(environment.status)

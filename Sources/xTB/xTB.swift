@@ -6,8 +6,9 @@
 //
 
 // Goal: Dedicated Swift wrapper over the C API to xTB, similar to
-// swift-openmm. Leaves quantities as 64-bit and does not convert from atomic
-// units to nanomechanical units.
+// swift-openmm. However, the API is designed specifically to facilitate
+// nanomechanical engineering. It changes the binary representation and units
+// for the exposed properties accordingly.
 //
 // In addition, reverse-engineer the FIRE minimizer used by the 'xtb' program.
 // Reimplement it in Swift and keep the source code handy for future reference.
