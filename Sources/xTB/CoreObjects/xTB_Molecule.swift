@@ -26,7 +26,7 @@ class xTB_Molecule {
       // Determine this atom's position.
       var positionInBohr: SIMD3<Float>
       if let positions = descriptor.positions {
-        // Convert from nm to Bohr.
+        // Convert the position from nm to Bohr.
         let positionInNm = positions[atomID]
         positionInBohr = positionInNm * Float(xTB_BohrPerNm)
       } else {
@@ -80,9 +80,9 @@ extension xTB_Calculator {
       fatalError("Position count must match atom count.")
     }
     
-    // Convert the positions from nm to Bohr.
+    // Determine the positions.
     var positions64: [Double] = []
-    for atomID in positions.indices {
+    for atomID in 0..<molecule.atomCount {
       // Convert the position from nm to Bohr.
       let positionInNm = positions[atomID]
       let positionInBohr = positionInNm * Float(xTB_BohrPerNm)
@@ -93,6 +93,8 @@ extension xTB_Calculator {
         positions64.append(Double(element))
       }
     }
+    
+    // Update the molecular structure data.
     xtb_updateMolecule(
       environment.pointer, molecule.pointer, positions64, nil)
   }

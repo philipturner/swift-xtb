@@ -31,6 +31,7 @@ calculator.setPositions([
   SIMD3(0.000, 0.000, 0.000),
   SIMD3(0.110, 0.000, 0.000),
 ])
+environment.show()
 
 // Try out the xTB_ExternalCharge API.
 var externalCharges: [xTB_ExternalCharge] = []
@@ -44,7 +45,9 @@ for chargeID in 0..<2 {
   } else {
     charge.position = SIMD3(-0.110, 0.000, 0.000)
   }
+  externalCharges.append(charge)
 }
+calculator.setExternalCharges(externalCharges)
 calculator.setExternalCharges(externalCharges)
 environment.show()
 

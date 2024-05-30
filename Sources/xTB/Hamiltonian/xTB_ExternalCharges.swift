@@ -23,7 +23,7 @@ public struct xTB_ExternalCharge {
 
 extension xTB_Calculator {
   public func setExternalCharges(_ externalCharges: [xTB_ExternalCharge]) {
-    // Release any previous charges.
+    // Erase the previous external potential.
     xtb_releaseExternalCharges(environment.pointer, pointer)
     
     // Determine the positions.
@@ -40,13 +40,23 @@ extension xTB_Calculator {
       }
     }
     
-    /*
-     xtb_setExternalCharges(xtb_TEnvironment /* env */,
-                            xtb_TCalculator /* calc */,
-                            int* /* n */,
-                            int* /* numbers [n] */,
-                            double* /* charges [n] */,
-                            double* /* positions [n][3] */) XTB_API_SUFFIX__VERSION_1_0_0;
-     */
+    // Determine the remaining parameters.
+    var n = Int32(externalCharges.count)
+    var numbers: [Int32] = []
+    var charges: [Double] = []
+    for chargeID in externalCharges.indices {
+      let externalCharge = externalCharges[chargeID]
+      numbers.append(Int32(externalCharge.chemicalHardness))
+      charges.append(Double(externalCharge.charge))
+    }
+    
+    // Initialize the external potential.
+    xtb_setExternalCharges(
+      environment.pointer,
+      pointer,
+      &n,
+      &numbers,
+      &charges,
+      &positions64)
   }
 }
