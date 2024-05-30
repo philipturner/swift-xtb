@@ -9,6 +9,13 @@
 public class xTB_Environment {
   var pointer: xtb_TEnvironment
   
+  /// Possible print levels for API calls.
+  public enum Verbosity: UInt32 {
+    case full = 2
+    case minimal = 1
+    case muted = 0
+  }
+  
   var _verbosity: Verbosity = .full
   
   /// Create new xtb calculation environment object.
@@ -23,7 +30,9 @@ public class xTB_Environment {
   deinit {
     xtb_delEnvironment(&pointer)
   }
-  
+}
+
+extension xTB_Environment {
   /// Check current status of calculation environment.
   public var status: Int {
     let status = xtb_checkEnvironment(pointer)
@@ -35,14 +44,9 @@ public class xTB_Environment {
     xtb_showEnvironment(pointer, nil)
   }
   
-  /// Possible print levels for API calls.
-  public enum Verbosity: UInt32 {
-    case full = 2
-    case minimal = 1
-    case muted = 0
-  }
-  
   /// Verbosity of calculation output.
+  ///
+  /// The default value is `.full`.
   public var verbosity: Verbosity {
     get {
       _verbosity

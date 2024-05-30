@@ -8,6 +8,18 @@
 class xTB_Results {
   var pointer: xtb_TResults
   
+  var energy: Double?
+  
+  var forces: [SIMD3<Float>]?
+  
+  var externalChargeForces: [SIMD3<Float>]?
+  
+  var dipole: SIMD3<Float>?
+  
+  var charges: [Float]?
+  
+  
+  
   /// Create new singlepoint results object
   init() {
     guard let res = xtb_newResults() else {

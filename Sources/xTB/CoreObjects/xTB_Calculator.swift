@@ -43,10 +43,11 @@ public struct xTB_CalculatorDescriptor {
 /// Singlepoint calculator.
 public class xTB_Calculator {
   var pointer: xtb_TCalculator
+  var environment: xTB_Environment
+  var molecule: xTB_Molecule
   
+  var state: xTB_CalculatorState
   var updateRecord = xTB_UpdateRecord()
-  
-  var storage: xTB_CalculatorStorage
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
@@ -76,7 +77,9 @@ public class xTB_Calculator {
     xtb_delCalculator(&pointer)
   }
   
-  /// Set numerical accuracy of calculator in the range of 1000 to 0.0001
+  /// Numerical accuracy of calculator (in atomic units).
+  ///
+  /// The default value is 1. The value may range from 1e3 to 1e-4.
   public var accuracy: Float {
     get {
       storage.accuracy
@@ -84,6 +87,30 @@ public class xTB_Calculator {
     set {
       storage.accuracy = newValue
       updateRecord.accuracy = true
+    }
+  }
+  
+  /// Maximum number of self-consistency iterations.
+  ///
+  /// The default value is 250.
+  public var maximumIterations: Int {
+    get {
+      storage.maximumIterations
+    }
+    set {
+      storage.maximumIterations = newValue
+      updateRecord.maximumIterations = true
+    }
+  }
+  
+  /// Electronic temperature for level filling (in Kelvin).
+  public var electronicTemperature: Float {
+    get {
+      storage.electronicTemperature
+    }
+    set {
+      storage.electronicTemperature = newValue
+      updateRecord.electronicTemperature = true
     }
   }
 }
@@ -108,5 +135,10 @@ extension xTB_Calculator {
       storage.environment.pointer,
       pointer,
       Double(electronicTemperature))
+  }
+  
+  // WARNING: The update record should already be flushed.
+  func singlepoint() {
+    
   }
 }
