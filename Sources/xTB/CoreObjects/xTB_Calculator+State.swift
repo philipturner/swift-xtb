@@ -7,51 +7,37 @@
 
 extension xTB_Calculator {
   struct State {
+    // Immediately synchronized properties.
     var accuracy: Float = 1.0
     var electronicTemperature: Float = 300
-    var externalCharges: [xTB_ExternalCharge] = []
     var maximumIterations: Int = 250
-    var positions: [SIMD3<Float>] = []
     
-    init() {
-      
-    }
+    // Lazily synchronized properties.
+    var externalCharges: [xTB_ExternalCharge] = []
+    var positions: [SIMD3<Float>] = []
   }
   
   struct UpdateRecord {
-    var accuracy: Bool = false
-    var electronicTemperature: Bool = false
     var externalCharges: Bool = false
-    var maximumIterations: Bool = false
     var positions: Bool = false
     
+    mutating func erase() {
+      externalCharges = false
+      positions = false
+    }
+    
     func active() -> Bool {
-      accuracy ||
-      electronicTemperature ||
-      externalCharges ||
-      maximumIterations ||
-      positions
+      externalCharges || positions
     }
   }
   
   func flushUpdateRecord() {
-    if updateRecord.accuracy {
-      setAccuracy(state.accuracy)
-    }
-    if updateRecord.electronicTemperature {
-      setElectronicTemperature(state.electronicTemperature)
-    }
     if updateRecord.externalCharges {
       setExternalCharges(state.externalCharges)
     }
-    if updateRecord.maximumIterations {
-      setMaximumIterations(state.maximumIterations)
-    }
     if updateRecord.positions {
-      setPositions(state.positions)
+      molecule.setPositions(state.positions)
     }
-    
-    // Erase the update record.
-    updateRecord = xTB_UpdateRecord()
+    updateRecord.erase()
   }
 }

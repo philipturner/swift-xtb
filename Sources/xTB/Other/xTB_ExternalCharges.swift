@@ -25,10 +25,10 @@ extension xTB_Calculator {
   /// External charge potential.
   public var externalCharges: [xTB_ExternalCharge] {
     _read {
-      yield storage.externalCharges
+      yield state.externalCharges
     }
     _modify {
-      yield &storage.externalCharges
+      yield &state.externalCharges
       updateRecord.externalCharges = true
     }
   }
@@ -36,7 +36,7 @@ extension xTB_Calculator {
   func setExternalCharges(_ externalCharges: [xTB_ExternalCharge]) {
     // Erase the previous external potential.
     xtb_releaseExternalCharges(
-      storage.environment.pointer, pointer)
+      environment.pointer, self.pointer)
     
     // Determine the positions.
     var positions64: [Double] = []
@@ -64,8 +64,8 @@ extension xTB_Calculator {
     
     // Initialize the external potential.
     xtb_setExternalCharges(
-      storage.environment.pointer,
-      pointer,
+      environment.pointer,
+      self.pointer,
       &n,
       &numbers,
       &charges,

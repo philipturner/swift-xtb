@@ -44,31 +44,51 @@ public struct xTB_CalculatorDescriptor {
 public class xTB_Calculator {
   var pointer: xtb_TCalculator
   var environment: xTB_Environment
-  var molecule: xTB_Molecule
+  public let molecule: xTB_Molecule
+  public let orbitals: xTB_Orbitals
+  var results: xTB_Results?
   
-  var state: xTB_CalculatorState
-  var updateRecord = xTB_UpdateRecord()
+  var state = State()
+  var updateRecord = UpdateRecord()
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
+    guard let atomicNumbers = descriptor.atomicNumbers,
+          let environment = descriptor.environment else {
+      fatalError("Descriptor was incomplete.")
+    }
+    self.environment = environment
+    
+    // Create the calculator.
     guard let calc = xtb_newCalculator() else {
       fatalError("Could not create new xTB_Calculator.")
     }
     self.pointer = calc
     
-    // Create the storage.
-    guard let environment = descriptor.environment else {
-      fatalError("Descriptor was incomplete.")
-    }
-    let molecule = xTB_Molecule(descriptor: descriptor)
-    storage = xTB_CalculatorStorage(
-      environment: environment, molecule: molecule)
-    
-    // Initialize the parameters.
+    // Create the initial positions.
     if let positions = descriptor.positions {
-      self.positions = positions
+      state.positions = positions
+    } else {
+      state.positions = xTB_Molecule
+        .createInitialPositions(atomCount: atomicNumbers.count)
     }
-    flushUpdateRecord()
+    
+    // Create the molecule.
+    var moleculeDesc = xTB_MoleculeDescriptor()
+    moleculeDesc.atomicNumbers = atomicNumbers
+    moleculeDesc.environment = environment
+    moleculeDesc.netCharge = descriptor.netCharge
+    moleculeDesc.netSpin = descriptor.netSpin
+    moleculeDesc.positions = state.positions
+    molecule = xTB_Molecule(descriptor: moleculeDesc)
+    
+    // Create the orbitals.
+    orbitals = xTB_Orbitals()
+    
+    // Assign a self-reference to other objects, facilitating the hierarchical
+    // public API.
+    molecule.calculator = self
+    orbitals.calculator = self
     loadHamiltonian(descriptor.hamiltonian)
   }
   
@@ -77,68 +97,9 @@ public class xTB_Calculator {
     xtb_delCalculator(&pointer)
   }
   
-  /// Numerical accuracy of calculator (in atomic units).
-  ///
-  /// The default value is 1. The value may range from 1e3 to 1e-4.
-  public var accuracy: Float {
-    get {
-      storage.accuracy
-    }
-    set {
-      storage.accuracy = newValue
-      updateRecord.accuracy = true
-    }
-  }
-  
-  /// Maximum number of self-consistency iterations.
-  ///
-  /// The default value is 250.
-  public var maximumIterations: Int {
-    get {
-      storage.maximumIterations
-    }
-    set {
-      storage.maximumIterations = newValue
-      updateRecord.maximumIterations = true
-    }
-  }
-  
-  /// Electronic temperature for level filling (in Kelvin).
-  public var electronicTemperature: Float {
-    get {
-      storage.electronicTemperature
-    }
-    set {
-      storage.electronicTemperature = newValue
-      updateRecord.electronicTemperature = true
-    }
-  }
-}
-
-extension xTB_Calculator {
-  func setAccuracy(_ accuracy: Float) {
-    xtb_setAccuracy(
-      storage.environment.pointer,
-      pointer,
-      Double(accuracy))
-  }
-  
-  func setMaximumIterations(_ maximumIterations: Int) {
-    xtb_setMaxIter(
-      storage.environment.pointer,
-      pointer,
-      Int32(maximumIterations))
-  }
-  
-  func setElectronicTemperature(_ electronicTemperature: Float) {
-    xtb_setElectronicTemp(
-      storage.environment.pointer,
-      pointer,
-      Double(electronicTemperature))
-  }
-  
-  // WARNING: The update record should already be flushed.
-  func singlepoint() {
-    
+  /// Run a self-consistent field calculation and update the observables.
+  public func singlepoint() {
+    flushUpdateRecord()
+    // ...
   }
 }

@@ -40,9 +40,9 @@ extension xTB_Calculator {
     
     // Call the function pointer.
     function(
-      storage.environment.pointer,
-      storage.molecule.pointer,
-      pointer,
+      environment.pointer,
+      molecule.pointer,
+      self.pointer,
       nil)
   }
 }

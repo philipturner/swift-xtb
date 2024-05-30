@@ -27,7 +27,7 @@ calculatorDesc.environment = environment
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Set the positions.
-calculator.positions = [
+calculator.molecule.positions = [
   SIMD3(0.000, 0.000, 0.000),
   SIMD3(0.110, 0.000, 0.000),
 ]
