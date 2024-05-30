@@ -6,8 +6,28 @@
 //
 
 extension xTB_Calculator {
-  public var externalCharges: xTB_ExternalCharges { state.externalCharges }
-  public var molecule: xTB_Molecule { state.molecule }
+  public var externalCharges: xTB_ExternalCharges {
+    _read {
+      yield state.externalCharges
+    }
+    _modify {
+      yield &state.externalCharges
+      updateRecord.externalCharges = true
+      invalidateSinglepoint()
+    }
+  }
+  
+  public var molecule: xTB_Molecule {
+    _read {
+      yield state.molecule
+    }
+    _modify {
+      yield &state.molecule
+      updateRecord.externalCharges = true
+      invalidateSinglepoint()
+    }
+  }
+  
   public var orbitals: xTB_Orbitals { state.orbitals }
   
   /// Numerical accuracy of calculator (in atomic units).
@@ -20,9 +40,7 @@ extension xTB_Calculator {
     set {
       state.accuracy = newValue
       xtb_setAccuracy(
-        environment.pointer,
-        _calculator,
-        Double(newValue))
+        xTB_Environment._environment, _calculator, Double(newValue))
       invalidateSinglepoint()
     }
   }
@@ -37,9 +55,7 @@ extension xTB_Calculator {
     set {
       state.maximumIterations = newValue
       xtb_setMaxIter(
-        environment.pointer,
-        _calculator,
-        Int32(newValue))
+        xTB_Environment._environment, _calculator, Int32(newValue))
       invalidateSinglepoint()
     }
   }
@@ -52,9 +68,7 @@ extension xTB_Calculator {
     set {
       state.electronicTemperature = newValue
       xtb_setElectronicTemp(
-        environment.pointer,
-        _calculator,
-        Double(electronicTemperature))
+        xTB_Environment._environment, _calculator, Double(newValue))
       invalidateSinglepoint()
     }
   }

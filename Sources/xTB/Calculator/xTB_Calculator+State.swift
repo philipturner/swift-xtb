@@ -36,7 +36,7 @@ extension xTB_Calculator {
     if updateRecord.externalCharges {
       externalCharges.update()
     }
-    if updateRecord.positions {
+    if updateRecord.molecule {
       molecule.update()
     }
     updateRecord.erase()

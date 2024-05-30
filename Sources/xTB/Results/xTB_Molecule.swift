@@ -7,12 +7,12 @@
 
 /// Molecular structure data class.
 public struct xTB_Molecule {
+  weak var calculator: xTB_Calculator!
+  
   public let atomicNumbers: [UInt8]
   public let netCharge: Float
   public let netSpin: Float
   var _positions: [SIMD3<Float>] = []
-  
-  weak var calculator: xTB_Calculator!
   
   /// Create new molecular structure data
   init(descriptor: xTB_CalculatorDescriptor) {
@@ -28,16 +28,16 @@ public struct xTB_Molecule {
 }
 
 extension xTB_Molecule {
-  func setPositions(_ positions: [SIMD3<Float>]) {
-    guard positions.count == atomicNumbers.count else {
+  func update() {
+    guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
-    let positions64 = Self.convertPositions(positions)
+    let positions64 = Self.convertPositions(_positions)
     
     // Update the molecular structure data.
     xtb_updateMolecule(
-      calculator.environment.pointer,
-      self.pointer,
+      xTB_Environment._environment,
+      calculator._molecule,
       positions64,
       nil)
   }

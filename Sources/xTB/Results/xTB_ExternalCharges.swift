@@ -7,6 +7,8 @@
 
 /// External charge potential.
 public struct xTB_ExternalCharges {
+  weak var calculator: xTB_Calculator!
+  
   /// The atomic number to match the chemical hardness to.
   ///
   /// A good default value is 7 (nitrogen).
@@ -17,6 +19,8 @@ public struct xTB_ExternalCharges {
   
   /// The position of each point charge (in nm).
   public var positions: [SIMD3<Float>] = []
+  
+  
 }
 
 extension xTB_Calculator {
