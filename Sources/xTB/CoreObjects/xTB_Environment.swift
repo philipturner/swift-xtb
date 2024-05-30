@@ -7,30 +7,30 @@
 
 /// Calculation environment.
 public class xTB_Environment {
-  var env: xtb_TEnvironment?
+  var pointer: xtb_TEnvironment
   
   /// Create new xtb calculation environment object.
   public init() {
-    env = xtb_newEnvironment()
-    guard env != nil else {
+    guard let env = xtb_newEnvironment() else {
       fatalError("Could not create new xTB_Environment.")
     }
+    pointer = env
   }
   
   /// Delete a xtb calculation environment object.
   deinit {
-    xtb_delEnvironment(&env)
+    xtb_delEnvironment(&pointer)
   }
   
   /// Check current status of calculation environment.
   public var status: Int {
-    let status = xtb_checkEnvironment(env)
+    let status = xtb_checkEnvironment(pointer)
     return Int(status)
   }
   
   /// Show and empty error stack.
   public func show() {
-    xtb_showEnvironment(env, nil)
+    xtb_showEnvironment(pointer, nil)
   }
   
   /// Possible print levels for API calls.
@@ -48,7 +48,7 @@ public class xTB_Environment {
       fatalError("The property 'verbosity' has no getter.")
     }
     set {
-      xtb_setVerbosity(env, Int32(newValue.rawValue))
+      xtb_setVerbosity(pointer, Int32(newValue.rawValue))
     }
   }
 }

@@ -7,7 +7,7 @@
 
 /// Molecular structure data class.
 class xTB_Molecule {
-  var mol: xtb_TMolecule?
+  var pointer: xtb_TMolecule
   
   // Used for allocating force arrays, etc.
   var atomCount: Int
@@ -21,35 +21,39 @@ class xTB_Molecule {
     self.atomCount = atomicNumbers.count
     
     // Determine the positions.
-    var positions: [SIMD3<Float>]
-    if descriptor.positions != nil {
-      positions = descriptor.positions!
-    } else {
-      positions = []
-      for atomID in 0..<atomCount {
-        // Bypass an error with initializing null positions.
-        let scalar = Float(atomID) * 1e-5
-        let position = SIMD3<Float>(repeating: scalar)
-        positions.append(position)
-      }
-    }
     var positions64: [Double] = []
     for atomID in 0..<atomCount {
-      let position = positions[atomID]
-      positions64.append(Double(position[0]))
-      positions64.append(Double(position[1]))
-      positions64.append(Double(position[2]))
+      // Determine this atom's position.
+      var positionInBohr: SIMD3<Float>
+      if let positions = descriptor.positions {
+        // Convert from nm to Bohr.
+        let positionInNm = positions[atomID]
+        positionInBohr = positionInNm * Float(xTB_BohrPerNm)
+      } else {
+        // Bypass an error with initializing null positions.
+        let scalar = Float(atomID) * 1e-5
+        positionInBohr = SIMD3(repeating: scalar)
+      }
+      
+      // Add to the packed array.
+      for laneID in 0..<3 {
+        let element = positionInBohr[laneID]
+        positions64.append(Double(element))
+      }
+    }
+    
+    // Determine the unpaired electron count.
+    let uhf = Int32(exactly: descriptor.netSpin * 2)
+    guard var uhf else {
+      fatalError("Net spin must be divisible by 0.5.")
     }
     
     // Create the molecule object.
     var natoms = Int32(atomicNumbers.count)
     var numbers = atomicNumbers.map(Int32.init)
     var charge = Double(descriptor.netCharge)
-    guard var uhf = Int32(exactly: descriptor.netSpin) else {
-      fatalError("Net spin must be divisible by 0.5.")
-    }
-    mol = xtb_newMolecule(
-      environment.env,
+    let mol = xtb_newMolecule(
+      environment.pointer,
       &natoms,
       &numbers,
       &positions64,
@@ -57,14 +61,15 @@ class xTB_Molecule {
       &uhf,
       nil,
       nil)
-    guard mol != nil else {
+    guard let mol else {
       fatalError("Could not create new xTB_Molecule.")
     }
+    self.pointer = mol
   }
   
   /// Delete molecular structure data.
   deinit {
-    xtb_delMolecule(&mol)
+    xtb_delMolecule(&pointer)
   }
 }
 
@@ -75,15 +80,20 @@ extension xTB_Calculator {
       fatalError("Position count must match atom count.")
     }
     
-    var output = [Double](repeating: .zero, count: positions.count * 3)
+    // Convert the positions from nm to Bohr.
+    var positions64: [Double] = []
     for atomID in positions.indices {
+      // Convert the position from nm to Bohr.
       let positionInNm = positions[atomID]
       let positionInBohr = positionInNm * Float(xTB_BohrPerNm)
+      
+      // Add to the packed array.
       for laneID in 0..<3 {
         let element = positionInBohr[laneID]
-        output[atomID &* 3 &+ laneID] = Double(element)
+        positions64.append(Double(element))
       }
     }
-    xtb_updateMolecule(environment.env, molecule.mol, output, nil)
+    xtb_updateMolecule(
+      environment.pointer, molecule.pointer, positions64, nil)
   }
 }

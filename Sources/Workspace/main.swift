@@ -8,10 +8,6 @@
 import Darwin
 import xTB
 
-// From the command line:
-//   swift run -Xswiftc -Ounchecked --debugger Workspace -o run
-// Alternatively, change the Xcode target to the 'Workspace' executable.
-
 // Load the xTB library with a configuration for maximum performance.
 setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1)
@@ -36,11 +32,21 @@ calculator.setPositions([
   SIMD3(0.110, 0.000, 0.000),
 ])
 
-// Try out the xTB_ExternalCharges API.
-var chargesDesc = xTB_ExternalChargesDescriptor()
-var chargePositions
-var chargeParameters: [xTB_ExternalChargeParameters] = []
-
+// Try out the xTB_ExternalCharge API.
+var externalCharges: [xTB_ExternalCharge] = []
+for chargeID in 0..<2 {
+  var charge = xTB_ExternalCharge()
+  charge.charge = (chargeID == 0) ? 1 : -1
+  charge.chemicalHardness = 99
+  
+  if chargeID == 0 {
+    charge.position = SIMD3(0.220, 0.000, 0.000)
+  } else {
+    charge.position = SIMD3(-0.110, 0.000, 0.000)
+  }
+}
+calculator.setExternalCharges(externalCharges)
+environment.show()
 
 /*
 
