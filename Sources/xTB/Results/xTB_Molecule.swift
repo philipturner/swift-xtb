@@ -7,7 +7,7 @@
 
 /// Molecular structure data class.
 public struct xTB_Molecule {
-  weak var calculator: xTB_Calculator!
+  unowned var calculator: xTB_Calculator?
   
   public let atomicNumbers: [UInt8]
   public let netCharge: Float
@@ -28,7 +28,18 @@ public struct xTB_Molecule {
 }
 
 extension xTB_Molecule {
+  /// The position of each atom's nucleus (in nm).
+  public var positions: [SIMD3<Float>] {
+    _read {
+      yield _positions
+    }
+    _modify {
+      yield &_positions
+    }
+  }
+  
   func update() {
+    print("Updating molecule.")
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
@@ -37,7 +48,7 @@ extension xTB_Molecule {
     // Update the molecular structure data.
     xtb_updateMolecule(
       xTB_Environment._environment,
-      calculator._molecule,
+      calculator!._molecule,
       positions64,
       nil)
   }
@@ -86,8 +97,8 @@ extension xTB_Molecule {
     var positions64 = Self.convertPositions(positions)
     
     // Determine the unpaired electron count.
-    let uhf = Int32(exactly: molecule.netSpin * 2)
-    guard var uhf else {
+    let unpairedElectronCount = molecule.netSpin.magnitude * 2
+    guard var uhf = Int32(exactly: unpairedElectronCount) else {
       fatalError("Net spin must be divisible by 0.5.")
     }
     

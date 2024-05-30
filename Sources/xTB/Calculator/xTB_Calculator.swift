@@ -58,9 +58,8 @@ public class xTB_Calculator {
     guard let calc = xtb_newCalculator() else {
       fatalError("Could not create new xTB_Calculator.")
     }
-    _calculator = calc
-    
     let molecule = xTB_Molecule(descriptor: descriptor)
+    _calculator = calc
     _molecule = xTB_Molecule.createObject(molecule)
     
     switch descriptor.hamiltonian {
@@ -72,20 +71,19 @@ public class xTB_Calculator {
         xTB_Environment._environment, _molecule, _calculator, nil)
     }
     
+    let externalCharges = xTB_ExternalCharges()
+    let orbitals = xTB_Orbitals(descriptor: descriptor)
+    state.externalCharges = externalCharges
     state.molecule = molecule
-    state.externalCharges.calculator = self
-    state.molecule.calculator = self
-    state.orbitals.calculator = self
+    state.orbitals = orbitals
+    
+    state.externalCharges!.calculator = self
+    state.molecule!.calculator = self
+    state.orbitals!.calculator = self
   }
   
   deinit {
     xtb_delMolecule(&_molecule)
     xtb_delCalculator(&_calculator)
-  }
-  
-  /// Run a self-consistent field calculation and update the observables.
-  public func singlepoint() {
-    flushUpdateRecord()
-    // ...
   }
 }

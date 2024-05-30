@@ -28,6 +28,7 @@ extension xTB_Environment {
   /// The default value is `.full`.
   public static var verbosity: Verbosity = .full {
     didSet {
+      print("Changing verbosity to \(verbosity)")
       xtb_setVerbosity(_environment, Int32(verbosity.rawValue))
     }
   }

@@ -16,36 +16,41 @@ xTB_Library.useLibrary(
 try! xTB_Library.loadLibrary()
 
 // Create an environment.
-let environment = xTB_Environment()
-environment.verbosity = .full
-environment.show()
+xTB_Environment.verbosity = .muted
+// xTB_Environment.show()
 
 // Create a calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = [7, 7]
-calculatorDesc.environment = environment
+// calculatorDesc.positions = [
+//   SIMD3(0.000, 0.000, 0.000),
+//   SIMD3(0.110, 0.000, 0.000),
+// ]
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
-// Set the positions.
+// Set the external charges.
+calculator.externalCharges.atomicNumbers = []
+calculator.externalCharges.charges = []
+calculator.externalCharges.positions = []
+for chargeID in 0..<2 {
+  let atomicNumber: UInt8 = 7
+  let charge: Float = (chargeID == 0) ? 1 : -1
+  var position: SIMD3<Float>
+  if chargeID == 0 {
+    position = SIMD3(0.220, 0.000, 0.000)
+  } else {
+    position = SIMD3(-0.110, 0.000, 0.000)
+  }
+  
+  calculator.externalCharges.atomicNumbers.append(atomicNumber)
+  calculator.externalCharges.charges.append(charge)
+  calculator.externalCharges.positions.append(position)
+}
 calculator.molecule.positions = [
   SIMD3(0.000, 0.000, 0.000),
-  SIMD3(0.110, 0.000, 0.000),
+  SIMD3(0.111, 0.000, 0.000),
 ]
 
-// Set the external charges.
-var externalCharges: [xTB_ExternalCharge] = []
-for chargeID in 0..<2 {
-  var charge = xTB_ExternalCharge()
-  charge.charge = (chargeID == 0) ? 1 : -1
-  charge.chemicalHardness = 99
-  
-  if chargeID == 0 {
-    charge.position = SIMD3(0.220, 0.000, 0.000)
-  } else {
-    charge.position = SIMD3(-0.110, 0.000, 0.000)
-  }
-  externalCharges.append(charge)
-}
-calculator.externalCharges = externalCharges
-calculator.externalCharges = externalCharges
-environment.show()
+// Run a singlepoint.
+calculator.temporaryTestFunction()
+xTB_Environment.show()

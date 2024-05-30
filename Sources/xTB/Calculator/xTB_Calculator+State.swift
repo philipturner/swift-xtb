@@ -13,9 +13,9 @@ extension xTB_Calculator {
     var maximumIterations: Int = 250
     
     // Lazily synchronized properties.
-    var externalCharges: xTB_ExternalCharges!
-    var molecule: xTB_Molecule!
-    var orbitals: xTB_Orbitals!
+    var externalCharges: xTB_ExternalCharges?
+    var molecule: xTB_Molecule?
+    var orbitals: xTB_Orbitals?
   }
   
   struct UpdateRecord {
@@ -32,7 +32,19 @@ extension xTB_Calculator {
     }
   }
   
-  func flushUpdateRecord() {
+  func invalidateSinglepoint() {
+    results = nil
+  }
+  
+  func requestSinglepoint() {
+    if results == nil {
+      flushUpdateRecord()
+      singlepoint()
+    }
+  }
+  
+  /// Ensure the C API objects are up to date.
+  private func flushUpdateRecord() {
     if updateRecord.externalCharges {
       externalCharges.update()
     }
@@ -42,7 +54,28 @@ extension xTB_Calculator {
     updateRecord.erase()
   }
   
-  func invalidateSinglepoint() {
-    results = nil
+  /// Run a self-consistent field calculation.
+  private func singlepoint() {
+    let results = xTB_Results()
+    xtb_singlepoint(
+      xTB_Environment._environment,
+      _molecule,
+      _calculator,
+      results._results)
+    self.results = results
+  }
+}
+
+extension xTB_Calculator {
+  public func temporaryTestFunction() {
+    requestSinglepoint()
+  }
+  
+  func ensureMoleculeCached() {
+    
+  }
+  
+  func ensureOrbitalsCached() {
+    
   }
 }

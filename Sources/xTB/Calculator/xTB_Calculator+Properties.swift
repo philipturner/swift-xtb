@@ -8,10 +8,10 @@
 extension xTB_Calculator {
   public var externalCharges: xTB_ExternalCharges {
     _read {
-      yield state.externalCharges
+      yield state.externalCharges!
     }
     _modify {
-      yield &state.externalCharges
+      yield &state.externalCharges!
       updateRecord.externalCharges = true
       invalidateSinglepoint()
     }
@@ -19,16 +19,16 @@ extension xTB_Calculator {
   
   public var molecule: xTB_Molecule {
     _read {
-      yield state.molecule
+      yield state.molecule!
     }
     _modify {
-      yield &state.molecule
-      updateRecord.externalCharges = true
+      yield &state.molecule!
+      updateRecord.molecule = true
       invalidateSinglepoint()
     }
   }
   
-  public var orbitals: xTB_Orbitals { state.orbitals }
+  public var orbitals: xTB_Orbitals { state.orbitals! }
   
   /// Numerical accuracy of calculator (in atomic units).
   ///

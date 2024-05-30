@@ -6,7 +6,7 @@
 //
 
 class xTB_Results {
-  var pointer: xtb_TResults
+  var _results: xtb_TResults
   
   var energy: Double?
   
@@ -31,11 +31,11 @@ class xTB_Results {
     guard let res = xtb_newResults() else {
       fatalError("Could not create new xTB_Results.")
     }
-    pointer = res
+    _results = res
   }
   
   /// Delete singlepoint results object
   deinit {
-    xtb_delResults(&pointer)
+    xtb_delResults(&_results)
   }
 }
