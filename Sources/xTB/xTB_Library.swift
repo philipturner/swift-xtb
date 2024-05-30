@@ -1,6 +1,6 @@
 //
-//  xTBLibrary.swift
-//  
+//  xTB_Library.swift
+//
 //
 //  Created by Philip Turner on 5/29/24.
 //
@@ -15,10 +15,10 @@ import WinSDK
 #endif
 
 //===----------------------------------------------------------------------===//
-// The `xTBLibrary` struct that loads xTB symbols at runtime.
+// The `xTB_Library` struct that loads xTB symbols at runtime.
 //===----------------------------------------------------------------------===//
 
-public struct xTBLibrary {
+public struct xTB_Library {
   public enum Error: Swift.Error, Equatable, CustomStringConvertible {
     case xtbLibraryNotFound
     
@@ -33,7 +33,7 @@ public struct xTBLibrary {
   private static var isXTBLibraryLoaded = false
   private static var _xtbLibraryHandle: UnsafeMutableRawPointer?
   private static var xtbLibraryHandle: UnsafeMutableRawPointer? {
-    try! xTBLibrary.loadLibrary()
+    try! xTB_Library.loadLibrary()
     return self._xtbLibraryHandle
   }
   
@@ -53,14 +53,13 @@ public struct xTBLibrary {
     name: String,
     type: T.Type = T.self
   ) -> T {
-    print("Loading symbol '\(name)' from the xTB library...")
     return unsafeBitCast(
       self.loadSymbol(self.xtbLibraryHandle, name), to: type)
   }
 }
 
-// Methods of `xTBLibrary` required to load the xTB library.
-extension xTBLibrary {
+// Methods of `xTB_Library` required to load the xTB library.
+extension xTB_Library {
   private static var libraryPath: String?
   
   private static func loadSymbol(
@@ -86,7 +85,7 @@ extension xTBLibrary {
   
   private static func loadXTBLibrary() -> UnsafeMutableRawPointer? {
     var xtbLibraryHandle: UnsafeMutableRawPointer?
-    if let xtbLibraryPath = xTBLibrary.libraryPath {
+    if let xtbLibraryPath = xTB_Library.libraryPath {
       xtbLibraryHandle = self.loadXTBLibrary(at: xtbLibraryPath)
     }
     return xtbLibraryHandle
@@ -95,23 +94,17 @@ extension xTBLibrary {
   private static func loadXTBLibrary(
     at path: String
   ) -> UnsafeMutableRawPointer? {
-    print("Trying to load library at '\(path)'...")
 #if canImport(Darwin) || canImport(Glibc)
     let xtbLibraryHandle = dlopen(path, RTLD_LAZY | RTLD_GLOBAL)
 #elseif os(Windows)
     let xtbLibraryHandle = UnsafeMutableRawPointer(LoadLibraryA(path))
 #endif
-    if xtbLibraryHandle != nil {
-      print("Library at '\(path)' was successfully loaded.")
-    } else {
-      print("Library at '\(path)' failed to load.")
-    }
     return xtbLibraryHandle
   }
 }
 
-// Methods of `xTBLibrary` required to set a given xTB version or library path.
-extension xTBLibrary {
+// Methods of `xTB_Library` required to set a given xTB version or library path.
+extension xTB_Library {
   private static func enforceNonLoadedXTBLibrary(
     function: String = #function
   ) {
@@ -128,6 +121,6 @@ extension xTBLibrary {
   //   default search path.
   public static func useLibrary(at path: String?) {
     self.enforceNonLoadedXTBLibrary()
-    xTBLibrary.libraryPath = path
+    xTB_Library.libraryPath = path
   }
 }
