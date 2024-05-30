@@ -5,9 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-// While designing the external charges API, consider that the backend
-// may switch from 'xtb' to 'tblite'.
-
 /// External charge potential.
 public struct xTB_ExternalCharge {
   /// Partial charge in units of proton charge.

@@ -5,9 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-// While designing the hamiltonian API, consider that the backend
-// may switch from 'xtb' to 'tblite'.
-
 public enum xTB_Hamiltonian {
   /// GFN-FF
   case forceField
