@@ -7,7 +7,7 @@
 
 /// Calculation environment.
 public class xTB_Environment {
-  static let pointer: xtb_TEnvironment = {
+  static let _environment: xtb_TEnvironment = {
     guard let env = xtb_newEnvironment() else {
       fatalError("Could not create new xTB_Environment.")
     }
@@ -28,18 +28,18 @@ extension xTB_Environment {
   /// The default value is `.full`.
   public static var verbosity: Verbosity = .full {
     didSet {
-      xtb_setVerbosity(pointer, Int32(verbosity.rawValue))
+      xtb_setVerbosity(_environment, Int32(verbosity.rawValue))
     }
   }
   
   /// Check current status of calculation environment.
   public static var status: Int {
-    let status = xtb_checkEnvironment(pointer)
+    let status = xtb_checkEnvironment(_environment)
     return Int(status)
   }
   
   /// Show and empty error stack.
   public static func show() {
-    xtb_showEnvironment(pointer, nil)
+    xtb_showEnvironment(_environment, nil)
   }
 }
