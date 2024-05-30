@@ -109,6 +109,30 @@ let xtb_releaseExternalCharges: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_releaseExternalCharges")
 
+/// Set numerical accuracy of calculator in the range of 1000 to 0.0001
+let xtb_setAccuracy: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TCalculator,
+  Double // accuracy
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_setAccuracy")
+
+/// Set maximum number of iterations for self-consistent TB calculators
+let xtb_setMaxIter: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TCalculator,
+  Int32 // iterations
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_setMaxIter")
+
+/// Set electronic temperature for level filling in tight binding calculators in K
+let xtb_setElectronicTemp: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TCalculator,
+  Double // temperature
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_setElectronicTemp")
+
 /// Perform singlepoint calculation
 let xtb_singlepoint: @convention(c) (
   xtb_TEnvironment,

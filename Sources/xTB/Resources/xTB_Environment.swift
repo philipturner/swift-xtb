@@ -9,6 +9,8 @@
 public class xTB_Environment {
   var pointer: xtb_TEnvironment
   
+  var _verbosity: Verbosity = .full
+  
   /// Create new xtb calculation environment object.
   public init() {
     guard let env = xtb_newEnvironment() else {
@@ -40,14 +42,13 @@ public class xTB_Environment {
     case muted = 0
   }
   
-  /// Set verbosity of calculation output.
-  ///
-  /// WARNING: Never call the getter. There is no corresponding xTB function.
+  /// Verbosity of calculation output.
   public var verbosity: Verbosity {
     get {
-      fatalError("The property 'verbosity' has no getter.")
+      _verbosity
     }
     set {
+      _verbosity = newValue
       xtb_setVerbosity(pointer, Int32(newValue.rawValue))
     }
   }

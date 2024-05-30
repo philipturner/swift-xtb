@@ -15,24 +15,35 @@ public enum xTB_Hamiltonian {
 
 extension xTB_Calculator {
   func loadHamiltonian(_ hamiltonian: xTB_Hamiltonian) {
+    var function: @convention(c) (
+      xtb_TEnvironment,
+      xtb_TMolecule,
+      xtb_TCalculator,
+      UnsafePointer<CChar>? // filename
+    ) -> Void
+    
+    // Select the function pointer.
     switch hamiltonian {
     case .forceField:
-      xtb_loadGFNFF(
-        environment.pointer, molecule.pointer, pointer, nil)
+      function = xtb_loadGFNFF
     case .tightBinding(let version):
       if version == 0 {
-        xtb_loadGFN0xTB(
-          environment.pointer, molecule.pointer, pointer, nil)
+        function = xtb_loadGFN0xTB
       } else if version == 1 {
-        xtb_loadGFN1xTB(
-          environment.pointer, molecule.pointer, pointer, nil)
+        function = xtb_loadGFN1xTB
       } else if version == 2 {
-        xtb_loadGFN2xTB(
-          environment.pointer, molecule.pointer, pointer, nil)
+        function = xtb_loadGFN2xTB
       } else {
         fatalError("Unsupported tight binding version.")
       }
     }
+    
+    // Call the function pointer.
+    function(
+      storage.environment.pointer,
+      storage.molecule.pointer,
+      pointer,
+      nil)
   }
 }
 

@@ -28,10 +28,11 @@ public struct xTB_CalculatorDescriptor {
   /// The default value is zero.
   public var netSpin: Float = .zero
   
-  /// Optional. The initial positions.
+  /// Optional. The position of each atom's nucleus (in nm).
   ///
   /// When using GFN-FF, the positions are required to initialize force field
-  /// parameters.
+  /// parameters. When using tight binding, positions can be specified
+  /// after initialization.
   public var positions: [SIMD3<Float>]?
   
   public init() {
@@ -43,40 +44,69 @@ public struct xTB_CalculatorDescriptor {
 public class xTB_Calculator {
   var pointer: xtb_TCalculator
   
-  // The backing calculation environment.
-  var environment: xTB_Environment
+  var updateRecord = xTB_UpdateRecord()
   
-  // The backing molecule.
-  var molecule: xTB_Molecule
+  var storage: xTB_CalculatorStorage
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
-    // Retain the backing calculation environment.
-    guard let environment = descriptor.environment else {
-      fatalError("Descriptor was incomplete.")
-    }
-    self.environment = environment
-    
-    // Create the backing calculator.
     guard let calc = xtb_newCalculator() else {
       fatalError("Could not create new xTB_Calculator.")
     }
     self.pointer = calc
     
-    // Create the backing molecule.
-    self.molecule = xTB_Molecule(descriptor: descriptor)
-    
-    // Initialize the positions.
-    if let positions = descriptor.positions {
-      setPositions(positions)
+    // Create the storage.
+    guard let environment = descriptor.environment else {
+      fatalError("Descriptor was incomplete.")
     }
+    let molecule = xTB_Molecule(descriptor: descriptor)
+    storage = xTB_CalculatorStorage(
+      environment: environment, molecule: molecule)
     
     // Initialize the parameters.
+    if let positions = descriptor.positions {
+      self.positions = positions
+    }
+    flushUpdateRecord()
     loadHamiltonian(descriptor.hamiltonian)
   }
   
   /// Delete calculator object.
   deinit {
     xtb_delCalculator(&pointer)
+  }
+  
+  /// Set numerical accuracy of calculator in the range of 1000 to 0.0001
+  public var accuracy: Float {
+    get {
+      storage.accuracy
+    }
+    set {
+      storage.accuracy = newValue
+      updateRecord.accuracy = true
+    }
+  }
+}
+
+extension xTB_Calculator {
+  func setAccuracy(_ accuracy: Float) {
+    xtb_setAccuracy(
+      storage.environment.pointer,
+      pointer,
+      Double(accuracy))
+  }
+  
+  func setMaximumIterations(_ maximumIterations: Int) {
+    xtb_setMaxIter(
+      storage.environment.pointer,
+      pointer,
+      Int32(maximumIterations))
+  }
+  
+  func setElectronicTemperature(_ electronicTemperature: Float) {
+    xtb_setElectronicTemp(
+      storage.environment.pointer,
+      pointer,
+      Double(electronicTemperature))
   }
 }

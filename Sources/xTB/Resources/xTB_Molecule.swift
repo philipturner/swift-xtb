@@ -12,7 +12,7 @@ class xTB_Molecule {
   // Used for allocating force arrays, etc.
   var atomCount: Int
   
-  // The current value for the positions.
+  // The current value of the positions.
   var positions: [SIMD3<Float>] = []
   
   /// Create new molecular structure data
@@ -70,27 +70,25 @@ class xTB_Molecule {
 }
 
 extension xTB_Calculator {
-  // TODO: Delay the setter invocation until the next singlepoint.
-  
-  /// WARNING: Modifying this at the per-element granularity is very slow at
-  /// the moment.
+  /// The position of each atom's nucleus (in nm).
   public var positions: [SIMD3<Float>] {
-    get {
-      fatalError("Getter not implemented.")
+    _read {
+      yield storage.molecule.positions
     }
-    set {
-      setPositions(newValue)
+    _modify {
+      yield &storage.molecule.positions
+      updateRecord.positions = true
     }
   }
   
   func setPositions(_ positions: [SIMD3<Float>]) {
-    guard positions.count == molecule.atomCount else {
+    guard positions.count == storage.molecule.atomCount else {
       fatalError("Position count must match atom count.")
     }
     
     // Determine the positions.
     var positions64: [Double] = []
-    for atomID in 0..<molecule.atomCount {
+    for atomID in positions.indices {
       // Convert the position from nm to Bohr.
       let positionInNm = positions[atomID]
       let positionInBohr = positionInNm * Float(xTB_BohrPerNm)
@@ -104,6 +102,9 @@ extension xTB_Calculator {
     
     // Update the molecular structure data.
     xtb_updateMolecule(
-      environment.pointer, molecule.pointer, positions64, nil)
+      storage.environment.pointer,
+      storage.molecule.pointer,
+      positions64,
+      nil)
   }
 }
