@@ -18,7 +18,13 @@ class xTB_Results {
   
   var charges: [Float]?
   
+  var bondOrderMatrix: [Float]?
   
+  var orbitalEigenvalues: [Float]?
+  
+  var orbitalOccupations: [Float]?
+  
+  var orbitalCoefficientMatrix: [Float]?
   
   /// Create new singlepoint results object
   init() {

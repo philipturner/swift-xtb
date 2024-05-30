@@ -14,12 +14,11 @@ struct xTB_MoleculeDescriptor {
 }
 
 /// Molecular structure data class.
-public class xTB_Molecule {
+public struct xTB_Molecule {
   public let atomicNumbers: [UInt8]
   public let netCharge: Float
   public let netSpin: Float
   
-  var pointer: xtb_TMolecule
   weak var calculator: xTB_Calculator!
   
   /// Create new molecular structure data
@@ -80,6 +79,12 @@ public class xTB_Molecule {
       yield &calculator.state.positions
       calculator.updateRecord.positions = true
     }
+  }
+  
+  public var forces: [SIMD3<Float>] {
+    // TODO: If the state has been updated, invalidate the results. Then,
+    // crash when state-dependent properties are accessed.
+    fatalError("Not implemented.")
   }
 }
 

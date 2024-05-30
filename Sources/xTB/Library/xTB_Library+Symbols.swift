@@ -91,6 +91,24 @@ let xtb_delCalculator: @convention(c) (
   UnsafeMutablePointer<xtb_TCalculator>) -> Void =
 xTB_Library.loadSymbol(name: "xtb_delCalculator")
 
+/// Load GFN2-xTB calculator
+let xtb_loadGFN2xTB: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TMolecule,
+  xtb_TCalculator,
+  UnsafePointer<CChar>? // filename
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_loadGFN2xTB")
+
+/// Load GFN-FF calculator
+let xtb_loadGFNFF: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TMolecule,
+  xtb_TCalculator,
+  UnsafePointer<CChar>? // filename
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_loadGFNFF")
+
 /// Add a external charge potential to calculator (only supported in GFN1/2-xTB)
 let xtb_setExternalCharges: @convention(c) (
   xtb_TEnvironment,

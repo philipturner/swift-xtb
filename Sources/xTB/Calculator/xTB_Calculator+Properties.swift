@@ -6,6 +6,10 @@
 //
 
 extension xTB_Calculator {
+  public var externalCharges: xTB_ExternalCharges { state.externalCharges }
+  public var molecule: xTB_Molecule { state.molecule }
+  public var orbitals: xTB_Orbitals { state.orbitals }
+  
   /// Numerical accuracy of calculator (in atomic units).
   ///
   /// The default value is 1. The value may range from 1e3 to 1e-4.
@@ -15,7 +19,11 @@ extension xTB_Calculator {
     }
     set {
       state.accuracy = newValue
-      setAccuracy(newValue)
+      xtb_setAccuracy(
+        environment.pointer,
+        _calculator,
+        Double(newValue))
+      invalidateSinglepoint()
     }
   }
   
@@ -28,7 +36,11 @@ extension xTB_Calculator {
     }
     set {
       state.maximumIterations = newValue
-      setMaximumIterations(newValue)
+      xtb_setMaxIter(
+        environment.pointer,
+        _calculator,
+        Int32(newValue))
+      invalidateSinglepoint()
     }
   }
   
@@ -39,28 +51,11 @@ extension xTB_Calculator {
     }
     set {
       state.electronicTemperature = newValue
-      setElectronicTemperature(newValue)
+      xtb_setElectronicTemp(
+        environment.pointer,
+        _calculator,
+        Double(electronicTemperature))
+      invalidateSinglepoint()
     }
-  }
-  
-  func setAccuracy(_ accuracy: Float) {
-    xtb_setAccuracy(
-      environment.pointer,
-      self.pointer,
-      Double(state.accuracy))
-  }
-  
-  func setMaximumIterations(_ maximumIterations: Int) {
-    xtb_setMaxIter(
-      environment.pointer,
-      self.pointer,
-      Int32(maximumIterations))
-  }
-  
-  func setElectronicTemperature(_ electronicTemperature: Float) {
-    xtb_setElectronicTemp(
-      environment.pointer,
-      self.pointer,
-      Double(electronicTemperature))
   }
 }

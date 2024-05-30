@@ -16,4 +16,3 @@ public let xTB_BohrPerNm: Double = 1 / xTB_NmPerBohr
 
 public let xTB_ZJPerHartree: Double = 4359.7482
 public let xTB_HartreePerZJ: Double = 1 / xTB_ZJPerHartree
-

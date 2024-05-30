@@ -13,31 +13,36 @@ extension xTB_Calculator {
     var maximumIterations: Int = 250
     
     // Lazily synchronized properties.
-    var externalCharges: [xTB_ExternalCharge] = []
-    var positions: [SIMD3<Float>] = []
+    var externalCharges: xTB_ExternalCharges!
+    var molecule: xTB_Molecule!
+    var orbitals: xTB_Orbitals!
   }
   
   struct UpdateRecord {
     var externalCharges: Bool = false
-    var positions: Bool = false
+    var molecule: Bool = false
     
     mutating func erase() {
       externalCharges = false
-      positions = false
+      molecule = false
     }
     
     func active() -> Bool {
-      externalCharges || positions
+      externalCharges || molecule
     }
   }
   
   func flushUpdateRecord() {
     if updateRecord.externalCharges {
-      setExternalCharges(state.externalCharges)
+      externalCharges.update()
     }
     if updateRecord.positions {
-      molecule.setPositions(state.positions)
+      molecule.update()
     }
     updateRecord.erase()
+  }
+  
+  func invalidateSinglepoint() {
+    results = nil
   }
 }

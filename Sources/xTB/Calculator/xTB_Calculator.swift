@@ -5,6 +5,14 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+public enum xTB_Hamiltonian {
+  /// GFN-FF
+  case forceField
+  
+  /// GFN2-xTB
+  case tightBinding
+}
+
 /// A configuration for a singlepoint calculator.
 public struct xTB_CalculatorDescriptor {
   /// Required. The number of protons in each atom's nucleus.
@@ -16,7 +24,7 @@ public struct xTB_CalculatorDescriptor {
   /// Required. The parametrized method for evaluating forces.
   ///
   /// The default value is GFN2-xTB.
-  public var hamiltonian: xTB_Hamiltonian = .tightBinding(2)
+  public var hamiltonian: xTB_Hamiltonian = .tightBinding
   
   /// Required. The net charge of the system.
   ///
@@ -42,16 +50,14 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  var pointer: xtb_TCalculator
   var environment: xTB_Environment
-  public let molecule: xTB_Molecule
-  public let orbitals: xTB_Orbitals
-  var results: xTB_Results?
+  var _calculator: xtb_TCalculator
+  var _molecule: xtb_TMolecule
   
   var state = State()
   var updateRecord = UpdateRecord()
+  var results: xTB_Results?
   
-  /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers,
           let environment = descriptor.environment else {
@@ -63,7 +69,7 @@ public class xTB_Calculator {
     guard let calc = xtb_newCalculator() else {
       fatalError("Could not create new xTB_Calculator.")
     }
-    self.pointer = calc
+    _calculator = calc
     
     // Create the initial positions.
     if let positions = descriptor.positions {
@@ -79,7 +85,7 @@ public class xTB_Calculator {
     moleculeDesc.environment = environment
     moleculeDesc.netCharge = descriptor.netCharge
     moleculeDesc.netSpin = descriptor.netSpin
-    moleculeDesc.positions = state.positions
+    moleculeDesc.positions = descriptor.positions
     molecule = xTB_Molecule(descriptor: moleculeDesc)
     
     // Create the orbitals.
@@ -92,9 +98,26 @@ public class xTB_Calculator {
     loadHamiltonian(descriptor.hamiltonian)
   }
   
-  /// Delete calculator object.
   deinit {
-    xtb_delCalculator(&pointer)
+    xtb_delMolecule(&_molecule)
+    xtb_delCalculator(&_calculator)
+  }
+  
+  func loadHamiltonian(_ hamiltonian: xTB_Hamiltonian) {
+    switch hamiltonian {
+    case .forceField:
+      xtb_loadGFNFF(
+        environment.pointer,
+        molecule.pointer,
+        self.pointer,
+        nil)
+    case .tightBinding:
+      xtb_loadGFN2_xTB(
+        environment.pointer,
+        molecule.pointer,
+        self.pointer,
+        nil)
+    }
   }
   
   /// Run a self-consistent field calculation and update the observables.
