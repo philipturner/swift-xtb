@@ -24,6 +24,24 @@ let environment = xTB_Environment()
 environment.verbosity = .full
 environment.show()
 
+// Try out the xTB_Calculator API.
+var calculatorDesc = xTB_CalculatorDescriptor()
+calculatorDesc.atomicNumbers = [7, 7]
+calculatorDesc.environment = environment
+
+// Create a calculator.
+let calculator = xTB_Calculator(descriptor: calculatorDesc)
+calculator.setPositions([
+  SIMD3(0.000, 0.000, 0.000),
+  SIMD3(0.110, 0.000, 0.000),
+])
+
+// Try out the xTB_ExternalCharges API.
+var chargesDesc = xTB_ExternalChargesDescriptor()
+var chargePositions
+var chargeParameters: [xTB_ExternalChargeParameters] = []
+
+
 /*
 
 // Try out the xTB_Molecule API.

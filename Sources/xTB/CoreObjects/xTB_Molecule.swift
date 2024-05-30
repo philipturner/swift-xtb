@@ -5,67 +5,59 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
-/// A configuration for a molecular structure data class.
-struct xTB_MoleculeDescriptor {
-  var atomicNumbers: [UInt8]?
-  
-  var environment: xTB_Environment?
-  
-  var netCharge: Float = .zero
-  
-  var netSpin: Float = .zero
-  
-  init() {
-    
-  }
-}
-
 /// Molecular structure data class.
 class xTB_Molecule {
   var mol: xtb_TMolecule?
-  
-  // Keep a reference to the environment, so it is never deallocated while the
-  // molecule is still in use.
-  var environment: xTB_Environment
   
   // Used for allocating force arrays, etc.
   var atomCount: Int
   
   /// Create new molecular structure data
-  init(descriptor: xTB_MoleculeDescriptor) {
+  init(descriptor: xTB_CalculatorDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers,
           let environment = descriptor.environment else {
       fatalError("Descriptor was incomplete.")
     }
-    self.environment = environment
     self.atomCount = atomicNumbers.count
     
-    var natoms = Int32(atomicNumbers.count)
-    var numbers = atomicNumbers.map(Int32.init)
-    var positions = [Double](repeating: .zero, count: Int(natoms * 3))
-    do {
-      // Bypass an initialization error.
-      for elementID in positions.indices {
-        positions[elementID] = Double(elementID) * 1e-5
+    // Determine the positions.
+    var positions: [SIMD3<Float>]
+    if descriptor.positions != nil {
+      positions = descriptor.positions!
+    } else {
+      positions = []
+      for atomID in 0..<atomCount {
+        // Bypass an error with initializing null positions.
+        let scalar = Float(atomID) * 1e-5
+        let position = SIMD3<Float>(repeating: scalar)
+        positions.append(position)
       }
     }
+    var positions64: [Double] = []
+    for atomID in 0..<atomCount {
+      let position = positions[atomID]
+      positions64.append(Double(position[0]))
+      positions64.append(Double(position[1]))
+      positions64.append(Double(position[2]))
+    }
+    
+    // Create the molecule object.
+    var natoms = Int32(atomicNumbers.count)
+    var numbers = atomicNumbers.map(Int32.init)
     var charge = Double(descriptor.netCharge)
     guard var uhf = Int32(exactly: descriptor.netSpin) else {
       fatalError("Net spin must be divisible by 0.5.")
     }
-    
     mol = xtb_newMolecule(
       environment.env,
       &natoms,
       &numbers,
-      &positions,
+      &positions64,
       &charge,
       &uhf,
       nil,
       nil)
     guard mol != nil else {
-      print(environment.status)
-      environment.show()
       fatalError("Could not create new xTB_Molecule.")
     }
   }
@@ -74,9 +66,15 @@ class xTB_Molecule {
   deinit {
     xtb_delMolecule(&mol)
   }
-  
+}
+
+extension xTB_Calculator {
   /// Update coordinates (in nm).
-  func setPositions(_ positions: [SIMD3<Float>]) {
+  public func setPositions(_ positions: [SIMD3<Float>]) {
+    guard positions.count == molecule.atomCount else {
+      fatalError("Position count must match atom count.")
+    }
+    
     var output = [Double](repeating: .zero, count: positions.count * 3)
     for atomID in positions.indices {
       let positionInNm = positions[atomID]
@@ -86,6 +84,6 @@ class xTB_Molecule {
         output[atomID &* 3 &+ laneID] = Double(element)
       }
     }
-    xtb_updateMolecule(environment.env, mol, output, nil)
+    xtb_updateMolecule(environment.env, molecule.mol, output, nil)
   }
 }

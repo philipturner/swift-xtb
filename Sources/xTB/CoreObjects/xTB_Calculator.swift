@@ -7,13 +7,32 @@
 
 /// A configuration for a singlepoint calculator.
 public struct xTB_CalculatorDescriptor {
+  /// Required.
   public var atomicNumbers: [UInt8]?
   
+  /// Required.
   public var environment: xTB_Environment?
   
+  /// Required.
+  ///
+  /// The default value is GFN2-xTB.
+  public var hamiltonian: xTB_Hamiltonian = .tightBinding(2)
+  
+  /// Required. The net charge of the system.
+  ///
+  /// The default value is zero.
   public var netCharge: Float = .zero
   
+  /// Required. The net spin of the system.
+  ///
+  /// The default value is zero.
   public var netSpin: Float = .zero
+  
+  /// Optional. The initial positions.
+  ///
+  /// When using GFN-FF, the positions are required to initialize force field
+  /// parameters.
+  public var positions: [SIMD3<Float>]?
   
   public init() {
     
@@ -22,11 +41,13 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  var calc: xtb_TCalculator?
+  // Keep a reference to the environment, so it is never deallocated while the
+  // molecule is still in use.
+  var environment: xTB_Environment
   
   var molecule: xTB_Molecule
   
-  var environment: xTB_Environment { molecule.environment }
+  var calc: xtb_TCalculator?
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
@@ -58,13 +79,4 @@ public class xTB_Calculator {
   deinit {
     xtb_delCalculator(&calc)
   }
-  
-  /// Update coordinates (in nm).
-  public func setPositions(_ positions: [SIMD3<Float>]) {
-    molecule.setPositions(positions)
-  }
-  
-  // TODO: Find an ergonomic API for point charges. Perhaps as a separate
-  // class, whose gradient can be queried because it stores a strong reference
-  // to the calculator object.
 }
