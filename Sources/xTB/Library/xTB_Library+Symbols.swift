@@ -65,6 +65,14 @@ let xtb_loadGFN2xTB: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_loadGFN2xTB")
 
+let xtb_loadGFNFF: @convention(c) (
+  xtb_TEnvironment?,
+  xtb_TMolecule?,
+  xtb_TCalculator?,
+  UnsafePointer<CChar>?
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_loadGFNFF")
+
 let xtb_singlepoint: @convention(c) (
   xtb_TEnvironment?,
   xtb_TMolecule?,
