@@ -7,28 +7,51 @@
 
 /// A configuration for a singlepoint calculator.
 public struct xTB_CalculatorDescriptor {
-  var molecule: xTB_Molecule?
+  public var atomicNumbers: [UInt8]?
+  
+  public var environment: xTB_Environment?
+  
+  public var netCharge: Float = .zero
+  
+  public var netSpin: Float = .zero
+  
+  public init() {
+    
+  }
 }
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  // Keep a reference to the molecule, so it is never deallocated while the
-  // calculator is still in use.
+  var environment: xTB_Environment { molecule.environment }
+  
   var molecule: xTB_Molecule
   
   var calc: xtb_TCalculator?
   
   /// Create new calculator object.
   public init(descriptor: xTB_CalculatorDescriptor) {
-    guard let molecule = descriptor.molecule else {
+    guard let atomicNumbers = descriptor.atomicNumbers,
+          let environment = descriptor.environment else {
       fatalError("Descriptor was incomplete.")
     }
-    self.molecule = molecule
     
+    // Create the backing molecule.
+    var moleculeDesc = xTB_MoleculeDescriptor()
+    moleculeDesc.atomicNumbers = atomicNumbers
+    moleculeDesc.environment = environment
+    moleculeDesc.netCharge = descriptor.netCharge
+    moleculeDesc.netSpin = descriptor.netSpin
+    molecule = xTB_Molecule(descriptor: moleculeDesc)
+    
+    // Create the backing calculator.
     calc = xtb_newCalculator()
     guard calc != nil else {
       fatalError("Could not create new xTB_Calculator.")
     }
+    
+    // Initialize GFN2-xTB.
+    xtb_loadGFN2xTB(
+      environment.env, molecule.mol, calc, nil)
   }
   
   /// Delete calculator object.
@@ -36,39 +59,12 @@ public class xTB_Calculator {
     xtb_delCalculator(&calc)
   }
   
-  public enum Method {
-    case forceField
-    case tightBinding(Int)
-  }
-  
-  /// Load a calculator.
-  public func load(method: Method) {
-    switch method {
-    case .forceField:
-      xtb_loadGFNFF(
-        molecule.environment.env, molecule.mol, calc, nil)
-    case .tightBinding(let version):
-      if version == 2 {
-        xtb_loadGFN2xTB(
-          molecule.environment.env, molecule.mol, calc, nil)
-      }
-    }
-  }
-  
-  public func loadTightBinding() {
-    xtb_loadGFN2xTB(
-      molecule.environment.env, molecule.mol, calc, nil)
-  }
-  
-  /// Load GFN-FF calculator.
-  public func loadForceField() {
-    xtb_loadGFNFF(
-      molecule.environment.env, molecule.mol, calc, nil)
+  /// Update coordinates (in nm).
+  public func setPositions(_ positions: [SIMD3<Float>]) {
+    molecule.setPositions(positions)
   }
   
   // TODO: Find an ergonomic API for point charges. Perhaps as a separate
   // class, whose gradient can be queried because it stores a strong reference
   // to the calculator object.
-  
-  
 }

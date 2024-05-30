@@ -6,22 +6,22 @@
 //
 
 /// A configuration for a molecular structure data class.
-public struct xTB_MoleculeDescriptor {
-  public var atomicNumbers: [UInt8]?
+struct xTB_MoleculeDescriptor {
+  var atomicNumbers: [UInt8]?
   
-  public var environment: xTB_Environment?
+  var environment: xTB_Environment?
   
-  public var netCharge: Float = .zero
+  var netCharge: Float = .zero
   
-  public var netSpin: Float = .zero
+  var netSpin: Float = .zero
   
-  public init() {
+  init() {
     
   }
 }
 
 /// Molecular structure data class.
-public class xTB_Molecule {
+class xTB_Molecule {
   // Keep a reference to the environment, so it is never deallocated while the
   // molecule is still in use.
   var environment: xTB_Environment
@@ -29,7 +29,7 @@ public class xTB_Molecule {
   var mol: xtb_TMolecule?
   
   /// Create new molecular structure data
-  public init(descriptor: xTB_MoleculeDescriptor) {
+  init(descriptor: xTB_MoleculeDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers,
           let environment = descriptor.environment else {
       fatalError("Descriptor was incomplete.")
@@ -72,7 +72,7 @@ public class xTB_Molecule {
   }
   
   /// Update coordinates (in nm).
-  public func setPositions(_ positions: [SIMD3<Float>]) {
+  func setPositions(_ positions: [SIMD3<Float>]) {
     var output = [Double](repeating: .zero, count: positions.count * 3)
     for atomID in positions.indices {
       let positionInNm = positions[atomID]

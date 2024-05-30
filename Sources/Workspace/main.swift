@@ -24,6 +24,8 @@ let environment = xTB_Environment()
 environment.verbosity = .full
 environment.show()
 
+/*
+
 // Try out the xTB_Molecule API.
 var moleculeDesc = xTB_MoleculeDescriptor()
 moleculeDesc.atomicNumbers = [7, 7]
@@ -36,3 +38,11 @@ molecule.setPositions([
   SIMD3(0.110, 0.000, 0.000),
 ])
 print(environment.status)
+
+// Create a calculator.
+var calculatorDesc = xTB_CalculatorDescriptor()
+calculatorDesc.molecule = molecule
+let calculator = xTB_Calculator(descriptor: calculatorDesc)
+print(environment.status)
+
+*/
