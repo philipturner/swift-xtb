@@ -35,6 +35,7 @@ let package = Package(
         "LinearAlgebra", 
         "Meshing",
         .product(name: "Numerics", package: "swift-numerics"),
+        "xTB",
       ]),
     
     .testTarget(
