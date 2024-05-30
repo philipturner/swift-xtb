@@ -196,3 +196,11 @@ let xtb_getCharges: @convention(c) (
   UnsafeMutablePointer<Double>? // charges [natoms][3]
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getCharges")
+
+/// Query singlepoint results object for the number of basis functions
+let xtb_getNao: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Int32>? // nao
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getNao")

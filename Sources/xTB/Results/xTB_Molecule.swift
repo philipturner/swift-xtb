@@ -39,7 +39,6 @@ extension xTB_Molecule {
   }
   
   func update() {
-    print("Updating molecule.")
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }

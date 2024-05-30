@@ -26,10 +26,6 @@ extension xTB_Calculator {
       externalCharges = false
       molecule = false
     }
-    
-    func active() -> Bool {
-      externalCharges || molecule
-    }
   }
   
   func invalidateSinglepoint() {
@@ -67,8 +63,15 @@ extension xTB_Calculator {
 }
 
 extension xTB_Calculator {
-  public func temporaryTestFunction() {
+  public func queryOrbitalCount() -> Int {
     requestSinglepoint()
+    
+    var orbitalCount: Int32 = .max
+    xtb_getNao(
+      xTB_Environment._environment,
+      results!._results,
+      &orbitalCount)
+    return Int(orbitalCount)
   }
   
   func ensureMoleculeCached() {

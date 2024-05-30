@@ -16,3 +16,11 @@ public struct xTB_Orbitals {
     count = 0
   }
 }
+
+// MARK: - Utilities
+
+extension xTB_Orbitals {
+  static func estimateOrbitalCount(atomicNumbers: [UInt8]) -> Int {
+    fatalError("Not implemented.")
+  }
+}

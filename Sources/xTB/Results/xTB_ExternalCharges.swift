@@ -23,8 +23,6 @@ public struct xTB_ExternalCharges {
 
 extension xTB_ExternalCharges {
   func update() {
-    print("Updating external charges.")
-    
     // Erase the previous external potential.
     xtb_releaseExternalCharges(
       xTB_Environment._environment,
