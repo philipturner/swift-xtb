@@ -30,7 +30,7 @@ calculator.molecule.positions = [
 
 // Executes the singlepoint lazily, whenever a property 
 // depending on it is requested.
-print("basis set size:", calculator.orbitals.count)
+print("basis size:", calculator.orbitals.count)
 print("band energy:", 2 * calculator.orbitals.eigenvalues.reduce(0, +), "zJ")
 print("total molecular energy:", calculator.energy, "zJ")
 print("wiberg bond orders:", calculator.molecule.bondOrders)
