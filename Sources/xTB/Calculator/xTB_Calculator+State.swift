@@ -64,14 +64,37 @@ extension xTB_Calculator {
 }
 
 extension xTB_Calculator {
-  func ensureMoleculeCached() {
+  func ensureEnergyCached() {
+    requestSinglepoint()
     
+    if results.energy == nil {
+      results.getEnergy()
+    }
+  }
+  
+  func ensureExternalChargesCached() {
+    requestSinglepoint()
+    
+    if results.externalChargeForces == nil {
+      results.getExternalChargeForces()
+    }
+  }
+  
+  func ensureMoleculeCached() {
+    requestSinglepoint()
+    
+    if results.forces == nil {
+      results.getForces()
+      results.getCharges()
+      results.getBondOrders()
+    }
   }
   
   func ensureOrbitalsCached() {
     requestSinglepoint()
     
     if results.orbitalEigenvalues == nil {
+      results.checkOrbitalCount()
       results.getOrbitalEigenvalues()
       results.getOrbitalOccupations()
       results.getOrbitalCoefficients()

@@ -67,14 +67,9 @@ extension xTB_Results {
       xTB_Environment._environment,
       calculator.results._results,
       &energy)
-    self.energy = energy
-  }
-  
-  func getForces() {
-    let atomCount = calculator.molecule.atomicNumbers.count
-    let gradient64 = getDoubleArray(
-      xtb_getGradient, size: atomCount * 3)
-    forces = convertGradientToForces(gradient64)
+    
+    // Convert energy into nanomechanical units.
+    self.energy = energy * xTB_ZJPerHartree
   }
   
   func getExternalChargeForces() {
@@ -82,6 +77,15 @@ extension xTB_Results {
     let pointChargeGradient64 = getDoubleArray(
       xtb_getPCGradient, size: externalChargeCount * 3)
     externalChargeForces = convertGradientToForces(pointChargeGradient64)
+  }
+}
+
+extension xTB_Results {
+  func getForces() {
+    let atomCount = calculator.molecule.atomicNumbers.count
+    let gradient64 = getDoubleArray(
+      xtb_getGradient, size: atomCount * 3)
+    forces = convertGradientToForces(gradient64)
   }
   
   func getCharges() {

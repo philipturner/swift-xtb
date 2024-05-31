@@ -73,3 +73,11 @@ extension xTB_Calculator {
     }
   }
 }
+
+extension xTB_Calculator {
+  /// Potential energy (in zJ).
+  public var energy: Double {
+    ensureEnergyCached()
+    return results.energy!
+  }
+}

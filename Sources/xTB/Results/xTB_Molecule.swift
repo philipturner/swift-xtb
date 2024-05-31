@@ -10,8 +10,8 @@ public struct xTB_Molecule {
   unowned var calculator: xTB_Calculator!
   
   public let atomicNumbers: [UInt8]
-  public let netCharge: Float
-  public let netSpin: Float
+  var netCharge: Float
+  var netSpin: Float
   var _positions: [SIMD3<Float>] = []
   
   /// Create new molecular structure data
