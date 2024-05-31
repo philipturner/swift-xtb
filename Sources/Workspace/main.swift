@@ -15,7 +15,7 @@ xTB_Library.useLibrary(
   at: "/Users/philipturner/Documents/bypass_dependencies/libxtb.6.dylib")
 try! xTB_Library.loadLibrary()
 
-// Create an environment.
+// Mute the output to the console.
 xTB_Environment.verbosity = .muted
 
 // Create a calculator.
