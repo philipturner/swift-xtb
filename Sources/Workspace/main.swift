@@ -12,7 +12,7 @@ import xTB
 setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1)
 xTB_Library.useLibrary(
-  at: "/Users/philipturner/Documents/OpenMM/bypass_dependencies/libxtb.6.dylib")
+  at: "/Users/philipturner/Documents/bypass_dependencies/libxtb.6.dylib")
 try! xTB_Library.loadLibrary()
 
 // Create an environment.
