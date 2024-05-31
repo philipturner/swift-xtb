@@ -116,7 +116,7 @@ let xtb_setExternalCharges: @convention(c) (
   UnsafeMutablePointer<Int32>?, // n
   UnsafeMutablePointer<Int32>?, // numbers [n]
   UnsafeMutablePointer<Double>?, // charges [n]
-  UnsafeMutablePointer<Double> // positions [n][3]
+  UnsafeMutablePointer<Double>? // positions [n][3]
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_setExternalCharges")
 
@@ -189,6 +189,14 @@ let xtb_getGradient: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getGradient")
 
+/// Query singlepoint results object for pc gradient in Hartree / Bohr
+let xtb_getPCGradient: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Double>? // gradient [natoms][3]
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getPCGradient")
+
 /// Query singlepoint results object for partial charges in e
 let xtb_getCharges: @convention(c) (
   xtb_TEnvironment,
@@ -197,6 +205,14 @@ let xtb_getCharges: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getCharges")
 
+/// Query singlepoint results object for bond orders
+let xtb_getBondOrders: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Double>? // wbo [natoms][natoms]
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getBondOrders")
+
 /// Query singlepoint results object for the number of basis functions
 let xtb_getNao: @convention(c) (
   xtb_TEnvironment,
@@ -204,3 +220,27 @@ let xtb_getNao: @convention(c) (
   UnsafeMutablePointer<Int32>? // nao
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getNao")
+
+/// Query singlepoint results object for orbital energies in Hartree [nao]
+let xtb_getOrbitalEigenvalues: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Double>? // emo
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getOrbitalEigenvalues")
+
+/// Query singlepoint results object for occupation numbers [nao]
+let xtb_getOrbitalOccupations: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Double>? // focc
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getOrbitalOccupations")
+
+/// Query singlepoint results object for orbital coefficients [nao][nao]
+let xtb_getOrbitalCoefficients: @convention(c) (
+  xtb_TEnvironment,
+  xtb_TResults,
+  UnsafeMutablePointer<Double>? // c
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getOrbitalCoefficients")

@@ -52,7 +52,7 @@ public class xTB_Calculator {
   
   var state = State()
   var updateRecord = UpdateRecord()
-  var results: xTB_Results?
+  var results: xTB_Results!
   
   public init(descriptor: xTB_CalculatorDescriptor) {
     guard let calc = xtb_newCalculator() else {
@@ -77,9 +77,9 @@ public class xTB_Calculator {
     state.molecule = molecule
     state.orbitals = orbitals
     
-    state.externalCharges!.calculator = self
-    state.molecule!.calculator = self
-    state.orbitals!.calculator = self
+    state.externalCharges.calculator = self
+    state.molecule.calculator = self
+    state.orbitals.calculator = self
   }
   
   deinit {

@@ -13,9 +13,9 @@ extension xTB_Calculator {
     var maximumIterations: Int = 250
     
     // Lazily synchronized properties.
-    var externalCharges: xTB_ExternalCharges?
-    var molecule: xTB_Molecule?
-    var orbitals: xTB_Orbitals?
+    var externalCharges: xTB_ExternalCharges!
+    var molecule: xTB_Molecule!
+    var orbitals: xTB_Orbitals!
   }
   
   struct UpdateRecord {
@@ -58,27 +58,23 @@ extension xTB_Calculator {
       _molecule,
       _calculator,
       results._results)
+    results.calculator = self
     self.results = results
   }
 }
 
 extension xTB_Calculator {
-  public func queryOrbitalCount() -> Int {
-    requestSinglepoint()
-    
-    var orbitalCount: Int32 = .max
-    xtb_getNao(
-      xTB_Environment._environment,
-      results!._results,
-      &orbitalCount)
-    return Int(orbitalCount)
-  }
-  
   func ensureMoleculeCached() {
     
   }
   
   func ensureOrbitalsCached() {
+    requestSinglepoint()
     
+    if results.orbitalEigenvalues == nil {
+      results.getOrbitalEigenvalues()
+      results.getOrbitalOccupations()
+      results.getOrbitalCoefficients()
+    }
   }
 }

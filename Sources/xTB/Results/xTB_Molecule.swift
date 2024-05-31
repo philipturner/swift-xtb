@@ -7,7 +7,7 @@
 
 /// Molecular structure data class.
 public struct xTB_Molecule {
-  unowned var calculator: xTB_Calculator?
+  unowned var calculator: xTB_Calculator!
   
   public let atomicNumbers: [UInt8]
   public let netCharge: Float
@@ -25,37 +25,7 @@ public struct xTB_Molecule {
     self._positions = descriptor.positions ?? xTB_Molecule
       .createInitialPositions(atomCount: atomicNumbers.count)
   }
-}
-
-extension xTB_Molecule {
-  /// The position of each atom's nucleus (in nm).
-  public var positions: [SIMD3<Float>] {
-    _read {
-      yield _positions
-    }
-    _modify {
-      yield &_positions
-    }
-  }
   
-  func update() {
-    guard _positions.count == atomicNumbers.count else {
-      fatalError("Position count did not match atom count.")
-    }
-    let positions64 = Self.convertPositions(_positions)
-    
-    // Update the molecular structure data.
-    xtb_updateMolecule(
-      xTB_Environment._environment,
-      calculator!._molecule,
-      positions64,
-      nil)
-  }
-}
-
-// MARK: - Utilities
-
-extension xTB_Molecule {
   /// Initialization procedure that bypasses an error with atoms having
   /// equal positions.
   static func createInitialPositions(atomCount: Int) -> [SIMD3<Float>] {
@@ -68,23 +38,6 @@ extension xTB_Molecule {
     return output
   }
   
-  /// Utility function for casting a Float32 array (in nm) to a Float64
-  /// array (in Bohr).
-  static func convertPositions(_ input: [SIMD3<Float>]) -> [Double] {
-    var output: [Double] = []
-    for elementID in input.indices {
-      let positionInNm = input[elementID]
-      let positionInBohr = positionInNm * Float(xTB_BohrPerNm)
-      
-      // Add to the packed array.
-      for laneID in 0..<3 {
-        let element = positionInBohr[laneID]
-        output.append(Double(element))
-      }
-    }
-    return output
-  }
-  
   /// Create the reference-counted object from the C API.
   static func createObject(_ molecule: xTB_Molecule) -> xtb_TMolecule {
     // Convert the positions.
@@ -93,7 +46,7 @@ extension xTB_Molecule {
     guard positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
-    var positions64 = Self.convertPositions(positions)
+    var positions64 = convertPositions(positions)
     
     // Determine the unpaired electron count.
     let unpairedElectronCount = molecule.netSpin.magnitude * 2
@@ -118,5 +71,31 @@ extension xTB_Molecule {
       fatalError("Could not create new xTB_Molecule.")
     }
     return mol
+  }
+}
+
+extension xTB_Molecule {
+  /// The position of each atom's nucleus (in nm).
+  public var positions: [SIMD3<Float>] {
+    _read {
+      yield _positions
+    }
+    _modify {
+      yield &_positions
+    }
+  }
+  
+  func update() {
+    guard _positions.count == atomicNumbers.count else {
+      fatalError("Position count did not match atom count.")
+    }
+    let positions64 = convertPositions(_positions)
+    
+    // Update the molecular structure data.
+    xtb_updateMolecule(
+      xTB_Environment._environment,
+      calculator._molecule,
+      positions64,
+      nil)
   }
 }

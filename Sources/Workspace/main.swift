@@ -16,7 +16,7 @@ xTB_Library.useLibrary(
 try! xTB_Library.loadLibrary()
 
 // Create an environment.
-xTB_Environment.verbosity = .full
+xTB_Environment.verbosity = .muted
 
 // Create a calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -28,8 +28,8 @@ calculatorDesc.positions = [
 calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
+// TODO: Get the Wiberg bond orders for the N2 molecule.
+//
 // TODO: Plot out the potential energy surface for N2 across various bond
-// lengths, and compare the result to INQ.
-
-print(calculator.queryOrbitalCount())
-// xTB_Environment.show()
+// lengths, compare to the graph from INQ.
+xTB_Environment.show()

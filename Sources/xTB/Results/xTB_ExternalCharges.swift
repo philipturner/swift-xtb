@@ -7,7 +7,7 @@
 
 /// External charge potential.
 public struct xTB_ExternalCharges {
-  unowned var calculator: xTB_Calculator?
+  unowned var calculator: xTB_Calculator!
   
   /// The atomic number to match the chemical hardness to.
   ///
@@ -26,7 +26,7 @@ extension xTB_ExternalCharges {
     // Erase the previous external potential.
     xtb_releaseExternalCharges(
       xTB_Environment._environment,
-      calculator!._calculator)
+      calculator._calculator)
     
     // Check that each array has the same length.
     guard atomicNumbers.count == charges.count,
@@ -42,12 +42,12 @@ extension xTB_ExternalCharges {
     var n = Int32(atomicNumbers.count)
     var numbers = atomicNumbers.map(Int32.init)
     var charges = self.charges.map(Double.init)
-    var positions64 = xTB_Molecule.convertPositions(positions)
+    var positions64 = convertPositions(positions)
     
     // Initialize the external potential.
     xtb_setExternalCharges(
       xTB_Environment._environment,
-      calculator!._calculator,
+      calculator._calculator,
       &n,
       &numbers,
       &charges,
