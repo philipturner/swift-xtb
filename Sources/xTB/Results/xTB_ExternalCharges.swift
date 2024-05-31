@@ -17,7 +17,7 @@ public struct xTB_ExternalCharges {
   /// Partial charge in units of proton charge.
   public var charges: [Float] = []
   
-  /// The position of each point charge (in nm).
+  /// The position of each point charge (in nanometers).
   public var positions: [SIMD3<Float>] = []
 }
 
@@ -52,5 +52,11 @@ extension xTB_ExternalCharges {
       &numbers,
       &charges,
       &positions64)
+  }
+  
+  /// The force on each external charge (in piconewtons).
+  public var forces: [SIMD3<Float>] {
+    calculator.ensureExternalChargesCached()
+    return calculator.results.externalChargeForces!
   }
 }

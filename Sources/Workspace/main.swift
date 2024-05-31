@@ -21,27 +21,17 @@ xTB_Environment.verbosity = .muted
 // Create a calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = [7, 7]
-calculatorDesc.positions = [
-  SIMD3(0.000, 0.000, 0.000),
-  SIMD3(0.111, 0.000, 0.000),
-]
 calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
+calculator.molecule.positions = [
+  SIMD3(0.000, 0.000, 0.000),
+  SIMD3(0.110, 0.000, 0.000),
+]
 
-// TODO: Plot out the potential energy surface for N2 across various bond
-// lengths, compare to the graph from INQ.
-for stepID in 0..<20 {
-  let positionInBohr = 1.6 + 0.1 * Float(stepID)
-  let positionInNm = positionInBohr * Float(xTB_NmPerBohr)
-  calculator.molecule.positions = [
-    SIMD3(0.000, 0.000, 0.000),
-    SIMD3(positionInNm, 0.000, 0.000),
-  ]
-  
-  let energyInHa = 5.8 + Float(calculator.energy * xTB_HartreePerZJ)
-  print(String(format: "%.3f", positionInBohr), "Bohr", terminator: " | ")
-  print(String(format: "%.3f", energyInHa), "Hartree")
-}
-xTB_Environment.show()
-
-// TODO: Get the Wiberg bond orders for the N2 molecule.
+// Executes the singlepoint lazily, whenever a property 
+// depending on it is requested.
+print("basis set size:", calculator.orbitals.count)
+print("band energy:", 2 * calculator.orbitals.eigenvalues.reduce(0, +), "zJ")
+print("total molecular energy:", calculator.energy, "zJ")
+print("wiberg bond orders:", calculator.molecule.bondOrders)
+print("occupations at finite electronic temperature:", calculator.orbitals.occupations)

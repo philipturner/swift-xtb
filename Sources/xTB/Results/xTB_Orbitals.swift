@@ -20,11 +20,7 @@ public struct xTB_Orbitals {
       count = Self.estimateOrbitalCount(atomicNumbers: atomicNumbers)
     }
   }
-}
-
-// MARK: - Utilities
-
-extension xTB_Orbitals {
+  
   static func estimateOrbitalCount(atomicNumbers: [UInt8]) -> Int {
     var output: Int = .zero
     for atomicNumber in atomicNumbers {
@@ -81,5 +77,27 @@ extension xTB_Orbitals {
       continue
     }
     return output
+  }
+}
+
+extension xTB_Orbitals {
+  /// The energy of each orbital (in zeptojoules).
+  public var eigenvalues: [Float] {
+    calculator.ensureOrbitalsCached()
+    return calculator.results.orbitalEigenvalues!
+  }
+  
+  /// The fractional occupation of each orbital.
+  public var occupations: [Float] {
+    calculator.ensureOrbitalsCached()
+    return calculator.results.orbitalOccupations!
+  }
+  
+  /// Matrix of orbital coefficients.
+  ///
+  /// Dimensions: (orbital count) x (orbital count)
+  public var coefficients: [Float] {
+    calculator.ensureOrbitalsCached()
+    return calculator.results.orbitalCoefficients!
   }
 }

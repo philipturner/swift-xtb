@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-
-
 /// Utility function for casting a Float32 array (in nm) to a Float64
 /// array (in Bohr).
 func convertPositions(_ input: [SIMD3<Float>]) -> [Double] {

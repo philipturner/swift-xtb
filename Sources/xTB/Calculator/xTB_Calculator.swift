@@ -33,7 +33,7 @@ public struct xTB_CalculatorDescriptor {
   /// The default value is zero.
   public var netSpin: Float = .zero
   
-  /// Optional. The position of each atom's nucleus (in nm).
+  /// Optional. The position of each atom's nucleus (in nanometers).
   ///
   /// When using GFN-FF, the positions are needed to initialize force field
   /// parameters. When using tight binding, positions can be specified

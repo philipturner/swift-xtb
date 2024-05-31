@@ -26,7 +26,6 @@ class xTB_Results {
   
   var orbitalCoefficients: [Float]?
   
-  /// Create new singlepoint results object
   init() {
     guard let res = xtb_newResults() else {
       fatalError("Could not create new xTB_Results.")
@@ -34,7 +33,6 @@ class xTB_Results {
     _results = res
   }
   
-  /// Delete singlepoint results object
   deinit {
     xtb_delResults(&_results)
   }

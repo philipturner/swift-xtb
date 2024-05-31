@@ -72,10 +72,8 @@ extension xTB_Calculator {
       invalidateSinglepoint()
     }
   }
-}
-
-extension xTB_Calculator {
-  /// Potential energy (in zJ).
+  
+  /// Potential energy (in zeptojoules).
   public var energy: Double {
     ensureEnergyCached()
     return results.energy!

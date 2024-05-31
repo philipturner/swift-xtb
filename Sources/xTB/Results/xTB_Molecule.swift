@@ -75,7 +75,7 @@ public struct xTB_Molecule {
 }
 
 extension xTB_Molecule {
-  /// The position of each atom's nucleus (in nm).
+  /// The position of each atom's nucleus (in nanometers).
   public var positions: [SIMD3<Float>] {
     _read {
       yield _positions
@@ -97,5 +97,25 @@ extension xTB_Molecule {
       calculator._molecule,
       positions64,
       nil)
+  }
+  
+  /// The force on each atom (in piconewtons).
+  public var forces: [SIMD3<Float>] {
+    calculator.ensureMoleculeCached()
+    return calculator.results.forces!
+  }
+  
+  /// Partial charge in units of proton charge.
+  public var charges: [Float] {
+    calculator.ensureMoleculeCached()
+    return calculator.results.charges!
+  }
+  
+  /// Matrix of Wiberg bond orders.
+  ///
+  /// Dimensions: (atom count) x (atom count)
+  public var bondOrders: [Float] {
+    calculator.ensureMoleculeCached()
+    return calculator.results.bondOrders!
   }
 }
