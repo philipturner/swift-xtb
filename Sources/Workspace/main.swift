@@ -39,11 +39,11 @@ var oldState: [SIMD3<Float>]?
 var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
 
 // Loop until the maximum number of iterations is reached.
-for frameID in 0..<10 {
+for frameID in 0..<100 {
   defer { print() }
   print("frame: \(frameID)", terminator: " | ")
   print("energy:", Float(calculator.energy), "zJ", terminator: " | ")
-  print("Δt:", Δt, terminator: " | ")
+  print("Δt:", Δt * 1000, "fs", terminator: " | ")
   
   // Find the power (P) and maximum force.
   let forces = calculator.molecule.forces
@@ -114,7 +114,7 @@ for frameID in 0..<10 {
     let position = calculator.molecule.positions[atomID]
     let halfwayPoint = position + 0.5 * Δt * velocity
     let newPosition = position + Δt * velocity
-    print(velocity.x, velocity.y, velocity.z, terminator: " | ")
+    print(velocity.x, terminator: " | ")
     
     // Store the new state.
     velocities[atomID] = velocity
