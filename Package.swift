@@ -12,6 +12,9 @@ let package = Package(
     .library(
       name: "Meshing",
       targets: ["Meshing"]),
+    .library(
+      name: "xTB",
+      targets: ["xTB"]),
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
