@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Numerics
 import xTB
 
 // Load the xTB library with a configuration for maximum performance.
@@ -25,65 +26,122 @@ calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 calculator.molecule.positions = [
   SIMD3(0.000, 0.000, 0.000),
-  SIMD3(0.110, 0.000, 0.000),
+  SIMD3(0.180, 0.000, 0.000),
 ]
 
-// Repeat this process for three slightly different singlepoints, verify that
-// the results change accordingly. In addition, that the results are
-// reproduced when you enter the same configuration again.
-let sampleDistancesInBohr: [Float] = [
-  1.6, 2.1, 3.4, 2.1
-]
-for distanceInBohr in sampleDistancesInBohr {
-  let distanceInNm = distanceInBohr * Float(xTB_NmPerBohr)
-  calculator.molecule.positions = [
-    SIMD3(0.000, 0.000, 0.000),
-    SIMD3(distanceInNm, 0.000, 0.000),
-  ]
+// Make a constant for atom count, for convenience.
+let atomCount = calculator.molecule.atomicNumbers.count
+
+// FIRE Algorithm
+var Δt: Float = 0.001
+var NP0: Int = 0
+var oldState: [SIMD3<Float>]?
+var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
+
+// Loop until the maximum number of iterations is reached.
+for frameID in 0..<10 {
+  defer { print() }
+  print("frame: \(frameID)", terminator: " | ")
+  print("energy:", Float(calculator.energy), "zJ", terminator: " | ")
+  print("Δt:", Δt, terminator: " | ")
   
-  print()
-  print("basis size:", calculator.orbitals.count)
-  print("occupations at finite electronic temperature:", calculator.orbitals.occupations)
-  print("eigenvalues:", calculator.orbitals.eigenvalues)
-  do {
-    let eigenvalues = calculator.orbitals.eigenvalues
-    let occupations = calculator.orbitals.occupations
-    let bandEnergy = zip(eigenvalues, occupations).map(*).reduce(0, +)
-    print("band energy:", bandEnergy, "zJ")
+  // Find the power (P) and maximum force.
+  let forces = calculator.molecule.forces
+  var P: Float = .zero
+  var maxForce: Float = .zero
+  for atomID in 0..<atomCount {
+    let force = forces[atomID]
+    let velocity = velocities[atomID]
+    P += (force * velocity).sum()
+    
+    let forceMagnitude = (force * force).sum().squareRoot()
+    maxForce = max(maxForce, forceMagnitude)
   }
-  print(
-    "total molecular energy:", Float(calculator.energy), "zJ", terminator: " ")
-  print(
-    Float(calculator.energy * xTB_HartreePerZJ), "Ha")
+  print("max force:", maxForce, terminator: " | ")
   
-  print()
-  print("distance:", distanceInNm, "nm")
-  print("charges:", calculator.molecule.charges)
-  print("wiberg bond orders:", calculator.molecule.bondOrders)
-  print("orbital coefficents:")
-  for rowID in 0..<calculator.orbitals.count {
-    print("[", terminator: "")
-    for columnID in 0..<calculator.orbitals.count {
-      let address = rowID * calculator.orbitals.count + columnID
-      let coefficient = calculator.orbitals.coefficients[address]
-      var repr = String(format: "%.3f", coefficient)
-      if !repr.starts(with: "-") {
-        repr = " " + repr
-      }
-      
-      if columnID == calculator.orbitals.count - 1 {
-        print(repr, terminator: "")
+  // Either restart or increase the timestep.
+  if frameID > 0, P < 0 {
+    if let oldState {
+      calculator.molecule.positions = oldState
+    }
+    velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
+    
+    NP0 = 0
+    Δt = max(0.5 * Δt, 0.001 / 20)
+  } else {
+    NP0 += 1
+    if NP0 > 5 {
+      Δt = min(1.1 * Δt, 0.005)
+    }
+  }
+  
+  // Update the atoms.
+  oldState = []
+  for atomID in 0..<atomCount {
+    let force = forces[atomID]
+    var velocity = velocities[atomID]
+    
+    // Ensure the force scale is finite.
+    var forceScale: Float
+    do {
+      let vNorm = (velocity * velocity).sum().squareRoot()
+      let fNorm = (force * force).sum().squareRoot()
+      forceScale = vNorm / fNorm
+    }
+    if forceScale.isNaN || forceScale.isInfinite {
+      forceScale = .zero
+    }
+    
+    // Choose a mass for the atom.
+    var mass: Float
+    do {
+      let atomicNumber = calculator.molecule.atomicNumbers[atomID]
+      if atomicNumber == 1 {
+        // Set the hydrogen mass to 4 amu.
+        mass = 4 * 1.6605
       } else {
-        print(repr, terminator: ", ")
+        // Normalize the vibration period, to match carbon.
+        mass = 12.011 * 1.6605
       }
     }
-    print("]")
-  }
-  print("forces:")
-  for force in calculator.molecule.forces {
-    print(force.x, "pN", terminator: " ")
     
-    let scaleFactor = Float(xTB_HartreePerZJ / xTB_BohrPerNm)
-    print(force.x * scaleFactor, "Ha/Bohr")
+    // Semi-implicit Euler integration.
+    let α: Float = 0.25
+    velocity += Δt * force / mass
+    velocity = (1 - α) * velocity + α * force * forceScale
+    do {
+      // Accelerated bias correction.
+      var biasCorrection = (1 - α)
+      biasCorrection = Float.pow(biasCorrection, Float(NP0))
+      biasCorrection = 1 / (1 - biasCorrection)
+      // velocity *= biasCorrection
+      
+      // Apply the "d_max" criterion.
+      // 2 fs, 4000 m/s -> Δx = 0.008 nm
+      let speed = (velocity * velocity).sum().squareRoot()
+      let distanceTraveled = Δt * speed
+      if distanceTraveled > 0.008 {
+        velocity *= 0.008 / distanceTraveled
+      }
+    }
+    
+    // Integrate the position.
+    let position = calculator.molecule.positions[atomID]
+    let halfwayPoint = position + 0.5 * Δt * velocity
+    let newPosition = position + Δt * velocity
+    print(velocity.x, velocity.y, velocity.z, terminator: " | ")
+    
+    // Store the new state.
+    velocities[atomID] = velocity
+    calculator.molecule.positions[atomID] = newPosition
+    oldState!.append(halfwayPoint)
+    
+    let delta = Δt * velocity
+    let distance = (delta * delta).sum().squareRoot()
+    print("d =", distance, terminator: " | ")
   }
 }
+
+// Report the final state.
+let positions = calculator.molecule.positions
+print("final bond vector:", positions[1] - positions[0])
