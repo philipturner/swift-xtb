@@ -106,24 +106,9 @@ for frameID in 0..<10 {
     }
     
     // Semi-implicit Euler integration.
-    let α: Float = 0.25
+    let α: Float = 0.1
     velocity += Δt * force / mass
     velocity = (1 - α) * velocity + α * force * forceScale
-    do {
-      // Accelerated bias correction.
-      var biasCorrection = (1 - α)
-      biasCorrection = Float.pow(biasCorrection, Float(NP0))
-      biasCorrection = 1 / (1 - biasCorrection)
-      // velocity *= biasCorrection
-      
-      // Apply the "d_max" criterion.
-      // 2 fs, 4000 m/s -> Δx = 0.008 nm
-      let speed = (velocity * velocity).sum().squareRoot()
-      let distanceTraveled = Δt * speed
-      if distanceTraveled > 0.008 {
-        velocity *= 0.008 / distanceTraveled
-      }
-    }
     
     // Integrate the position.
     let position = calculator.molecule.positions[atomID]
