@@ -39,7 +39,7 @@ var oldState: [SIMD3<Float>]?
 var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
 
 // Loop until the maximum number of iterations is reached.
-for frameID in 0..<100 {
+for frameID in 0..<50 {
   defer {
     print()
   }
@@ -124,24 +124,21 @@ for frameID in 0..<100 {
     velocity = (1 - α) * velocity + α * force * forceScale
     
     // Accelerated bias correction.
-    //
-    // When simulating a reaction trajectory, you would use this to
-    // precondition the velocity at the very start of the simulation.
-    //
-    // Time evolution would be like FIRE, except the timestep is fixed at
-    // 2.5 fs. Perhaps the forcing term here is a manifestation of the 0.95x
-    // damping used to stabilize previous reaction simulations.
+    // - This should be applied whenever the system's velocities are suddenly
+    //   reset to zero. Ideally, such a situation will never happen in a
+    //   molecular dynamics simulation.
+    // - The correction can shrink the number of iterations by a factor of 2x.
     if NP0 > 0 {
       var biasCorrection = 1 - α
       biasCorrection = Float.pow(biasCorrection, Float(NP0))
       biasCorrection = 1 / (1 - biasCorrection)
       velocity *= biasCorrection
-      
-      // Clamp the velocity to 4000 m/s.
-      let speed = (velocity * velocity).sum().squareRoot()
-      if speed > 4.0 {
-        velocity *= 4.0 / speed
-      }
+    }
+    
+    // Clamp the velocity to 4000 m/s.
+    let speed = (velocity * velocity).sum().squareRoot()
+    if speed > 4.0 {
+      velocity *= 4.0 / speed
     }
     
     // Integrate the position.
