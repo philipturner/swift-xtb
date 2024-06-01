@@ -26,7 +26,7 @@ calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 calculator.molecule.positions = [
   SIMD3(0.000, 0.000, 0.000),
-  SIMD3(0.180, 0.000, 0.000),
+  SIMD3(0.280, 0.000, 0.000),
 ]
 
 // Make a constant for atom count, for convenience.
@@ -39,8 +39,8 @@ var oldState: [SIMD3<Float>]?
 var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
 
 // Loop until the maximum number of iterations is reached.
-for frameID in 0..<50 {
-  defer { 
+for frameID in 0..<100 {
+  defer {
     print()
   }
   print("frame: \(frameID)", terminator: " | ")
@@ -117,16 +117,31 @@ for frameID in 0..<50 {
     }
     
     // Semi-implicit Euler integration.
+    // - This could be considered a valid form of molecular dynamics, just with
+    //   a forcing term that accelerates the descent into the global minimum.
     let α: Float = 0.25
     velocity += Δt * force / mass
     velocity = (1 - α) * velocity + α * force * forceScale
     
     // Accelerated bias correction.
+    //
+    // When simulating a reaction trajectory, you would use this to
+    // precondition the velocity at the very start of the simulation.
+    //
+    // Time evolution would be like FIRE, except the timestep is fixed at
+    // 2.5 fs. Perhaps the forcing term here is a manifestation of the 0.95x
+    // damping used to stabilize previous reaction simulations.
     if NP0 > 0 {
       var biasCorrection = 1 - α
       biasCorrection = Float.pow(biasCorrection, Float(NP0))
       biasCorrection = 1 / (1 - biasCorrection)
       velocity *= biasCorrection
+      
+      // Clamp the velocity to 4000 m/s.
+      let speed = (velocity * velocity).sum().squareRoot()
+      if speed > 4.0 {
+        velocity *= 4.0 / speed
+      }
     }
     
     // Integrate the position.
