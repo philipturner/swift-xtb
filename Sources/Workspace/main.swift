@@ -67,7 +67,7 @@ for frameID in 0..<50 {
     velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
     
     NP0 = 0
-    Δt = max(0.5 * Δt, 0.001 / 20)
+    Δt = max(0.5 * Δt, 0.25e-3)
   } else {
     NP0 += 1
     if NP0 > 5 {
@@ -75,22 +75,31 @@ for frameID in 0..<50 {
     }
   }
   
+  // Compute the force scale for the entire system.
+  var forceScale: Float
+  do {
+    var vAccumulator: Float = .zero
+    var fAccumulator: Float = .zero
+    for atomID in 0..<atomCount {
+      let velocity = velocities[atomID]
+      let force = forces[atomID]
+      vAccumulator += (velocity * velocity).sum()
+      fAccumulator += (force * force).sum()
+    }
+    
+    let vNorm = vAccumulator.squareRoot()
+    let fNorm = fAccumulator.squareRoot()
+    forceScale = vNorm / fNorm
+  }
+  if forceScale.isNaN || forceScale.isInfinite {
+    forceScale = .zero
+  }
+  
   // Update the atoms.
   oldState = []
   for atomID in 0..<atomCount {
     let force = forces[atomID]
     var velocity = velocities[atomID]
-    
-    // Ensure the force scale is finite.
-    var forceScale: Float
-    do {
-      let vNorm = (velocity * velocity).sum().squareRoot()
-      let fNorm = (force * force).sum().squareRoot()
-      forceScale = vNorm / fNorm
-    }
-    if forceScale.isNaN || forceScale.isInfinite {
-      forceScale = .zero
-    }
     
     // Choose a mass for the atom.
     var mass: Float
@@ -109,6 +118,14 @@ for frameID in 0..<50 {
     let α: Float = 0.25
     velocity += Δt * force / mass
     velocity = (1 - α) * velocity + α * force * forceScale
+    
+    // Accelerated bias correction.
+    if NP0 > 0 {
+      var biasCorrection = 1 - α
+      biasCorrection = Float.pow(biasCorrection, Float(NP0))
+      biasCorrection = 1 / (1 - biasCorrection)
+      velocity *= biasCorrection
+    }
     
     // Integrate the position.
     let position = calculator.molecule.positions[atomID]
