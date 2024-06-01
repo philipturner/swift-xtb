@@ -39,7 +39,7 @@ var oldState: [SIMD3<Float>]?
 var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
 
 // Loop until the maximum number of iterations is reached.
-for frameID in 0..<100 {
+for frameID in 0..<50 {
   defer { print() }
   print("frame: \(frameID)", terminator: " | ")
   print("energy:", Float(calculator.energy), "zJ", terminator: " | ")
@@ -106,7 +106,7 @@ for frameID in 0..<100 {
     }
     
     // Semi-implicit Euler integration.
-    let α: Float = 0.1
+    let α: Float = 0.25
     velocity += Δt * force / mass
     velocity = (1 - α) * velocity + α * force * forceScale
     
