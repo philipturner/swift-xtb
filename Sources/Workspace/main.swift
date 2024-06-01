@@ -40,7 +40,9 @@ var velocities = [SIMD3<Float>](repeating: .zero, count: atomCount)
 
 // Loop until the maximum number of iterations is reached.
 for frameID in 0..<50 {
-  defer { print() }
+  defer { 
+    print()
+  }
   print("frame: \(frameID)", terminator: " | ")
   print("energy:", Float(calculator.energy), "zJ", terminator: " | ")
   print("Δt:", Δt * 1000, "fs", terminator: " | ")
@@ -71,7 +73,7 @@ for frameID in 0..<50 {
   } else {
     NP0 += 1
     if NP0 > 5 {
-      Δt = min(1.1 * Δt, 0.005)
+      Δt = min(1.1 * Δt, 0.004)
     }
   }
   
@@ -147,3 +149,4 @@ for frameID in 0..<50 {
 // Report the final state.
 let positions = calculator.molecule.positions
 print("final bond vector:", positions[1] - positions[0])
+print()
