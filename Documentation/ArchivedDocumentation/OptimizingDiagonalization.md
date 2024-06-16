@@ -110,3 +110,29 @@ benchmarkProblemSize(n: 750, trialCount: 3)
 benchmarkProblemSize(n: 800, trialCount: 3)
 benchmarkProblemSize(n: 1000, trialCount: 3)
 ```
+
+## Preliminary Benchmark Data
+
+Implementations:
+- Accelerate `dsyevd`
+- Accelerate `ssyevd`
+- Accelerate `ssyev`
+- Current state of the `Diagonalize` API
+  - With Swift release mode `-Ounchecked`
+
+Problems:
+- Eigenvalues only, identity matrix (Λ1)
+- Eigenvalues only, continuous spectrum (Λ2)
+- Eigenvalues and eigenvectors, identity matrix (Σ1)
+- Eigenvalues and eigenvectors, continuous spectrum (Σ2)
+
+Benchmarking procedure:
+- Problem sizes range from 147 to 407
+- Per problem size: fastest of 3 samples
+- Per 16-bin: fastest problem size
+
+### Accelerate `dsyevd`
+
+| n | Λ1 | Λ2 | Σ1 | Σ2 |
+| - | -- | -- | -- | -- |
+| 144&ndash;160 |

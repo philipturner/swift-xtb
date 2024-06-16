@@ -721,9 +721,9 @@ private func executeLAPACKComparison(
     diagonalizationDesc.blockSize = 4
   }
   
-  let diagonalizaton = Diagonalization(descriptor: diagonalizationDesc)
-  let actualEigenvalues = diagonalizaton.eigenvalues
-  let actualEigenvectors = diagonalizaton.eigenvectors
+  let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+  let actualEigenvalues = diagonalization.eigenvalues
+  let actualEigenvectors = diagonalization.eigenvectors
   
   for i in 0..<n {
     let expected = expectedEigenvalues[i]

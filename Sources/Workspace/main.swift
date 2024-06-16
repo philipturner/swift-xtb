@@ -5,7 +5,9 @@
 //  Created by Philip Turner on 5/25/24.
 //
 
+import Accelerate
 import Foundation
+import LinearAlgebra
 import Numerics
 import xTB
 
