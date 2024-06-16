@@ -7,23 +7,50 @@ let package = Package(
   name: "Mechanosynthesis",
   products: [
     .library(
-      name: "Mechanosynthesis",
-      targets: ["Mechanosynthesis"]),
+      name: "LinearAlgebra",
+      targets: ["LinearAlgebra"]),
+    .library(
+      name: "Meshing",
+      targets: ["Meshing"]),
+    .library(
+      name: "xTB",
+      targets: ["xTB"]),
   ],
   dependencies: [
     .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
   ],
   targets: [
     .target(
-      name: "Mechanosynthesis",
+      name: "LinearAlgebra",
+      dependencies: []),
+    .target(
+      name: "Meshing",
       dependencies: [
         .product(name: "Numerics", package: "swift-numerics"),
       ]),
+    .target(
+      name: "xTB",
+      dependencies: []),
+    
     .executableTarget(
       name: "Workspace",
-      dependencies: ["Mechanosynthesis"]),
+      dependencies: [
+        "LinearAlgebra", 
+        "Meshing",
+        .product(name: "Numerics", package: "swift-numerics"),
+        "xTB",
+      ]),
+    
     .testTarget(
-      name: "MechanosynthesisTests",
-      dependencies: ["Mechanosynthesis"]),
+      name: "AlgorithmTests",
+      dependencies: [
+        "LinearAlgebra",
+        .product(name: "Numerics", package: "swift-numerics"),
+      ]),
+    .testTarget(
+      name: "MeshingTests",
+      dependencies: [
+        "Meshing"
+      ]),
   ]
 )

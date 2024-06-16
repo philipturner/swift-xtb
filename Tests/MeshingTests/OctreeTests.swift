@@ -1,6 +1,5 @@
 import XCTest
-import Mechanosynthesis
-import Numerics
+import Meshing
 
 final class OctreeTests: XCTestCase {
   func testPrefixSum() throws {

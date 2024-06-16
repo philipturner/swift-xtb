@@ -1,5 +1,4 @@
 import XCTest
-import Mechanosynthesis
 import Numerics
 
 // Performance of different algorithms

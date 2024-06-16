@@ -16,3 +16,7 @@ Goals:
 - No pseudopotentials
   - Large-core pseudopotentials interact with the XC functional, polluting simulation results.
   - Similar to the issue with the AO basis: BSSE pollutes simulation results.
+
+Also included (for semiempirical simulations):
+- Swift bindings for xTB
+- Fast matrix diagonalization kernel

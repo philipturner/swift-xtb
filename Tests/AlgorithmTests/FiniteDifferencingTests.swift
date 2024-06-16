@@ -1,6 +1,4 @@
 import XCTest
-import Mechanosynthesis
-import Numerics
 
 final class FiniteDifferencingTests: XCTestCase {
   // Test various orders of finite differencing with a 1D function on a uniform
