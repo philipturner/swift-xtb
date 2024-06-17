@@ -154,18 +154,18 @@ struct TestCase {
   }
 }
 
-// Double precision implementation of diagonalization.
-func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
-  eigenvalues: [Double], eigenvectors: [Double]
+// Single precision implementation of diagonalization.
+func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
+  eigenvalues: [Float], eigenvectors: [Float]
 ) {
   var JOBZ = CChar(jobz.asciiValue!)
   var UPLO = CChar(Character("L").asciiValue!)
   var N: Int32 = Int32(n)
-  var A = [Double](repeating: 0, count: n * n)
-  memcpy(&A, matrix, n * n * 8)
+  var A = [Float](repeating: 0, count: n * n)
+  memcpy(&A, matrix, n * n * 4)
   var LDA: Int32 = Int32(n)
-  var W = [Double](repeating: 0, count: n)
-  var WORK: [Double] = [0]
+  var W = [Float](repeating: 0, count: n)
+  var WORK: [Float] = [0]
   var LWORK: Int32 = -1
   var IWORK: [Int32] = [0]
   var LIWORK: Int32 = -1
@@ -178,7 +178,7 @@ func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
         let WORK = $0.baseAddress!
         IWORK.withContiguousMutableStorageIfAvailable {
           let IWORK = $0.baseAddress!
-          dsyevd_(
+          ssyev_(
             &JOBZ, // JOBZ
             &UPLO, // UPLO
             &N, // N
@@ -187,8 +187,8 @@ func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
             W, // W
             WORK, // WORK
             &LWORK, // LWORK
-            IWORK, // IWORK
-            &LIWORK, // LIWORK
+//            IWORK, // IWORK
+//            &LIWORK, // LIWORK
             &INFO // INFO
           )
           guard INFO == 0 else {
@@ -199,13 +199,13 @@ func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
       
       LWORK = Int32(WORK[0])
       LIWORK = Int32(IWORK[0])
-      WORK = [Double](repeating: 0, count: Int(LWORK))
+      WORK = [Float](repeating: 0, count: Int(LWORK))
       IWORK = [Int32](repeating: 0, count: Int(LIWORK))
       WORK.withContiguousMutableStorageIfAvailable {
         let WORK = $0.baseAddress!
         IWORK.withContiguousMutableStorageIfAvailable {
           let IWORK = $0.baseAddress!
-          dsyevd_(
+          ssyev_(
             &JOBZ, // JOBZ
             &UPLO, // UPLO
             &N, // N
@@ -214,8 +214,8 @@ func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
             W, // W
             WORK, // WORK
             &LWORK, // LWORK
-            IWORK, // IWORK
-            &LIWORK, // LIWORK
+//            IWORK, // IWORK
+//            &LIWORK, // LIWORK
             &INFO // INFO
           )
           guard INFO == 0 else {
@@ -250,7 +250,7 @@ var bins: [Int: SIMD4<Float>] = [:]
 for problemSize in problemSizes {
   var maxGFLOPS: SIMD4<Float> = .zero
   
-  for configID in 0..<4 {
+  for configID in 0..<2 {
     // Set the properties of the descriptor.
     var testDescriptor = TestDescriptor()
     testDescriptor.problemSize = problemSize
@@ -265,12 +265,15 @@ for problemSize in problemSizes {
     
     // Set up the problem.
     let test = TestCase(descriptor: testDescriptor)
-    let matrix64 = test.matrix.map(Double.init)
-    var eigenvalues64: [Double] = []
-    var eigenvectors64: [Double] = []
+    var eigenvalues: [Float] = []
+    var eigenvectors: [Float] = []
+    
+    var diagonalizationDesc = DiagonalizationDescriptor()
+    diagonalizationDesc.matrix = test.matrix
+    diagonalizationDesc.problemSize = problemSize
     
     // Run the benchmark.
-    for trialID in 0..<10 {
+    for trialID in 0..<3 {
       var jobz: Character
       switch configID {
       case 0: jobz = "N"
@@ -282,12 +285,11 @@ for problemSize in problemSizes {
       }
       
       let checkpoint0 = Date()
+      let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
       if trialID == 0 {
-        (eigenvalues64, eigenvectors64) = diagonalize(
-          matrix: matrix64, n: problemSize, jobz: jobz)
+        eigenvalues = diagonalization.eigenvalues
       } else {
-        _ = diagonalize(
-          matrix: matrix64, n: problemSize, jobz: jobz)
+        eigenvectors = diagonalization.eigenvectors
       }
       let checkpoint1 = Date()
       
@@ -296,10 +298,8 @@ for problemSize in problemSizes {
       let gflops = Float(operationCount) / Float(latency) / 1e9
       maxGFLOPS[configID] = max(maxGFLOPS[configID], gflops)
     }
-    _ = eigenvectors64
     
     // Check the correctness of the result.
-    let eigenvalues = eigenvalues64.map(Float.init)
     test.check(eigenvalues: eigenvalues)
   }
   
@@ -317,7 +317,7 @@ for binID in bins.keys.sorted() {
   print("| \(range.lowerBound)&ndash;\(range.upperBound)", terminator: " | ")
   
   // Display the different configs that were benchmarked.
-  for laneID in 0..<4 {
+  for laneID in 0..<2 {
     let gflopsK = result[laneID]
     var repr = String(format: "%.1f", gflopsK)
     while repr.count < 5 {
