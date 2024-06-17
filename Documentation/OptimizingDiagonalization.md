@@ -269,3 +269,7 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 | Problem Size | SCF Cycles | SCF Latency (Reported) | Total Latency (Reported) | Actual Latency |
 | ------------ | ---------- | ---------------------- | ------------------------ | --- |
 | 1 | 2 | 3 | 4 | 5 |
+
+| Problem Size | SCF Latency (Predicted) | SCF Latency (D & C) | Overall Latency Reduction |
+| ------------ | ----------------------- | ------------------- | ----------------- |
+| 1 | 2 | 3 | 4 |
