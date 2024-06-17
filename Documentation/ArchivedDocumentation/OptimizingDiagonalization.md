@@ -117,6 +117,7 @@ Implementations:
 - Accelerate `dsyevd`
 - Accelerate `ssyevd`
 - Accelerate `ssyev`
+- Accelerate divide and conquer with the tridiagonal matrix from `Diagonalize`
 - Current state of the `Diagonalize` API
   - With Swift release mode `-Ounchecked`
 
