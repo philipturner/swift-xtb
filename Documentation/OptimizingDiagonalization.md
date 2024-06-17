@@ -219,3 +219,51 @@ Benchmarking procedure:
 | 369&ndash;384 |   5.7 |   4.5 | 
 | 385&ndash;400 |   6.2 |   4.9 | 
 | 401&ndash;416 |   6.2 |   4.9 | 
+
+### Accelerate divide and conquer
+
+| n | Λ1 | Λ2 |
+| - | -- | -- |
+| 145&ndash;160 | 148.9 |   6.9 | 
+| 161&ndash;176 | 185.0 |   8.2 | 
+| 177&ndash;192 | 198.7 |   8.9 | 
+| 193&ndash;208 | 220.7 |  10.1 | 
+| 209&ndash;224 | 238.8 |  11.3 | 
+| 225&ndash;240 | 256.1 |  12.3 | 
+| 241&ndash;256 | 274.4 |  13.6 | 
+| 257&ndash;272 | 292.4 |  14.6 | 
+| 273&ndash;288 | 307.0 |  15.6 | 
+| 289&ndash;304 | 328.2 |  16.9 | 
+| 305&ndash;320 | 342.6 |  18.0 | 
+| 321&ndash;336 | 353.6 |  19.5 | 
+| 337&ndash;352 | 354.6 |  20.5 | 
+| 353&ndash;368 | 371.6 |  21.9 | 
+| 369&ndash;384 | 383.1 |  23.1 | 
+| 385&ndash;400 | 401.3 |  24.5 | 
+| 401&ndash;416 | 434.0 |  25.4 | 
+
+| n | Λ1 | Λ2 |
+| - | -- | -- |
+| 369&ndash;384 | 377.6 |  23.4 | 
+| 433&ndash;448 | 465.9 |  28.9 | 
+| 497&ndash;512 | 472.7 |  34.5 | 
+| 561&ndash;576 | 588.1 |  41.0 | 
+| 625&ndash;640 | 534.9 |  46.7 | 
+| 689&ndash;704 | 587.4 |  53.0 | 
+| 753&ndash;768 | 636.2 |  59.9 | 
+| 817&ndash;832 | 585.3 |  62.7 | 
+| 881&ndash;896 | 737.8 |  73.3 | 
+
+With a 407x407 hamiltonian, we can expect the following latencies for 7 SCF cycles:
+- Accelerate `dsyevd`: 80 ms
+- Accelerate `ssyevd`: 54 ms
+- If divide and conquer is the bottleneck: 19 ms
+
+With an 896x896 hamiltonian, we can expect the following latencies for 7 SCF cycles:
+- Accelerate `dsyevd`: 629 ms
+- Accelerate `ssyevd`: 379 ms
+- If divide and conquer is the bottleneck: 69 ms
+
+We should prove that the bottleneck in xTB is actually matrix diagonalization at these problem sizes. What percent of the execution time would be spent on diagonalization, with only the latency of divide and conquer?
+
+To find the answer, I need to create a linear algebra trampoline library. Intercept each call to a linear algebra function from xTB and profile the execution time.

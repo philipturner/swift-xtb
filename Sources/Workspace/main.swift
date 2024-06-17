@@ -150,7 +150,6 @@ struct TestCase {
       guard (actual - expected).magnitude < accuracy else {
         fatalError("Solver failed at  Λ[\(i)].")
       }
-      print(actual, expected)
     }
   }
 }
@@ -179,7 +178,7 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
         let WORK = $0.baseAddress!
         IWORK.withContiguousMutableStorageIfAvailable {
           let IWORK = $0.baseAddress!
-          ssyev_(
+          ssyevd_(
             &JOBZ, // JOBZ
             &UPLO, // UPLO
             &N, // N
@@ -188,8 +187,8 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
             W, // W
             WORK, // WORK
             &LWORK, // LWORK
-//            IWORK, // IWORK
-//            &LIWORK, // LIWORK
+            IWORK, // IWORK
+            &LIWORK, // LIWORK
             &INFO // INFO
           )
           guard INFO == 0 else {
@@ -206,7 +205,7 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
         let WORK = $0.baseAddress!
         IWORK.withContiguousMutableStorageIfAvailable {
           let IWORK = $0.baseAddress!
-          ssyev_(
+          ssyevd_(
             &JOBZ, // JOBZ
             &UPLO, // UPLO
             &N, // N
@@ -215,8 +214,8 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
             W, // W
             WORK, // WORK
             &LWORK, // LWORK
-//            IWORK, // IWORK
-//            &LIWORK, // LIWORK
+            IWORK, // IWORK
+            &LIWORK, // LIWORK
             &INFO // INFO
           )
           guard INFO == 0 else {
@@ -230,29 +229,36 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
 }
 
 // Generate the problem sizes to target.
-var problemSizesRaw: [Int] = [
+//var problemSizesRaw: [Int] = [
 //  147, 155, 157, 165, 167, 175, 177, 185, 187, 193, 201, 203, 211, 213, 219,
 //  221, 221, 222, 228, 230, 228, 235, 237, 244, 246, 253, 261, 263, 265, 265,
 //  271, 273, 279, 281, 287, 289, 297, 299, 306, 308, 316, 317, 325, 327
-  15
-]
-var problemSizes: [Int]
-do {
-  var problemSizesSet = Set(problemSizesRaw)
-  for problemSizeID in problemSizesRaw.indices {
-    var problemSize = problemSizesRaw[problemSizeID]
+//]
+//var problemSizes: [Int]
+//do {
+//  var problemSizesSet = Set(problemSizesRaw)
+//  for problemSizeID in problemSizesRaw.indices {
+//    var problemSize = problemSizesRaw[problemSizeID]
 //    problemSize += 80
 //    problemSizesSet.insert(problemSize)
-  }
-  problemSizes = Array(problemSizesSet).sorted()
-}
+//  }
+//  problemSizes = Array(problemSizesSet).sorted()
+//}
+let problemSizes: [Int] = [
+  384, 384 + 64,
+  512, 512 + 64,
+  640, 640 + 64,
+  768, 768 + 64,
+  896,
+]
 
 // Run the benchmarks.
 var bins: [Int: SIMD4<Float>] = [:]
 for problemSize in problemSizes {
+  print("Reached problem size \(problemSize)")
   var maxGFLOPS: SIMD4<Float> = .zero
   
-  for configID in 0..<2 {
+  for configID in 0..<4 {
     // Set the properties of the descriptor.
     var testDescriptor = TestDescriptor()
     testDescriptor.problemSize = problemSize
@@ -300,9 +306,6 @@ for problemSize in problemSizes {
     
     // Check the correctness of the result.
     test.check(eigenvalues: eigenvalues)
-    
-      print(eigenvectors)
-    
   }
   
   // Store the results to the bin.
