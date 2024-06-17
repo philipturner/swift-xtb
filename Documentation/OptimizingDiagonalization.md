@@ -266,4 +266,6 @@ With an 896x896 hamiltonian, we can expect the following latencies for 7 SCF cyc
 
 We should prove that the bottleneck in xTB is actually matrix diagonalization at these problem sizes. What percent of the execution time would be spent on diagonalization, with only the latency of divide and conquer?
 
-To find the answer, I need to create a linear algebra trampoline library. Intercept each call to a linear algebra function from xTB and profile the execution time.
+| Problem Size | SCF Cycles | SCF Latency (Reported) | Total Latency (Reported) | Actual Latency |
+| ------------ | ---------- | ---------------------- | ------------------------ | --- |
+| 1 | 2 | 3 | 4 | 5 |
