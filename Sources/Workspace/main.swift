@@ -246,31 +246,84 @@ do {
 }
 
 // Run the benchmarks.
+var bins: [Int: SIMD4<Float>] = [:]
 for problemSize in problemSizes {
-  var testDescriptor = TestDescriptor()
-  testDescriptor.problemSize = problemSize
-  testDescriptor.type = .logarithmicSpectrum
+  var maxGFLOPS: SIMD4<Float> = .zero
   
-  let test = TestCase(descriptor: testDescriptor)
-  let matrix64 = test.matrix.map(Double.init)
-  var eigenvalues64: [Double] = []
-  
-  var maxGFLOPS: Float = .zero
-  for _ in 0..<3 {
-    let checkpoint0 = Date()
-    (eigenvalues64, _) = diagonalize(
-      matrix: matrix64, n: problemSize, jobz: "N")
-    let checkpoint1 = Date()
+  for configID in 0..<4 {
+    // Set the properties of the descriptor.
+    var testDescriptor = TestDescriptor()
+    testDescriptor.problemSize = problemSize
+    switch configID {
+    case 0: testDescriptor.type = .identityMatrix
+    case 1: testDescriptor.type = .logarithmicSpectrum
+    case 2: testDescriptor.type = .identityMatrix
+    case 3: testDescriptor.type = .logarithmicSpectrum
+    default:
+      fatalError("Unexpected config ID.")
+    }
     
-    let latency = checkpoint1.timeIntervalSince(checkpoint0) as Double
-    let operationCount = problemSize * problemSize * problemSize
-    let gflops = Float(operationCount) / Float(latency) / 1e9
-    maxGFLOPS = max(maxGFLOPS, gflops)
+    // Set up the problem.
+    let test = TestCase(descriptor: testDescriptor)
+    let matrix64 = test.matrix.map(Double.init)
+    var eigenvalues64: [Double] = []
+    var eigenvectors64: [Double] = []
+    
+    // Run the benchmark.
+    for trialID in 0..<10 {
+      var jobz: Character
+      switch configID {
+      case 0: jobz = "N"
+      case 1: jobz = "N"
+      case 2: jobz = "V"
+      case 3: jobz = "V"
+      default:
+        fatalError("Unexpected config ID.")
+      }
+      
+      let checkpoint0 = Date()
+      if trialID == 0 {
+        (eigenvalues64, eigenvectors64) = diagonalize(
+          matrix: matrix64, n: problemSize, jobz: jobz)
+      } else {
+        _ = diagonalize(
+          matrix: matrix64, n: problemSize, jobz: jobz)
+      }
+      let checkpoint1 = Date()
+      
+      let latency = checkpoint1.timeIntervalSince(checkpoint0) as Double
+      let operationCount = problemSize * problemSize * problemSize
+      let gflops = Float(operationCount) / Float(latency) / 1e9
+      maxGFLOPS[configID] = max(maxGFLOPS[configID], gflops)
+    }
+    _ = eigenvectors64
+    
+    // Check the correctness of the result.
+    let eigenvalues = eigenvalues64.map(Float.init)
+    test.check(eigenvalues: eigenvalues)
   }
   
-  // TODO: Round to one significant digit.
-  print("problemSize = \(problemSize), maxGFLOPS = \(maxGFLOPS)")
+  // Store the results to the bin.
+  let binID = (problemSize + 16 - 1) / 16
+  var previousGFLOPS = bins[binID] ?? .zero
+  previousGFLOPS.replace(with: maxGFLOPS, where: maxGFLOPS .> previousGFLOPS)
+  bins[binID] = previousGFLOPS
+}
+
+// Display the results.
+for binID in bins.keys.sorted() {
+  let result = bins[binID]!
+  let range = (16 * binID - 15)..<(16 * binID)
+  print("| \(range.lowerBound)&ndash;\(range.upperBound)", terminator: " | ")
   
-  let eigenvalues = eigenvalues64.map(Float.init)
-  test.check(eigenvalues: eigenvalues)
+  // Display the different configs that were benchmarked.
+  for laneID in 0..<4 {
+    let gflopsK = result[laneID]
+    var repr = String(format: "%.1f", gflopsK)
+    while repr.count < 5 {
+      repr = " " + repr
+    }
+    print(repr, terminator: " | ")
+  }
+  print()
 }

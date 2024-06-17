@@ -117,9 +117,9 @@ Implementations:
 - Accelerate `dsyevd`
 - Accelerate `ssyevd`
 - Accelerate `ssyev`
-- Accelerate divide and conquer with the tridiagonal matrix from `Diagonalize`
 - Current state of the `Diagonalize` API
-  - With Swift release mode `-Ounchecked`
+  - With Swift release mode (`-Ounchecked`)
+- Accelerate divide and conquer with the tridiagonal matrix from `Diagonalize`
 
 Problems:
 - Eigenvalues only, identity matrix (Λ1)
@@ -136,4 +136,20 @@ Benchmarking procedure:
 
 | n | Λ1 | Λ2 | Σ1 | Σ2 |
 | - | -- | -- | -- | -- |
-| 144&ndash;160 |
+| 145&ndash;160 | 143.6 |   5.3 |   6.4 |   2.7 | 
+| 161&ndash;176 | 167.8 |   6.2 |   6.9 |   3.1 | 
+| 177&ndash;192 | 181.6 |   6.4 |   7.1 |   3.3 | 
+| 193&ndash;208 | 198.0 |   6.5 |   7.3 |   3.6 | 
+| 209&ndash;224 | 220.3 |   6.6 |   7.8 |   3.9 | 
+| 225&ndash;240 | 228.0 |   6.7 |   7.8 |   4.0 | 
+| 241&ndash;256 | 257.3 |   6.9 |   7.8 |   4.2 | 
+| 257&ndash;272 | 272.0 |   6.9 |   7.8 |   4.4 | 
+| 273&ndash;288 | 285.5 |   7.1 |   8.1 |   4.6 | 
+| 289&ndash;304 | 309.7 |   7.3 |   8.3 |   4.8 | 
+| 305&ndash;320 | 331.9 |   7.5 |   8.7 |   5.1 | 
+| 321&ndash;336 | 348.4 |   7.5 |   8.8 |   5.1 | 
+| 337&ndash;352 | 357.3 |   7.4 |   8.7 |   5.4 | 
+| 353&ndash;368 | 379.5 |   7.6 |   8.7 |   5.4 | 
+| 369&ndash;384 | 386.3 |   7.6 |   8.8 |   5.5 | 
+| 385&ndash;400 | 405.6 |   8.0 |   9.5 |   5.9 | 
+| 401&ndash;416 | 411.0 |   7.8 |   8.9 |   5.9 | 
