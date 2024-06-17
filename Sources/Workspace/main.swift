@@ -141,7 +141,7 @@ struct TestCase {
   //
   // NOTE: The entered eigenvalues must be a linear array. This differs from
   // the memory format that the test uses (a square matrix).
-  func check(against otherEigenvalues: [Float]) {
+  func check(eigenvalues otherEigenvalues: [Float]) {
     for i in 0..<problemSize {
       let expectedID = (problemSize - 1) - i
       let expected = eigenvalues[expectedID * problemSize + expectedID]
@@ -150,16 +150,15 @@ struct TestCase {
       guard (actual - expected).magnitude < accuracy else {
         fatalError("Solver failed at  Λ[\(i)].")
       }
-      print(actual, expected)
     }
   }
 }
 
 // Double precision implementation of diagonalization.
-func diagonalize(matrix: [Double], n: Int) -> (
+func diagonalize(matrix: [Double], n: Int, jobz: Character) -> (
   eigenvalues: [Double], eigenvectors: [Double]
 ) {
-  var JOBZ = CChar(Character("V").asciiValue!)
+  var JOBZ = CChar(jobz.asciiValue!)
   var UPLO = CChar(Character("L").asciiValue!)
   var N: Int32 = Int32(n)
   var A = [Double](repeating: 0, count: n * n)
@@ -229,24 +228,49 @@ func diagonalize(matrix: [Double], n: Int) -> (
   return (eigenvalues: W, eigenvectors: A)
 }
 
-
+// Generate the problem sizes to target.
+var problemSizesRaw: [Int] = [
+  147, 155, 157, 165, 167, 175, 177, 185, 187, 193, 201, 203, 211, 213, 219,
+  221, 221, 222, 228, 230, 228, 235, 237, 244, 246, 253, 261, 263, 265, 265,
+  271, 273, 279, 281, 287, 289, 297, 299, 306, 308, 316, 317, 325, 327
+]
+var problemSizes: [Int]
 do {
-  let n: Int = 5
-  let problemSize: Int = 5
-  
+  var problemSizesSet = Set(problemSizesRaw)
+  for problemSizeID in problemSizesRaw.indices {
+    var problemSize = problemSizesRaw[problemSizeID]
+    problemSize += 80
+    problemSizesSet.insert(problemSize)
+  }
+  problemSizes = Array(problemSizesSet).sorted()
+}
+
+// Run the benchmarks.
+for problemSize in problemSizes {
   var testDescriptor = TestDescriptor()
   testDescriptor.problemSize = problemSize
-  testDescriptor.type = .identityMatrix
+  testDescriptor.type = .logarithmicSpectrum
   
   let test = TestCase(descriptor: testDescriptor)
-  print(test.eigenvalues)
-  print(test.eigenvectors)
-  
-  
   let matrix64 = test.matrix.map(Double.init)
-  let (eigenvalues64, eigenvectors64) = diagonalize(
-    matrix: matrix64, n: problemSize)
+  var eigenvalues64: [Double] = []
+  
+  var maxGFLOPS: Float = .zero
+  for _ in 0..<3 {
+    let checkpoint0 = Date()
+    (eigenvalues64, _) = diagonalize(
+      matrix: matrix64, n: problemSize, jobz: "N")
+    let checkpoint1 = Date()
+    
+    let latency = checkpoint1.timeIntervalSince(checkpoint0) as Double
+    let operationCount = problemSize * problemSize * problemSize
+    let gflops = Float(operationCount) / Float(latency) / 1e9
+    maxGFLOPS = max(maxGFLOPS, gflops)
+  }
+  
+  // TODO: Round to one significant digit.
+  print("problemSize = \(problemSize), maxGFLOPS = \(maxGFLOPS)")
   
   let eigenvalues = eigenvalues64.map(Float.init)
-  test.check(against: eigenvalues)
+  test.check(eigenvalues: eigenvalues)
 }
