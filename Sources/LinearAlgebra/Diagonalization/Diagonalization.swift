@@ -158,49 +158,27 @@ public struct Diagonalization {
   mutating func solveEigenproblem(descriptor: DiagonalizationDescriptor) {
     var bandReflectors: [Float] = []
     var bulgeReflectors: [Float] = []
-    
+
     // Reduce the bandwidth from 'problemSize' to 'blockSize'.
     createMatrix(descriptor: descriptor)
-    
-    
-    
-
-    
     bandReflectors = reduceToBandForm()
 
     // If the matrix is already in tridiagonal form, there is no work to do.
     if blockSize > 1 {
       bulgeReflectors = chaseBulges()
     }
-    
-    
-    
 
-//    // Acquire the eigenvectors (using the LAPACK divide-and-conquer until all
-//    // other bottlenecks are suppressed).
-//    solveTridiagonalEigenproblem()
-    
-    eigenvalues = Array(repeating: .zero, count: problemSize * problemSize)
-    eigenvectors = Array(repeating: .zero, count: problemSize * problemSize)
-    for address in 0..<(problemSize * problemSize) {
-      eigenvectors[address] = matrixPointer![address]
+    // Acquire the eigenvectors (using the LAPACK divide-and-conquer until all
+    // other bottlenecks are suppressed).
+    solveTridiagonalEigenproblem()
+
+    // If the matrix was already in tridiagonal form, there is no work to do.
+    if blockSize > 1 {
+      backTransform(bulgeReflectors: bulgeReflectors)
     }
-    destroyMatrix()
-    return
 
-//    // If the matrix was already in tridiagonal form, there is no work to do.
-//    if blockSize > 1 {
-//      backTransform(bulgeReflectors: bulgeReflectors)
-//    }
-//    
-//    
-//
-//    // Expand the bandwidth from 'blockSize' to 'problemSize'.
-//    backTransform(bandReflectors: bandReflectors)
-//    
-    
-    
-    
-    
+    // Expand the bandwidth from 'blockSize' to 'problemSize'.
+    backTransform(bandReflectors: bandReflectors)
+    destroyMatrix()
   }
 }
