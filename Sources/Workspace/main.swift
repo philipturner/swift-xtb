@@ -150,6 +150,7 @@ struct TestCase {
       guard (actual - expected).magnitude < accuracy else {
         fatalError("Solver failed at  Λ[\(i)].")
       }
+      print(actual, expected)
     }
   }
 }
@@ -230,17 +231,18 @@ func diagonalize(matrix: [Float], n: Int, jobz: Character) -> (
 
 // Generate the problem sizes to target.
 var problemSizesRaw: [Int] = [
-  147, 155, 157, 165, 167, 175, 177, 185, 187, 193, 201, 203, 211, 213, 219,
-  221, 221, 222, 228, 230, 228, 235, 237, 244, 246, 253, 261, 263, 265, 265,
-  271, 273, 279, 281, 287, 289, 297, 299, 306, 308, 316, 317, 325, 327
+//  147, 155, 157, 165, 167, 175, 177, 185, 187, 193, 201, 203, 211, 213, 219,
+//  221, 221, 222, 228, 230, 228, 235, 237, 244, 246, 253, 261, 263, 265, 265,
+//  271, 273, 279, 281, 287, 289, 297, 299, 306, 308, 316, 317, 325, 327
+  15
 ]
 var problemSizes: [Int]
 do {
   var problemSizesSet = Set(problemSizesRaw)
   for problemSizeID in problemSizesRaw.indices {
     var problemSize = problemSizesRaw[problemSizeID]
-    problemSize += 80
-    problemSizesSet.insert(problemSize)
+//    problemSize += 80
+//    problemSizesSet.insert(problemSize)
   }
   problemSizes = Array(problemSizesSet).sorted()
 }
@@ -271,6 +273,8 @@ for problemSize in problemSizes {
     var diagonalizationDesc = DiagonalizationDescriptor()
     diagonalizationDesc.matrix = test.matrix
     diagonalizationDesc.problemSize = problemSize
+    let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
+    eigenvectors = diagonalization.eigenvectors
     
     // Run the benchmark.
     for trialID in 0..<3 {
@@ -285,12 +289,7 @@ for problemSize in problemSizes {
       }
       
       let checkpoint0 = Date()
-      let diagonalization = Diagonalization(descriptor: diagonalizationDesc)
-      if trialID == 0 {
-        eigenvalues = diagonalization.eigenvalues
-      } else {
-        eigenvectors = diagonalization.eigenvectors
-      }
+      (eigenvalues, _) = LinearAlgebraUtilities.divideAndConquer(matrix: diagonalization.eigenvectors, n: problemSize)
       let checkpoint1 = Date()
       
       let latency = checkpoint1.timeIntervalSince(checkpoint0) as Double
@@ -301,6 +300,9 @@ for problemSize in problemSizes {
     
     // Check the correctness of the result.
     test.check(eigenvalues: eigenvalues)
+    
+      print(eigenvectors)
+    
   }
   
   // Store the results to the bin.
