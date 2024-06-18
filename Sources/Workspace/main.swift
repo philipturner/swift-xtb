@@ -35,7 +35,7 @@ var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = diamondSystem122.map { UInt8($0.w) }
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
-for _ in 0..<3 {
+for _ in 0..<10 {
   calculator.molecule.positions = diamondSystem122.map {
     SIMD3($0.x, $0.y, $0.z)
   }
@@ -46,4 +46,8 @@ for _ in 0..<3 {
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   print()
   print("actual latency:", latency)
+  
+  guard calculator.orbitals.count == 196 else {
+    fatalError("Unexpected problem size: \(calculator.orbitals.count)")
+  }
 }

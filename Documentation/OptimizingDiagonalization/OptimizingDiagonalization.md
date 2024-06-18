@@ -268,8 +268,20 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 
 | Problem Size | SCF Cycles | SCF Latency (Reported) | Total Latency (Reported) | Actual Latency |
 | ------------ | ---------- | ---------------------- | ------------------------ | --- |
-| 1 | 2 | 3 | 4 | 5 |
+| 196 | 13 | 0.054 | 0.067 | 0.071 |
+| 364 | 15 | 0.213 | 0.264 | 0.277 |
+| 776 | 19 | 1.502 | 1.812 | 1.858 |
 
 | Problem Size | SCF Latency (Predicted) | SCF Latency (D & C) | Overall Latency Reduction |
 | ------------ | ----------------------- | ------------------- | ----------------- |
-| 1 | 2 | 3 | 4 |
+| 196 | 0.027&ndash;0.030 | 0.010&ndash;0.011 | 0.071 → 0.053 | 
+| 364 | 0.134             | 0.033&ndash;0.035 | 0.277 → 0.177 |
+| 776 | 1.110             | 0.142&ndash;0.148 | 1.858 → 0.893 |
+
+| Problem Size | Time Spent on Diagonalization (Before) | Time Spent on Diagonalization (After) |
+| ------------ | -------------------------------------- | ---------------------------- |
+| 196 | 40% | 20% |
+| 364 | 48% | 19% |
+| 776 | 60% | 16% |
+
+![Problem Size 196](./Diamond122.png)
