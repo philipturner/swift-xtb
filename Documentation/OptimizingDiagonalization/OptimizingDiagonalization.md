@@ -284,4 +284,6 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 | 364 | 48% | 19% |
 | 776 | 60% | 16% |
 
-![Problem Size 196](./Diamond122.png)
+### Problem Size 196
+
+![Diamond122](./Diamond122.png)
