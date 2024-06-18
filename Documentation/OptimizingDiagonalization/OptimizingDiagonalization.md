@@ -278,9 +278,9 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 | 364 | 0.134             | 0.033&ndash;0.035 | 0.277 → 0.177 |
 | 776 | 1.110             | 0.142&ndash;0.148 | 1.858 → 0.893 |
 
-| Problem Size | Diagonalization (Predicted) | Diagonalization (Actual) |
-| ------------ | -------- | -------- |
-| 196 | 40% |
+| Problem Size | `DSYEVD` (Predicted) | `DSYEVD` | `DSYGST` | `mmompop` | `setvsdq` | `build_dsdqh0` |
+| --- | --- | --- | --- | --- | --- | --- |
+| 196 | 40% | 49% |  7% |  6% |  4% |  9% |
 | 364 | 48% |
 | 776 | 60% |
 
