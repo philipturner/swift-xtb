@@ -278,12 +278,26 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 | 364 | 0.134             | 0.033&ndash;0.035 | 0.277 → 0.177 |
 | 776 | 1.110             | 0.142&ndash;0.148 | 1.858 → 0.893 |
 
-| Problem Size | Time Spent on Diagonalization (Before) | Time Spent on Diagonalization (After) |
-| ------------ | -------------------------------------- | ---------------------------- |
-| 196 | 40% | 20% |
-| 364 | 48% | 19% |
-| 776 | 60% | 16% |
+| Problem Size | Diagonalization (Predicted) | Diagonalization (Actual) |
+| ------------ | -------- | -------- |
+| 196 | 40% |
+| 364 | 48% |
+| 776 | 60% |
 
 ### Problem Size 196
 
 ![Diamond122](./Diamond122.png)
+
+### Problem Size 364
+
+![Diamond222](./Diamond222.png)
+
+### Problem Size 776
+
+![Diamond233](./Diamond233.png)
+
+### Breakdown of `DSYEVD` (n = 776)
+
+![DSYEVD](./DSYEVD.png)
+
+With this data, I might be able to narrow down the linear algebra functions actually used during SCF iteration. That could reduce the tediousness of writing a linear algebra shim library.
