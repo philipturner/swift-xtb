@@ -305,8 +305,22 @@ Assume:
 - Remaining functions (`DSYGST`, `dmat`) are migrated to single precision and have half the latency (quadruple throughput - overhead = twice throughput)
 - Other parts have 1.5x speedup if recompiled with FP32
 
-| Problem Size | Diagonalization | Other LAPACK | Remaining | Total (LAPACK Only) | Total (Recompiled) |
-| --- | --- | --- | --- | --- | --- |
-| 196 | 48.5% → 17.9% | 11.6% →  5.8% | 100.0% →
-| 364 | 53.4% → 13.5% | 12.1% →  6.1% | 100.0% →
-| 776 | 65.4% →  8.5% | 10.9% →  5.5% | 100.0% →
+| Problem Size | Diagonalization | Other LAPACK | Remaining |
+| --- | --- | --- | --- |
+| 196 | 48.5% → 17.9% | 11.6% →  5.8% | 39.9% → 26.6% |
+| 364 | 53.4% → 13.5% | 12.1% →  6.1% | 34.5% → 23.0% |
+| 776 | 65.4% →  8.5% | 10.9% →  5.5% | 23.7% → 15.8% |
+
+| Problem Size | Speedup (LAPACK Only) | Speedup (Recompiled) |
+| --- | ----- | ----- |
+| 196 | 1.57x | 1.99x |
+| 364 | 1.85x | 2.35x |
+| 776 | 2.65x | 3.36x |
+
+| Problem Size | Latency (Now) | Latency (LAPACK Only) | Latency (Recompiled) |
+| --- | ------: | ------: | ------: |
+| 196 |   71 ms |   45 ms |   36 ms |
+| 364 |  277 ms |  149 ms |  118 ms |
+| 776 | 1858 ms |  701 ms |  553 ms |
+
+The speedup is less than expected (~2x). It will be important at some point in the future. But at the moment, I feel like this is not my highest priority.
