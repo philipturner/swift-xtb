@@ -278,11 +278,11 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 | 364 | 0.134             | 0.033&ndash;0.035 | 0.277 → 0.177 |
 | 776 | 1.110             | 0.142&ndash;0.148 | 1.858 → 0.893 |
 
-| Problem Size | `DSYEVD` (Predicted) | `DSYEVD` | `DSYGST` | `mmompop` | `setvsdq` | `build_dsdqh0` |
-| --- | --- | --- | --- | --- | --- | --- |
-| 196 | 40% | 49% |  7% |  6% |  4% |  9% |
-| 364 | 48% |
-| 776 | 60% |
+| Problem Size | `DSYEVD` (Predicted) | `DSYEVD` | `DSYGST` | `mmompop` | `setvsdq` | `dmat` | `build_dsdqh0` | LAPACK Calls |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 196 | 40% | 49% |  7% |  6% |  4% |  2% | 9% | ~61% |
+| 364 | 48% | 53% |  7% |  6% |  4% |  2% | 7% | ~65% |
+| 776 | 60% | 65% |  6% |  5% |  3% |  3% | 4% | ~77% |
 
 ### Problem Size 196
 
@@ -300,4 +300,13 @@ We should prove that the bottleneck in xTB is actually matrix diagonalization at
 
 ![DSYEVD](./DSYEVD.png)
 
-With this data, I might be able to narrow down the linear algebra functions actually used during SCF iteration. That could reduce the tediousness of writing a linear algebra shim library.
+Assume:
+- Latency of diagonalization is changed to the latency of Accelerate's divide and conquer
+- Remaining functions (`DSYGST`, `dmat`) are migrated to single precision and have half the latency (quadruple throughput - overhead = twice throughput)
+- Other parts have 1.5x speedup if recompiled with FP32
+
+| Problem Size | Diagonalization | Other LAPACK | Remaining | Total (LAPACK Only) | Total (Recompiled) |
+| --- | --- | --- | --- | --- | --- |
+| 196 | 48.5% → 17.9% | 11.6% →  5.8% | 100.0% →
+| 364 | 53.4% → 13.5% | 12.1% →  6.1% | 100.0% →
+| 776 | 65.4% →  8.5% | 10.9% →  5.5% | 100.0% →
