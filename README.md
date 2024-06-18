@@ -2,9 +2,9 @@
 
 > This library is a work in progress.
 
-Quantum mechanics simulator for molecular nanotechnology.
+Library for simulating atomically precise manufacturing.
 
-Goals:
+Goals (for ab initio simulations):
 - Designed for GPU acceleration with OpenCL
   - Perform all computations in FP32, with compensated summation when necessary.
 - Real-space formalism
