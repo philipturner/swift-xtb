@@ -1,22 +1,49 @@
-# Mechanosynthesis
+# Swift bindings for xTB
 
-> This library is a work in progress.
+## TODO List
 
-Library for simulating atomically precise manufacturing.
+GFN2-xTB
+- Remove the external charges API, as it's unused
+- Properly document how to inject the Accelerate symbolic link
+  - Validate that the acceleration works with a fresh install
+  - Provide a performance test with the three diamond systems
+- Properly document how to set up the OpenMP threads and stack size for optimal performance
 
-Goals (for ab initio simulations):
-- Designed for GPU acceleration with OpenCL
-  - Perform all computations in FP32, with compensated summation when necessary.
-- Real-space formalism
-  - Removes FFTs, an $O(n^2\log{n})$ bottleneck.
-  - Most DFT libraries (Gaussian, GAMESS, TeraChem) use the plane-wave/basis-set formalism. Basis sets add unnecessary complexity and obfuscate pathways to linear scaling.
-- Linear scaling
-  - Adaptive mesh refinement at the per-electron granularity, instead of the typical global granularity. This reduces the bottleneck from $O(n^2)$ to $O(n\log{n})$.
-  - Linear scaling likely possible for insulators, with localized electrons.
-- No pseudopotentials
-  - Large-core pseudopotentials interact with the XC functional, polluting simulation results.
-  - Similar to the issue with the AO basis: BSSE pollutes simulation results.
+GFN-FF
+- Avoid fetching `xTB_Results` properties that aren't available to GFN-FF
+- Prevent the GFN-FF parameters from spilling to the console
+  - https://github.com/grimme-lab/xtb/issues/905
+  - May require the full C API for xTB environment verbosity
+- Properly document how to fix the GFN-FF crash:
+  - Clarify why the crash occurs
 
-Also included (for semiempirical simulations):
-- Swift bindings for xTB
-- Fast matrix diagonalization kernel
+## Current Documentation
+
+```swift
+
+// Copy the dylib from Homebrew Cellar to the folder for hacked dylibs. Use
+// 'otool' to replace the OpenBLAS dependency with Accelerate. To do this:
+// - copy libxtb.dylib into custom folder
+// - otool -L "path to libxtb.dylib"
+// - find the address of the OpenBLAS in the output
+// - install_name_tool -change "path to libopenblas.dylib" \
+//   "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+//   "path to libxtb.dylib"
+
+// Prepare the environment for maximum performance with xTB.
+setenv("OMP_STACKSIZE", "2G", 1)
+setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
+
+// Fix the GFN-FF crash.
+FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
+
+// Load the 'xtb' dylib.
+let pathPart1 = "/Users/philipturner/Documents/OpenMM"
+let pathPart2 = "/bypass_dependencies/libxtb.6.dylib"
+xTB_Library.useLibrary(at: pathPart1 + pathPart2)
+try! xTB_Library.loadLibrary()
+
+// Mute the output to the console.
+xTB_Environment.verbosity = .muted
+
+```

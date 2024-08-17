@@ -4,53 +4,16 @@
 import PackageDescription
 
 let package = Package(
-  name: "Mechanosynthesis",
+  name: "swift-xtb",
   products: [
-    .library(
-      name: "LinearAlgebra",
-      targets: ["LinearAlgebra"]),
-    .library(
-      name: "Meshing",
-      targets: ["Meshing"]),
     .library(
       name: "xTB",
       targets: ["xTB"]),
   ],
-  dependencies: [
-    .package(url: "https://github.com/philipturner/swift-numerics", branch: "Quaternions"),
-  ],
+  dependencies: [],
   targets: [
-    .target(
-      name: "LinearAlgebra",
-      dependencies: []),
-    .target(
-      name: "Meshing",
-      dependencies: [
-        .product(name: "Numerics", package: "swift-numerics"),
-      ]),
     .target(
       name: "xTB",
       dependencies: []),
-    
-    .executableTarget(
-      name: "Workspace",
-      dependencies: [
-        "LinearAlgebra", 
-        "Meshing",
-        .product(name: "Numerics", package: "swift-numerics"),
-        "xTB",
-      ]),
-    
-    .testTarget(
-      name: "AlgorithmTests",
-      dependencies: [
-        "LinearAlgebra",
-        .product(name: "Numerics", package: "swift-numerics"),
-      ]),
-    .testTarget(
-      name: "MeshingTests",
-      dependencies: [
-        "Meshing"
-      ]),
   ]
 )
