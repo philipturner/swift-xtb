@@ -29,7 +29,7 @@ func convertGradientToForces(_ input: [Double]) -> [SIMD3<Float>] {
   // The caller should have guaranteed that the input is divisible by 3.
   var output: [SIMD3<Float>] = []
   var cursor: Int = .zero
-  for atomID in 0..<(input.count / 3) {
+  for _ in 0..<(input.count / 3) {
     var gradientInHaPerBohr: SIMD3<Float> = .zero
     for laneID in 0..<3 {
       let element = input[cursor]
