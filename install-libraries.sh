@@ -1,8 +1,3 @@
-# Step into the build folder, to isolate the immediate effects of file
-# processing operations from the top-level folder.
-mkdir .build
-cd .build
-
 # Download each binary dependency from the Internet.
 if [ ! -d "/opt/homebrew/Cellar/xtb" ]; then
   # Installing 'xtb' may take ~30 minutes, if you haven't updated Homebrew
@@ -37,3 +32,21 @@ fi
 # Construct the complete URL of where xtb was downloaded.
 XTB_DIR="$TARGET_DIR/$(ls "$TARGET_DIR")"
 echo "Installation directory: $XTB_DIR"
+
+# Purge the existing dylib to avoid "Permission denied" errors.
+rm -rf libxtb.6.dylib
+if [ -f "libxtb.6.dylib" ]; then
+  echo "Could not remove existing dylib."
+  exit -1
+fi
+
+# Copy the library to the package directory.
+cp "$XTB_DIR/lib/libxtb.6.dylib" libxtb.6.dylib
+if [ ! -f "libxtb.6.dylib" ]; then
+  echo "Could not copy the fresh dylib."
+  exit -1
+fi
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb.6.dylib)
+echo "$otool_output"

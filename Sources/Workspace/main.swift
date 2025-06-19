@@ -21,6 +21,8 @@ setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 
 // Fix the GFN-FF crash.
+//
+// TODO: Search for a better workaround.
 FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
 
 // Load the 'xtb' dylib.
