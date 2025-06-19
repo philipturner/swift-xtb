@@ -10,5 +10,10 @@ let package = Package(
     .target(
       name: "xTB",
       dependencies: []),
+    .executableTarget(
+      name: "Workspace",
+      dependencies: [
+        "xTB"
+      ]),
   ]
 )
