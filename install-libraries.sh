@@ -54,4 +54,8 @@ otool_output=$(otool -L libxtb.6.dylib)
 # The script accepts the string to process as input, and returns the result
 # somehow. There must be a way for the script to alert the caller than the
 # operation failed.
-swift "install-libraries.swift" "$otool_output"
+openblas_address=$(swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-openblas \
+  --report-openblas)
+echo "openblas_address = $openblas_address"
