@@ -12,13 +12,6 @@ import xTB
 setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 
-/*
-// Load the 'xtb' dylib.
-xTB_Library.useLibrary(
-  at: "/Users/philipturner/Documents/MolecularRenderer/swift-xtb/libxtb.6.dylib")
-try! xTB_Library.loadLibrary()
-*/
-
 // WARNING: Watch out for 'gfnff_topo' files leaking into the working directory.
 // Perhaps the file doesn't appear when you set verbosity to muted?
 xTB_Environment.verbosity = .minimal
@@ -32,7 +25,7 @@ calculatorDesc.positions = diamondSystem122.map {
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
-for _ in 0..<1 {
+for _ in 0..<10 {
   calculator.molecule.positions = diamondSystem122.map {
     SIMD3($0.x, $0.y, $0.z)
   }
@@ -43,5 +36,4 @@ for _ in 0..<1 {
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   print()
   print("actual latency:", latency)
-  print("energy:", calculator.energy)
 }

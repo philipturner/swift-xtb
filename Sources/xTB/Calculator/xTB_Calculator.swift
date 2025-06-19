@@ -47,8 +47,8 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  var _calculator: xtb_TCalculator
-  var _molecule: xtb_TMolecule
+  var _calculator: xtb_TCalculator!
+  var _molecule: xtb_TMolecule!
   
   var state = State()
   var updateRecord = UpdateRecord()

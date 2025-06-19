@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+@_exported import C_xTB
+
 /*
 
 // Opaque pointers to Fortran objects.

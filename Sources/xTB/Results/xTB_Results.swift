@@ -8,7 +8,7 @@
 class xTB_Results {
   unowned var calculator: xTB_Calculator!
   
-  var _results: xtb_TResults
+  var _results: xtb_TResults!
   
   var energy: Double?
   
@@ -40,8 +40,8 @@ class xTB_Results {
 
 extension xTB_Results {
   private typealias DoubleArrayFunction = @convention(c) (
-    xtb_TEnvironment,
-    xtb_TResults,
+    xtb_TEnvironment?,
+    xtb_TResults?,
     UnsafeMutablePointer<Double>?
   ) -> Void
   
