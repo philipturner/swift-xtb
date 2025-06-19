@@ -12,18 +12,8 @@ let package = Package(
       name: "C_xTB",
       dependencies: [],
       linkerSettings: [
-        // WARNING: This binary appears to get copied into the '.build'
-        // folder. It can cause troublesome, subtle problems where the dylib
-        // gets recompiled, but the program doesn't register the change.
-        //
-        // In addition, it keeps referencing the dylib from Homebrew Cellar,
-        // not the one pasted into the project's directory. Working on figuring
-        // out why this goes wrong.
-        //
-        // I found a modification to the build workflow that solves both of
-        // these problems simultaneously!
         .unsafeFlags(["-L\(FileManager.default.currentDirectoryPath)"]),
-        .linkedLibrary("xtb.6")
+        .linkedLibrary("xtb_accelerate")
       ]),
     .target(
       name: "xTB",

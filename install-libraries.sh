@@ -67,10 +67,19 @@ otool_output=$(otool -L libxtb.6.dylib)
 swift "install-libraries.swift" \
   "$otool_output" \
   --check-accelerate
-
+  
+# Solution to the following problems:
+# - The dylib gets recompiled, but the program doesn't register the change.
+# - It keeps referencing the dylib from Homebrew Cellar, not the one pasted
+#   into the project's directory.
+#
+# macOS: renamed to "libxtb_accelerate.dylib" to prevent people from
+#        using an unmodified (OpenBLAS) dylib with this repo
+# Windows: renamed to "libxtb_mkl.dll" or similar
+#
 # Source: https://stackoverflow.com/a/2989954
 install_name_tool -id \
-  "YEET.dylib" \
+  "libxtb_accelerate.dylib" \
   libxtb.6.dylib
 
 # Running 'otool' invalidates the code signature. This causes the program to
@@ -79,6 +88,3 @@ install_name_tool -id \
 #
 # Source: https://developer.apple.com/forums/thread/747909
 codesign -fs - libxtb.6.dylib
-
-rm -rf YEET.dylib
-cp libxtb.6.dylib YEET.dylib
