@@ -49,4 +49,24 @@ fi
 
 # Inspect the dylib's binary dependencies.
 otool_output=$(otool -L libxtb.6.dylib)
-echo "$otool_output"
+
+# Iterate over the text line by line
+line_id=0
+openblas_count=0
+accelerate_count=0
+IFS=$'\n' # Set Internal Field Separator to newline to handle spaces in lines
+while read -r line; do
+    line_id=$((line_id + 1))
+    
+    # Add your desired operations on each 'line' here
+    if echo "$line" | grep -iq "openblas"; then
+      openblas_count=$((openblas_count + 1))
+    fi
+    if echo "$line" | grep -iq "accelerate"; then
+      accelerate_count=$((accelerate_count + 1))
+    fi
+done <<< "$otool_output" # Use a "here string" to feed the variable content to the loop
+echo ""
+echo "Processed $line_id lines."
+echo "Found OpenBLAS $openblas_count times."
+echo "Found Accelerate $accelerate_count times."
