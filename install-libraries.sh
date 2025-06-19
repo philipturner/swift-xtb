@@ -49,13 +49,20 @@ fi
 
 # Inspect the dylib's binary dependencies.
 otool_output=$(otool -L libxtb.6.dylib)
-
-# This is too much of a pain. Use a Swift script for the string processing.
-# The script accepts the string to process as input, and returns the result
-# somehow. There must be a way for the script to alert the caller than the
-# operation failed.
 openblas_address=$(swift "install-libraries.swift" \
   "$otool_output" \
   --check-openblas \
   --report-openblas)
 echo "openblas_address = $openblas_address"
+
+# Replace OpenBLAS with Accelerate.
+install_name_tool -change \
+  "$openblas_address" \
+  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+  libxtb.6.dylib
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb.6.dylib)
+swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-accelerate

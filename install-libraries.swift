@@ -1,12 +1,5 @@
 import Foundation
 
-// Objectives:
-// - Split the 'otool' string into lines
-// - In each line, search for the presence of OpenBLAS and Accelerate
-// - Verify the expected number of 'openblas' or 'accelerate' instances
-// - Extract the location of 'openblas'
-// - Notify the calling program of failures, perhaps through exit code
-
 // MARK: - Parse Arguments
 
 // Fetch the command-line arguments.
