@@ -34,40 +34,21 @@ XTB_DIR="$TARGET_DIR/$(ls "$TARGET_DIR")"
 echo "Installation directory: $XTB_DIR"
 
 # Purge the existing dylib to avoid "Permission denied" errors.
-rm -rf libxtb.6.dylib
-if [ -f "libxtb.6.dylib" ]; then
+rm -rf libxtb_accelerate.dylib
+if [ -f "libxtb_accelerate.dylib" ]; then
   echo "Could not remove existing dylib."
   exit -1
 fi
 
 # Copy the library to the package directory.
-cp "$XTB_DIR/lib/libxtb.6.dylib" libxtb.6.dylib
-if [ ! -f "libxtb.6.dylib" ]; then
+cp "$XTB_DIR/lib/libxtb.6.dylib" libxtb_accelerate.dylib
+if [ ! -f "libxtb_accelerate.dylib" ]; then
   echo "Could not copy the fresh dylib."
   exit -1
 fi
 
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb.6.dylib)
-openblas_address=$(swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-openblas \
-  --report-openblas)
-echo "openblas_address = $openblas_address"
-echo $openblas_address
+echo $(otool -L libxtb_accelerate.dylib)
 
-# Replace OpenBLAS with Accelerate.
-install_name_tool -change \
-  "$openblas_address" \
-  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-  libxtb.6.dylib
-
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb.6.dylib)
-swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-accelerate
-  
 # Solution to the following problems:
 # - The dylib gets recompiled, but the program doesn't register the change.
 # - It keeps referencing the dylib from Homebrew Cellar, not the one pasted
@@ -80,11 +61,42 @@ swift "install-libraries.swift" \
 # Source: https://stackoverflow.com/a/2989954
 install_name_tool -id \
   "libxtb_accelerate.dylib" \
+  libxtb_accelerate.dylib
+
+echo $(otool -L libxtb_accelerate.dylib)
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb_accelerate.dylib)
+openblas_address=$(swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-openblas \
+  --report-openblas)
+echo "openblas_address = $openblas_address"
+echo $openblas_address
+
+echo $(otool -L libxtb_accelerate.dylib)
+
+# Replace OpenBLAS with Accelerate.
+rm -rf libxtb.6.dylib
+cp libxtb_accelerate.dylib libxtb.6.dylib
+install_name_tool -change \
+  "$openblas_address" \
+  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
   libxtb.6.dylib
+rm -rf libxtb_accelerate.dylib
+cp libxtb.6.dylib libxtb_accelerate.dylib
+  
+echo $(otool -L libxtb_accelerate.dylib)
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb_accelerate.dylib)
+swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-accelerate
 
 # Running 'otool' invalidates the code signature. This causes the program to
 # crash when loading the dylib through 'dlopen'. The solution is to re-sign
 # the dylib with an ad-hoc signature.
 #
 # Source: https://developer.apple.com/forums/thread/747909
-codesign -fs - libxtb.6.dylib
+codesign -fs - libxtb_accelerate.dylib

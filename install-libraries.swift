@@ -112,5 +112,7 @@ if reportOpenBLAS {
   let endIndex = dylibRange.upperBound
   let substringRange = startIndex..<endIndex
   let substring = openblasLine[substringRange]
+  
+  // Report text to the calling program.
   print(substring)
 }
