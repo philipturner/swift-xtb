@@ -17,6 +17,9 @@ GFN-FF
 - Properly document how to fix the GFN-FF crash:
   - Clarify why the crash occurs
 
+Update the API for Swift 6
+- Avoid doing this until completing investigations of linear algebra backend speed
+
 ## Current Documentation
 
 ```swift
