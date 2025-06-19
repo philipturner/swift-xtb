@@ -19,8 +19,11 @@ let package = Package(
         // In addition, it keeps referencing the dylib from Homebrew Cellar,
         // not the one pasted into the project's directory. Working on figuring
         // out why this goes wrong.
+        //
+        // I found a modification to the build workflow that solves both of
+        // these problems simultaneously!
         .unsafeFlags(["-L\(FileManager.default.currentDirectoryPath)"]),
-        .linkedLibrary("xtb_new")
+        .linkedLibrary("xtb.6")
       ]),
     .target(
       name: "xTB",

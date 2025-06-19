@@ -54,18 +54,24 @@ openblas_address=$(swift "install-libraries.swift" \
   --check-openblas \
   --report-openblas)
 echo "openblas_address = $openblas_address"
+echo $openblas_address
 
-## Replace OpenBLAS with Accelerate.
-#install_name_tool -change \
-#  "$openblas_address" \
-#  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-#  libxtb.6.dylib
-#
-## Inspect the dylib's binary dependencies.
-#otool_output=$(otool -L libxtb.6.dylib)
-#swift "install-libraries.swift" \
-#  "$otool_output" \
-#  --check-accelerate
+# Replace OpenBLAS with Accelerate.
+install_name_tool -change \
+  "$openblas_address" \
+  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+  libxtb.6.dylib
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb.6.dylib)
+swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-accelerate
+
+# Source: https://stackoverflow.com/a/2989954
+install_name_tool -id \
+  "YEET.dylib" \
+  libxtb.6.dylib
 
 # Running 'otool' invalidates the code signature. This causes the program to
 # crash when loading the dylib through 'dlopen'. The solution is to re-sign
@@ -73,3 +79,6 @@ echo "openblas_address = $openblas_address"
 #
 # Source: https://developer.apple.com/forums/thread/747909
 codesign -fs - libxtb.6.dylib
+
+rm -rf YEET.dylib
+cp libxtb.6.dylib YEET.dylib
