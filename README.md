@@ -1,4 +1,4 @@
-# Swift bindings for xTB
+# Swift Bindings for xTB
 
 ## TODO List
 
@@ -17,8 +17,15 @@ GFN-FF
 - Properly document how to fix the GFN-FF crash:
   - Clarify why the crash occurs
 
-Update the API for Swift 6
-- Avoid doing this until completing investigations of linear algebra backend speed
+API improvements:
+- Update the API for Swift 6
+- Remove external charges
+- Automatically suppress `gfnff_topo` file writing in a robust manner
+  - Figure out exactly when it's written, then switch back to the previous directory afterward
+  - Purge `gfnff_topo` and `gfnff_charges` from the NSTemporaryDirectory, so that every initialization of `xTB_Calculator` regenerates the GFN-FF parameters from scratch.
+  - Make sure to use a cross-platform equivalent of NSTemporaryDirectory
+- Automatically set `OMP_STACKSIZE` and `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
+- Ensure all issues currently on the README are addressed. Then, proceed with intercepting linear algebra library calls.
 
 ## Current Documentation
 
