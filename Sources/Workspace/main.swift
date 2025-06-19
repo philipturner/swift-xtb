@@ -23,23 +23,24 @@ setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 // Fix the GFN-FF crash.
 //
 // TODO: Search for a better workaround.
-FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
+//FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
 
 // Load the 'xtb' dylib.
 xTB_Library.useLibrary(
-  //at: "/opt/homebrew/Cellar/xtb/6.7.1/lib/libxtb.6.dylib")
   at: "/Users/philipturner/Documents/MolecularRenderer/swift-xtb/libxtb.6.dylib")
-print("Hello world")
 try! xTB_Library.loadLibrary()
-print("Hello world")
 
-xTB_Environment.verbosity = .muted
+xTB_Environment.verbosity = .minimal
 
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = diamondSystem122.map { UInt8($0.w) }
+calculatorDesc.positions = diamondSystem122.map {
+  SIMD3($0.x, $0.y, $0.z)
+}
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
-for _ in 0..<10 {
+for _ in 0..<1 {
   calculator.molecule.positions = diamondSystem122.map {
     SIMD3($0.x, $0.y, $0.z)
   }
@@ -50,8 +51,10 @@ for _ in 0..<10 {
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   print()
   print("actual latency:", latency)
+  print(calculator.energy)
+  print(calculator.orbitals.count)
   
-  guard calculator.orbitals.count == 196 else {
-    fatalError("Unexpected problem size: \(calculator.orbitals.count)")
-  }
+//  guard calculator.orbitals.count == 196 else {
+//    fatalError("Unexpected problem size: \(calculator.orbitals.count)")
+//  }
 }

@@ -40,15 +40,11 @@ public struct xTB_Library {
   /// Tries to load the xTB library, will throw an error if no compatible
   /// library is found.
   public static func loadLibrary() throws {
-    print("Checkpoint A")
     guard !isXTBLibraryLoaded else { return }
-    print("Checkpoint B")
     let xtbLibraryHandle = self.loadXTBLibrary()
-    print("Checkpoint C")
     guard self.isXTBLibraryLoaded(at: xtbLibraryHandle) else {
       throw Error.xtbLibraryNotFound
     }
-    print("Checkpoint D")
     self.isXTBLibraryLoaded = true
     self._xtbLibraryHandle = xtbLibraryHandle
   }
@@ -88,28 +84,21 @@ extension xTB_Library {
   }
   
   private static func loadXTBLibrary() -> UnsafeMutableRawPointer? {
-    print("Checkpoint 2.A")
     var xtbLibraryHandle: UnsafeMutableRawPointer?
-    print("Checkpoint 2.B")
     if let xtbLibraryPath = xTB_Library.libraryPath {
-      print("Checkpoint 2.C")
       xtbLibraryHandle = self.loadXTBLibrary(at: xtbLibraryPath)
-      print("Checkpoint 2.D")
     }
-    print("Checkpoint 2.E")
     return xtbLibraryHandle
   }
   
   private static func loadXTBLibrary(
     at path: String
   ) -> UnsafeMutableRawPointer? {
-    print("Checkpoint 3.A")
 #if canImport(Darwin) || canImport(Glibc)
     let xtbLibraryHandle = dlopen(path, RTLD_LAZY | RTLD_GLOBAL)
 #elseif os(Windows)
     let xtbLibraryHandle = UnsafeMutableRawPointer(LoadLibraryA(path))
 #endif
-    print("Checkpoint 3.B")
     return xtbLibraryHandle
   }
 }
