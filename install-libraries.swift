@@ -59,7 +59,7 @@ for line in otoolLines {
   let openblasRange = line.range(
     of: "openblas", options: .caseInsensitive)
   let accelerateRange = line.range(
-    of: "accelerate", options: .caseInsensitive)
+    of: "Accelerate.framework", options: [])
   
   if openblasRange != nil {
     openblasCount += 1

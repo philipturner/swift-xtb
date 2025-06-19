@@ -47,7 +47,25 @@ if [ ! -f "libxtb_accelerate.dylib" ]; then
   exit -1
 fi
 
-echo $(otool -L libxtb_accelerate.dylib)
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb_accelerate.dylib)
+openblas_address=$(swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-openblas \
+  --report-openblas)
+echo "openblas_address = $openblas_address"
+
+# Replace OpenBLAS with Accelerate.
+install_name_tool -change \
+  "$openblas_address" \
+  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+  libxtb_accelerate.dylib
+
+# Inspect the dylib's binary dependencies.
+otool_output=$(otool -L libxtb_accelerate.dylib)
+swift "install-libraries.swift" \
+  "$otool_output" \
+  --check-accelerate
 
 # Solution to the following problems:
 # - The dylib gets recompiled, but the program doesn't register the change.
@@ -62,37 +80,6 @@ echo $(otool -L libxtb_accelerate.dylib)
 install_name_tool -id \
   "libxtb_accelerate.dylib" \
   libxtb_accelerate.dylib
-
-echo $(otool -L libxtb_accelerate.dylib)
-
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb_accelerate.dylib)
-openblas_address=$(swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-openblas \
-  --report-openblas)
-echo "openblas_address = $openblas_address"
-echo $openblas_address
-
-echo $(otool -L libxtb_accelerate.dylib)
-
-# Replace OpenBLAS with Accelerate.
-rm -rf libxtb.6.dylib
-cp libxtb_accelerate.dylib libxtb.6.dylib
-install_name_tool -change \
-  "$openblas_address" \
-  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-  libxtb.6.dylib
-rm -rf libxtb_accelerate.dylib
-cp libxtb.6.dylib libxtb_accelerate.dylib
-  
-echo $(otool -L libxtb_accelerate.dylib)
-
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb_accelerate.dylib)
-swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-accelerate
 
 # Running 'otool' invalidates the code signature. This causes the program to
 # crash when loading the dylib through 'dlopen'. The solution is to re-sign
