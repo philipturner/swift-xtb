@@ -26,14 +26,14 @@ setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
 
 // Load the 'xtb' dylib.
-let pathPart1 = "/Users/philipturner/Documents/OpenMM"
-let pathPart2 = "/bypass_dependencies/libxtb.6.dylib"
-xTB_Library.useLibrary(at: pathPart1 + pathPart2)
+xTB_Library.useLibrary(
+  //at: "/opt/homebrew/Cellar/xtb/6.7.1/lib/libxtb.6.dylib")
+  at: "/Users/philipturner/Documents/MolecularRenderer/swift-xtb/libxtb.6.dylib")
 print("Hello world")
 try! xTB_Library.loadLibrary()
 print("Hello world")
 
-xTB_Environment.verbosity = .minimal
+xTB_Environment.verbosity = .muted
 
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = diamondSystem122.map { UInt8($0.w) }

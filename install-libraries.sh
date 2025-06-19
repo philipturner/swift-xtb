@@ -55,14 +55,19 @@ openblas_address=$(swift "install-libraries.swift" \
   --report-openblas)
 echo "openblas_address = $openblas_address"
 
-# Replace OpenBLAS with Accelerate.
+## Replace OpenBLAS with Accelerate.
+#install_name_tool -change \
+#  "$openblas_address" \
+#  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+#  libxtb.6.dylib
+#
+## Inspect the dylib's binary dependencies.
+#otool_output=$(otool -L libxtb.6.dylib)
+#swift "install-libraries.swift" \
+#  "$otool_output" \
+#  --check-accelerate
+
 install_name_tool -change \
   "$openblas_address" \
-  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+  "/opt/homebrew/Cellar/openblas/0.3.30/lib/libopenblasp-r0.3.30.dylib" \
   libxtb.6.dylib
-
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb.6.dylib)
-swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-accelerate
