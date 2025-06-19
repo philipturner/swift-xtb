@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+/*
+
 #if canImport(Darwin)
 import Darwin
 #elseif canImport(Glibc)
@@ -124,3 +126,5 @@ extension xTB_Library {
     xTB_Library.libraryPath = path
   }
 }
+
+*/

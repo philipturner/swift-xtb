@@ -8,38 +8,30 @@
 import Foundation
 import xTB
 
-// Copy the dylib from Homebrew Cellar to the folder for hacked dylibs. Use
-// 'otool' to replace the OpenBLAS dependency with Accelerate. To do this:
-// - copy libxtb.dylib into custom folder
-// - otool -L "path to libxtb.dylib"
-// - find the address of the OpenBLAS in the output
-// - install_name_tool -change "path to libopenblas.dylib" \
-//   "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-//   "path to libxtb.dylib"
 // Prepare the environment for maximum performance with xTB.
 setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 
-// Fix the GFN-FF crash.
-//
-// TODO: Search for a better workaround.
-//FileManager.default.changeCurrentDirectoryPath("/Users/philipturner")
-
+/*
 // Load the 'xtb' dylib.
 xTB_Library.useLibrary(
   at: "/Users/philipturner/Documents/MolecularRenderer/swift-xtb/libxtb.6.dylib")
 try! xTB_Library.loadLibrary()
+*/
 
+// WARNING: Watch out for 'gfnff_topo' files leaking into the working directory.
+// Perhaps the file doesn't appear when you set verbosity to muted?
 xTB_Environment.verbosity = .minimal
 
+// Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
 calculatorDesc.atomicNumbers = diamondSystem122.map { UInt8($0.w) }
 calculatorDesc.positions = diamondSystem122.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
+// Run just one loop iteration.
 for _ in 0..<1 {
   calculator.molecule.positions = diamondSystem122.map {
     SIMD3($0.x, $0.y, $0.z)
@@ -51,10 +43,5 @@ for _ in 0..<1 {
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   print()
   print("actual latency:", latency)
-  print(calculator.energy)
-  print(calculator.orbitals.count)
-  
-//  guard calculator.orbitals.count == 196 else {
-//    fatalError("Unexpected problem size: \(calculator.orbitals.count)")
-//  }
+  print("energy:", calculator.energy)
 }

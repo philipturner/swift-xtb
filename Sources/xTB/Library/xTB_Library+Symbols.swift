@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+/*
+
 // Opaque pointers to Fortran objects.
 typealias xtb_TEnvironment = OpaquePointer
 typealias xtb_TMolecule = OpaquePointer
@@ -244,3 +246,5 @@ let xtb_getOrbitalCoefficients: @convention(c) (
   UnsafeMutablePointer<Double>? // c
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getOrbitalCoefficients")
+
+*/
