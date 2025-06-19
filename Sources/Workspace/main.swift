@@ -14,7 +14,8 @@ setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
 
 // WARNING: Watch out for 'gfnff_topo' files leaking into the working directory.
 // Perhaps the file doesn't appear when you set verbosity to muted?
-xTB_Environment.verbosity = .minimal
+xTB_Environment.verbosity = .muted
+xTB_Environment.setOutput("/dev/null")
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -22,6 +23,7 @@ calculatorDesc.atomicNumbers = diamondSystem122.map { UInt8($0.w) }
 calculatorDesc.positions = diamondSystem122.map {
   SIMD3($0.x, $0.y, $0.z)
 }
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.

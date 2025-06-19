@@ -42,4 +42,15 @@ extension xTB_Environment {
   public static func show() {
     xtb_showEnvironment(_environment, nil)
   }
+  
+  // setOutput keeps appending to a list of output files. At the end of the
+  // program, all of them get written to. Unless the file happens to be
+  // /dev/null. In that case, the output is permanently disabled for GFN2-xTB.
+  // And conditionally disabled for GFN-FF (if the verbosity also happens to
+  // be '.muted').
+  //
+  // releaseOutput doesn't do anything, at least on macOS.
+  public static func setOutput(_ filename: String) {
+    xtb_setOutput(_environment, filename)
+  }
 }
