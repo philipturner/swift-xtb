@@ -25,8 +25,8 @@ extension xTB_Environment {
   
   /// Verbosity of calculation output.
   ///
-  /// The default value is `.full`.
-  public static var verbosity: Verbosity = .full {
+  /// The default value is `.minimal`.
+  public static var verbosity: Verbosity = .minimal {
     didSet {
       xtb_setVerbosity(_environment, Int32(verbosity.rawValue))
     }
@@ -43,13 +43,15 @@ extension xTB_Environment {
     xtb_showEnvironment(_environment, nil)
   }
   
-  // setOutput keeps appending to a list of output files. At the end of the
-  // program, all of them get written to. Unless the file happens to be
-  // /dev/null. In that case, the output is permanently disabled for GFN2-xTB.
-  // And conditionally disabled for GFN-FF (if the verbosity also happens to
-  // be '.muted').
-  //
-  // releaseOutput doesn't do anything, at least on macOS.
+  /// Redirect the output to something other than stdout.
+  ///
+  /// `setOutput` keeps appending to a list of output files. At the end of the
+  /// program, all of them get written to. Unless the file happens to be
+  /// `/dev/null`. In that case, the output is permanently disabled for
+  /// GFN2-xTB. And conditionally disabled for GFN-FF (if the verbosity also
+  /// happens to be `.muted`).
+  ///
+  /// `releaseOutput` doesn't do anything, at least on macOS.
   public static func setOutput(_ filename: String) {
     xtb_setOutput(_environment, filename)
   }
