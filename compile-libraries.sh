@@ -50,3 +50,11 @@ LIBXTB_PATH="xtb/6.7.1/lib/libxtb.6.dylib"
 libxtb_output=$(otool -L "$LIBXTB_PATH")
 echo "$libxtb_output"
 #swift "../compile-libraries.swift" "$libxtb_output" openblas
+
+LIBMCTC_LIB_PATH="mctc-lib/0.3.2_1/lib/libmctc-lib.0.dylib"
+libmctc_lib_output=$(otool -L "$LIBMCTC_LIB_PATH")
+echo "$libmctc_lib_output"
+
+XTB_PATH="xtb/6.7.1/bin/xtb"
+xtb_output=$(otool -L "$XTB_PATH")
+echo "$xtb_output"
