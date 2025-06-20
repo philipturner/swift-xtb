@@ -16,6 +16,9 @@ GFN-FF
   - May require the full C API for xTB environment verbosity
 - Properly document how to fix the GFN-FF crash:
   - Clarify why the crash occurs
+  - Try to reproduce the crash in the old molecular-renderer, with the new xTB bindings
+    - Patch up the current main branch of molecular-renderer in a non-main branch. This can serve as a surrogate for testing simulators until the overhaul is complete.
+    - Fresh `bypass_dependencies` folder in the fresh MolecularRenderer directory. No need for the extra dylibs (probably due to swift-gif and other community packages). Using the most recent OpenMM and the standard OpenCL backend.
 
 API improvements:
 - Update the API for Swift 6
@@ -24,8 +27,13 @@ API improvements:
   - Figure out exactly when it's written, then switch back to the previous directory afterward
   - Purge `gfnff_topo` and `gfnff_charges` from the NSTemporaryDirectory, so that every initialization of `xTB_Calculator` regenerates the GFN-FF parameters from scratch.
   - Make sure to use a cross-platform equivalent of NSTemporaryDirectory
+    - Get the xTB bindings working on Windows
 - Automatically set `OMP_STACKSIZE` and `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
 - Ensure all issues currently on the README are addressed. Then, proceed with intercepting linear algebra library calls.
+
+End goals:
+- Production-ready API an opt-in FP32 mode, on both macOS and Windows
+- Able to gather data about contributions to latency across a diverse set of environments, for the 3 diamond systems
 
 ## Current Documentation
 
