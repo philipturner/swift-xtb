@@ -24,6 +24,29 @@ curl -OsL "https://github.com/grimme-lab/homebrew-qc/releases/download/xtb-6.7.1
 tar -xzf "mctc-lib-0.3.2_1.arm64_sequoia.bottle.tar.gz"
 tar -xzf "xtb-6.7.1.arm64_sequoia.bottle.tar.gz"
 
-# Do some scripting to extract key information for install_name_tool.
-libxtb_output=$(otool -L "xtb/6.7.1/lib/libxtb.6.dylib")
-swift "../compile-libraries.swift" "$libxtb_output" openblas
+# ## How the binaries should look:
+#
+#  libxtb.6.dylib:
+#    /opt/homebrew/opt/xtb/lib/libxtb.6.dylib (compatibility version 6.0.0, current version 6.0.0)
+#    /opt/homebrew/opt/openblas/lib/libopenblas.0.dylib (compatibility version 0.0.0, current version 0.0.0)
+#    /opt/homebrew/opt/mctc-lib/lib/libmctc-lib.0.dylib (compatibility version 0.0.0, current version 0.0.0)
+#    /opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib (compatibility version 6.0.0, current version 6.0.0)
+#    /opt/homebrew/opt/gcc/lib/gcc/current/libgomp.1.dylib (compatibility version 2.0.0, current version 2.0.0)
+#    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)
+#
+#  libmctc-lib.0.dylib:
+#    /opt/homebrew/opt/mctc-lib/lib/libmctc-lib.0.dylib (compatibility version 0.0.0, current version 0.0.0)
+#    /opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib (compatibility version 6.0.0, current version 6.0.0)
+#    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)
+#
+#  xtb:
+#    /opt/homebrew/opt/openblas/lib/libopenblas.0.dylib (compatibility version 0.0.0, current version 0.0.0)
+#    /opt/homebrew/opt/mctc-lib/lib/libmctc-lib.0.dylib (compatibility version 0.0.0, current version 0.0.0)
+#    /opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib (compatibility version 6.0.0, current version 6.0.0)
+#    /opt/homebrew/opt/gcc/lib/gcc/current/libgomp.1.dylib (compatibility version 2.0.0, current version 2.0.0)
+#    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)
+
+LIBXTB_PATH="xtb/6.7.1/lib/libxtb.6.dylib"
+libxtb_output=$(otool -L "$LIBXTB_PATH")
+echo "$libxtb_output"
+#swift "../compile-libraries.swift" "$libxtb_output" openblas
