@@ -48,13 +48,27 @@ tar -xzf "xtb-6.7.1.arm64_sequoia.bottle.tar.gz"
 
 LIBXTB_PATH="xtb/6.7.1/lib/libxtb.6.dylib"
 libxtb_output=$(otool -L "$LIBXTB_PATH")
-echo "$libxtb_output"
-#swift "../compile-libraries.swift" "$libxtb_output" openblas
+openblas_address=$(swift "../compile-libraries.swift" "$libxtb_output" openblas)
+mctc_lib_address=$(swift "../compile-libraries.swift" "$libxtb_output" mctc-lib)
+gfortran_address=$(swift "../compile-libraries.swift" "$libxtb_output" gfortran)
+gomp_address=$(swift "../compile-libraries.swift" "$libxtb_output" gomp)
+echo "$openblas_address"
+echo "$mctc_lib_address"
+echo "$gfortran_address"
+echo "$gomp_address"
+
+
+# Next step: correctly codesign one executable
 
 LIBMCTC_LIB_PATH="mctc-lib/0.3.2_1/lib/libmctc-lib.0.dylib"
 libmctc_lib_output=$(otool -L "$LIBMCTC_LIB_PATH")
-echo "$libmctc_lib_output"
+
 
 XTB_PATH="xtb/6.7.1/bin/xtb"
 xtb_output=$(otool -L "$XTB_PATH")
-echo "$xtb_output"
+
+
+
+codesign --verify --verbose "$LIBXTB_PATH"
+codesign --verify --verbose "$LIBMCTC_LIB_PATH"
+codesign --verify --verbose "$XTB_PATH"
