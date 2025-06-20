@@ -6,12 +6,10 @@ GFN2-xTB
 - Properly document how to inject the Accelerate symbolic link
   - Validate that the acceleration works with a fresh install
   - Provide a performance test with the three diamond systems
+  - Unable to quantify performance with `diamondSystem233` due to a crash with the current xTB version
 - Properly document how to set up the OpenMP threads and stack size for optimal performance
 
 GFN-FF
-- Prevent the GFN-FF parameters from spilling to the console
-  - https://github.com/grimme-lab/xtb/issues/905
-  - May require the full C API for xTB environment verbosity
 - Properly document how to fix the GFN-FF crash:
   - Clarify why the crash occurs
   - Try to reproduce the crash in the old molecular-renderer, with the new xTB bindings
