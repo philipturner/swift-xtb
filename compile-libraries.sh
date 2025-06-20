@@ -47,28 +47,43 @@ tar -xzf "xtb-6.7.1.arm64_sequoia.bottle.tar.gz"
 #    /usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1351.0.0)
 
 LIBXTB_PATH="xtb/6.7.1/lib/libxtb.6.dylib"
+LIBMCTC_LIB_PATH="mctc-lib/0.3.2_1/lib/libmctc-lib.0.dylib"
+XTB_PATH="xtb/6.7.1/bin/xtb"
+
 libxtb_output=$(otool -L "$LIBXTB_PATH")
 openblas_address=$(swift "../compile-libraries.swift" "$libxtb_output" openblas)
 mctc_lib_address=$(swift "../compile-libraries.swift" "$libxtb_output" mctc-lib)
 gfortran_address=$(swift "../compile-libraries.swift" "$libxtb_output" gfortran)
 gomp_address=$(swift "../compile-libraries.swift" "$libxtb_output" gomp)
-echo "$openblas_address"
-echo "$mctc_lib_address"
-echo "$gfortran_address"
-echo "$gomp_address"
 
+install_name_tool -change \
+  "$openblas_address" \
+  "/opt/homebrew/opt/openblas/lib/libopenblas.0.dylib" \
+  "$LIBXTB_PATH"
+install_name_tool -change \
+  "$mctc_lib_address" \
+  "$(pwd)/$LIBMCTC_LIB_PATH" \
+  "$LIBXTB_PATH"
+install_name_tool -change \
+  "$gfortran_address" \
+  "/opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib" \
+  "$LIBXTB_PATH"
+install_name_tool -change \
+  "$gomp_address" \
+  "/opt/homebrew/opt/gcc/lib/gcc/current/libgomp.1.dylib" \
+  "$LIBXTB_PATH"
+install_name_tool -id \
+  "$(pwd)/$LIBXTB_PATH" \
+  "$LIBXTB_PATH"
+codesign -fs - "$LIBXTB_PATH"
 
-# Next step: correctly codesign one executable
-
-LIBMCTC_LIB_PATH="mctc-lib/0.3.2_1/lib/libmctc-lib.0.dylib"
 libmctc_lib_output=$(otool -L "$LIBMCTC_LIB_PATH")
 
-
-XTB_PATH="xtb/6.7.1/bin/xtb"
 xtb_output=$(otool -L "$XTB_PATH")
 
-
-
+echo ""
+echo "This code-sign should report success:"
 codesign --verify --verbose "$LIBXTB_PATH"
 codesign --verify --verbose "$LIBMCTC_LIB_PATH"
 codesign --verify --verbose "$XTB_PATH"
+echo ""

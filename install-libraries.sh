@@ -53,7 +53,6 @@ openblas_address=$(swift "install-libraries.swift" \
   "$otool_output" \
   --check-openblas \
   --report-openblas)
-echo "openblas_address = $openblas_address"
 
 # Replace OpenBLAS with Accelerate.
 install_name_tool -change \
@@ -86,4 +85,7 @@ install_name_tool -id \
 # the dylib with an ad-hoc signature.
 #
 # Source: https://developer.apple.com/forums/thread/747909
+echo ""
+echo "This code-sign should report success:"
 codesign -fs - libxtb_accelerate.dylib
+echo ""
