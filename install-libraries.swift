@@ -9,10 +9,6 @@ var arguments = CommandLine.arguments
 guard arguments.count >= 1 else {
   fatalError("Not enough arguments.")
 }
-let scriptName = arguments[0]
-guard scriptName == "install-libraries.swift" else {
-  fatalError("First argument is not a script file.")
-}
 arguments.removeFirst()
 
 // Parse the otool output.
@@ -96,23 +92,23 @@ if reportOpenBLAS {
   
   // Get the first instance of each substring in the line.
   let optRange = openblasLine.range(
-    of: "/opt", options: .caseInsensitive)
+    of: "/opt", options: [])
   let dylibRange = openblasLine.range(
-    of: ".dylib", options: .caseInsensitive)
+    of: ".dylib", options: [])
   guard let optRange,
         let dylibRange else {
     fatalError("Could not locate library address.")
   }
-  
   guard optRange.upperBound < dylibRange.lowerBound else {
     fatalError("Malformatted library address.")
   }
   
+  // Extract the substring.
   let startIndex = optRange.lowerBound
   let endIndex = dylibRange.upperBound
   let substringRange = startIndex..<endIndex
   let substring = openblasLine[substringRange]
   
-  // Report text to the calling program.
+  // Report the substring to the calling program.
   print(substring)
 }

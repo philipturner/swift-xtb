@@ -18,7 +18,12 @@ cd .build
 # https://github.com/grimme-lab/homebrew-qc/releases/download/dftd4-3.7.0/dftd4-3.7.0.arm64_sequoia.bottle.tar.gz
 # https://github.com/grimme-lab/homebrew-qc/releases/download/xtb-6.7.1/xtb-6.7.1.arm64_sequoia.bottle.tar.gz
 
+# Download each binary dependency from the Internet.
 curl -OsL "https://github.com/grimme-lab/homebrew-qc/releases/download/mctc-lib-0.3.2_1/mctc-lib-0.3.2_1.arm64_sequoia.bottle.tar.gz"
 curl -OsL "https://github.com/grimme-lab/homebrew-qc/releases/download/xtb-6.7.1/xtb-6.7.1.arm64_sequoia.bottle.tar.gz"
 tar -xzf "mctc-lib-0.3.2_1.arm64_sequoia.bottle.tar.gz"
 tar -xzf "xtb-6.7.1.arm64_sequoia.bottle.tar.gz"
+
+# Do some scripting to extract key information for install_name_tool.
+libxtb_output=$(otool -L "xtb/6.7.1/lib/libxtb.6.dylib")
+swift "../compile-libraries.swift" "$libxtb_output" openblas
