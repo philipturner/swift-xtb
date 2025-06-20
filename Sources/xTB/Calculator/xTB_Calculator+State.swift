@@ -13,17 +13,14 @@ extension xTB_Calculator {
     var maximumIterations: Int = 250
     
     // Lazily synchronized properties.
-    var externalCharges: xTB_ExternalCharges!
     var molecule: xTB_Molecule!
     var orbitals: xTB_Orbitals!
   }
   
   struct UpdateRecord {
-    var externalCharges: Bool = false
     var molecule: Bool = false
     
     mutating func erase() {
-      externalCharges = false
       molecule = false
     }
   }
@@ -41,9 +38,6 @@ extension xTB_Calculator {
   
   /// Ensure the C API objects are up to date.
   private func flushUpdateRecord() {
-    if updateRecord.externalCharges {
-      externalCharges.update()
-    }
     if updateRecord.molecule {
       molecule.update()
     }
@@ -69,14 +63,6 @@ extension xTB_Calculator {
     
     if results.energy == nil {
       results.getEnergy()
-    }
-  }
-  
-  func ensureExternalChargesCached() {
-    requestSinglepoint()
-    
-    if results.externalChargeForces == nil {
-      results.getExternalChargeForces()
     }
   }
   

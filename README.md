@@ -3,14 +3,12 @@
 ## TODO List
 
 GFN2-xTB
-- Remove the external charges API, as it's unused
 - Properly document how to inject the Accelerate symbolic link
   - Validate that the acceleration works with a fresh install
   - Provide a performance test with the three diamond systems
 - Properly document how to set up the OpenMP threads and stack size for optimal performance
 
 GFN-FF
-- Avoid fetching `xTB_Results` properties that aren't available to GFN-FF
 - Prevent the GFN-FF parameters from spilling to the console
   - https://github.com/grimme-lab/xtb/issues/905
   - May require the full C API for xTB environment verbosity
@@ -22,7 +20,6 @@ GFN-FF
 
 API improvements:
 - Update the API for Swift 6
-- Remove external charges
 - Automatically suppress `gfnff_topo` file writing in a robust manner
   - Figure out exactly when it's written, then switch back to the previous directory afterward
   - Purge `gfnff_topo` and `gfnff_charges` from the NSTemporaryDirectory, so that every initialization of `xTB_Calculator` regenerates the GFN-FF parameters from scratch.
@@ -32,7 +29,7 @@ API improvements:
 - Ensure all issues currently on the README are addressed. Then, proceed with intercepting linear algebra library calls.
 
 End goals:
-- Production-ready API an opt-in FP32 mode, on both macOS and Windows
+- Production-ready API with an opt-in FP32 mode, on both macOS and Windows
 - Able to gather data about contributions to latency across a diverse set of environments, for the 3 diamond systems
 
 ## Current Documentation

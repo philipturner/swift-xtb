@@ -14,8 +14,6 @@ class xTB_Results {
   
   var forces: [SIMD3<Float>]?
   
-  var externalChargeForces: [SIMD3<Float>]?
-  
   var charges: [Float]?
   
   var bondOrders: [Float]?
@@ -68,13 +66,6 @@ extension xTB_Results {
     
     // Convert energy into nanomechanical units.
     self.energy = energy * xTB_ZJPerHartree
-  }
-  
-  func getExternalChargeForces() {
-    let externalChargeCount = calculator.externalCharges.atomicNumbers.count
-    let pointChargeGradient64 = getDoubleArray(
-      xtb_getPCGradient, size: externalChargeCount * 3)
-    externalChargeForces = convertGradientToForces(pointChargeGradient64)
   }
 }
 

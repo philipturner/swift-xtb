@@ -6,17 +6,6 @@
 //
 
 extension xTB_Calculator {
-  public var externalCharges: xTB_ExternalCharges {
-    _read {
-      yield state.externalCharges!
-    }
-    _modify {
-      yield &state.externalCharges!
-      updateRecord.externalCharges = true
-      invalidateSinglepoint()
-    }
-  }
-  
   public var molecule: xTB_Molecule {
     _read {
       yield state.molecule!

@@ -71,13 +71,10 @@ public class xTB_Calculator {
         xTB_Environment._environment, _molecule, _calculator, nil)
     }
     
-    let externalCharges = xTB_ExternalCharges()
     let orbitals = xTB_Orbitals(descriptor: descriptor)
-    state.externalCharges = externalCharges
     state.molecule = molecule
     state.orbitals = orbitals
     
-    state.externalCharges.calculator = self
     state.molecule.calculator = self
     state.orbitals.calculator = self
   }
