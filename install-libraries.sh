@@ -1,10 +1,19 @@
-# Download each binary dependency from the Internet.
-if [ ! -d "/opt/homebrew/Cellar/xtb" ]; then
-  # Installing 'xtb' may take ~30 minutes, if you haven't updated Homebrew
-  # dependencies in a long time.
-  brew install xtb
+if [ 0 == 0 ]; then
+  # Custom download
+  TARGET_DIR="$(pwd)/.build/xtb"
 else
-  echo "xtb is already installed."
+  # Homebrew download
+  
+  # Download each binary dependency from the Internet.
+  if [ ! -d "/opt/homebrew/Cellar/xtb" ]; then
+    # Installing 'xtb' may take ~30 minutes, if you haven't updated Homebrew
+    # dependencies in a long time.
+    brew install xtb
+  else
+    echo "xtb is already installed."
+  fi
+  
+  TARGET_DIR="/opt/homebrew/Cellar/xtb"
 fi
 
 # Bash executes 'while read' in a sub-process, meaning it can't modify
@@ -15,7 +24,6 @@ shopt -s lastpipe
 
 # Check for multiple installations.
 installation_count=0
-TARGET_DIR="/opt/homebrew/Cellar/xtb"
 find "$TARGET_DIR" -maxdepth 1 -type d -print0 | while IFS= read -r -d $'\0' dir; do
   # Exclude the target directory itself.
   if [ "$dir" != "$TARGET_DIR" ]; then
@@ -85,7 +93,9 @@ install_name_tool -id \
 # the dylib with an ad-hoc signature.
 #
 # Source: https://developer.apple.com/forums/thread/747909
+codesign -fs - libxtb_accelerate.dylib
+
 echo ""
 echo "This code-sign should report success:"
-codesign -fs - libxtb_accelerate.dylib
+codesign --verify --verbose libxtb_accelerate.dylib
 echo ""

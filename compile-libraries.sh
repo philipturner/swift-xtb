@@ -1,13 +1,10 @@
-# Goal:
-# - To start off, replicate the functionality of Homebrew.
-#   - Download the raw binary files that Grimme Lab is hosting on GitHub.
-#   - Fix the linker issues.
-#   - Do everything in the '.build' folder of this project. No need to copy to
-#     the top-level project folder, except for libraries that the Swift
-#     compiler must be able to see / have transparent access to modifications.
-#   - Get the 'xtb' executable running from this mutated install.
+# Tasks:
 # - Compile all necessary dependencies from source, using v0.3.2 (before the
 #   bug fix I'm seeking).
+#   - Figure out how to even approach this task. I've never understood how to
+#     do Fortran, meson, gfortran, and CMake.
+#   - mctc-lib is out of scope for the initial project. Just swap out the
+#     'libxtb.6.dylib' and leave the other binaries untouched.
 mkdir .build
 cd .build
 
