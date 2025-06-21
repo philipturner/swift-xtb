@@ -78,8 +78,40 @@ install_name_tool -id \
 codesign -fs - "$LIBXTB_PATH"
 
 libmctc_lib_output=$(otool -L "$LIBMCTC_LIB_PATH")
+gfortran_address=$(swift "../compile-libraries.swift" "$libmctc_lib_output" gfortran)
+
+install_name_tool -change \
+  "$gfortran_address" \
+  "/opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib" \
+  "$LIBMCTC_LIB_PATH"
+install_name_tool -id \
+  "$(pwd)/$LIBMCTC_LIB_PATH" \
+  "$LIBMCTC_LIB_PATH"
+codesign -fs - "$LIBMCTC_LIB_PATH"
 
 xtb_output=$(otool -L "$XTB_PATH")
+openblas_address=$(swift "../compile-libraries.swift" "$xtb_output" openblas)
+mctc_lib_address=$(swift "../compile-libraries.swift" "$xtb_output" mctc-lib)
+gfortran_address=$(swift "../compile-libraries.swift" "$xtb_output" gfortran)
+gomp_address=$(swift "../compile-libraries.swift" "$xtb_output" gomp)
+
+install_name_tool -change \
+  "$openblas_address" \
+  "/opt/homebrew/opt/openblas/lib/libopenblas.0.dylib" \
+  "$XTB_PATH"
+install_name_tool -change \
+  "$mctc_lib_address" \
+  "$(pwd)/$LIBMCTC_LIB_PATH" \
+  "$XTB_PATH"
+install_name_tool -change \
+  "$gfortran_address" \
+  "/opt/homebrew/opt/gcc/lib/gcc/current/libgfortran.5.dylib" \
+  "$XTB_PATH"
+install_name_tool -change \
+  "$gomp_address" \
+  "/opt/homebrew/opt/gcc/lib/gcc/current/libgomp.1.dylib" \
+  "$XTB_PATH"
+codesign -fs - "$XTB_PATH"
 
 echo ""
 echo "This code-sign should report success:"
