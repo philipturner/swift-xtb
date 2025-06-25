@@ -15,37 +15,37 @@ import xTB
 
 // Energy - GFN-FF
 //
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
-// ------ | ----------------- | ------------------- | ------------ |
-// 122    |     -57126.394 zJ |       -57126.394 zJ |
-// 222    |    -100762.569 zJ |      -100762.569 zJ |
-// 233    |    -208433.751 zJ |      -208433.751 zJ |
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
+// ------ | ----------------- | ------------------- | ---------------- |
+// 122    |     -57126.394 zJ |       -57126.394 zJ |    -57126.394 zJ |
+// 222    |    -100762.569 zJ |      -100762.569 zJ |   -100762.569 zJ |
+// 233    |    -208433.751 zJ |      -208433.751 zJ |   -208433.751 zJ |
 
 // Latency - GFN-FF
 //
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
-// ------ | ----------------- | ------------------- | ------------ |
-// 122    |            1.6 ms |              1.5 ms |
-// 222    |            2.9 ms |              3.0 ms |
-// 233    |           10.0 ms |              9.6 ms |
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
+// ------ | ----------------- | ------------------- | ---------------- |
+// 122    |            1.6 ms |              1.5 ms |           1.2 ms |
+// 222    |            2.9 ms |              3.0 ms |           2.4 ms |
+// 233    |           10.0 ms |              9.6 ms |           8.2 ms |
 
 
 
 // Energy - GFN2-xTB
 //
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
-// ------ | ----------------- | ------------------- | ------------ |
-// 122    |    -452321.592 zJ |      -452321.592 zJ |
-// 222    |    -841344.658 zJ |      -841344.658 zJ |
-// 233    |           crashes |             crashes |
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
+// ------ | ----------------- | ------------------- | ---------------- |
+// 122    |    -452321.592 zJ |      -452321.592 zJ |   -452321.592 zJ |
+// 222    |    -841344.658 zJ |      -841344.658 zJ |   -841344.658 zJ |
+// 233    |           crashes |             crashes |          crashes |
 
 // Latency - GFN2-xTB
 //
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
-// ------ | ----------------- | ------------------- | ------------ |
-// 122    |          268.3 ms |             70.5 ms |
-// 222    |          870.1 ms |            264.8 ms |
-// 233    |           crashes |             crashes |
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
+// ------ | ----------------- | ------------------- | ---------------- |
+// 122    |          268.3 ms |             70.5 ms |          63.2 ms |
+// 222    |          870.1 ms |            264.8 ms |         219.4 ms |
+// 233    |           crashes |             crashes |          crashes |
 
 
 
@@ -64,7 +64,7 @@ xTB_Environment.verbosity = .muted
 xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem233
+let system: [SIMD4<Float>] = diamondSystem222
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
