@@ -17,17 +17,17 @@ import xTB
 //
 // System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
 // ------ | ----------------- | ------------------- | ------------ |
-// 122    |     -57126.394 zJ |
-// 222    |    -100762.569 zJ |
-// 233    |    -208433.751 zJ |
+// 122    |     -57126.394 zJ |       -57126.394 zJ |
+// 222    |    -100762.569 zJ |      -100762.569 zJ |
+// 233    |    -208433.751 zJ |      -208433.751 zJ |
 
 // Latency - GFN-FF
 //
 // System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
 // ------ | ----------------- | ------------------- | ------------ |
-// 122    |            1.6 ms |
-// 222    |            2.9 ms |
-// 233    |           10.0 ms |
+// 122    |            1.6 ms |              1.5 ms |
+// 222    |            2.9 ms |              3.0 ms |
+// 233    |           10.0 ms |              9.6 ms |
 
 
 
@@ -35,17 +35,17 @@ import xTB
 //
 // System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
 // ------ | ----------------- | ------------------- | ------------ |
-// 122    |    -452321.592 zJ |
-// 222    |    -841344.658 zJ |
-// 233    |           crashes |
+// 122    |    -452321.592 zJ |      -452321.592 zJ |
+// 222    |    -841344.658 zJ |      -841344.658 zJ |
+// 233    |           crashes |             crashes |
 
 // Latency - GFN2-xTB
 //
 // System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
 // ------ | ----------------- | ------------------- | ------------ |
-// 122    |          268.3 ms |
-// 222    |          870.1 ms |
-// 233    |           crashes |
+// 122    |          268.3 ms |             70.5 ms |
+// 222    |          870.1 ms |            264.8 ms |
+// 233    |           crashes |             crashes |
 
 
 
