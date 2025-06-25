@@ -62,17 +62,17 @@ openblas_address=$(swift "install-libraries.swift" \
   --check-openblas \
   --report-openblas)
 
-# Replace OpenBLAS with Accelerate.
-install_name_tool -change \
-  "$openblas_address" \
-  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-  libxtb_accelerate.dylib
-
-# Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb_accelerate.dylib)
-swift "install-libraries.swift" \
-  "$otool_output" \
-  --check-accelerate
+## Replace OpenBLAS with Accelerate.
+#install_name_tool -change \
+#  "$openblas_address" \
+#  "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
+#  libxtb_accelerate.dylib
+#
+## Inspect the dylib's binary dependencies.
+#otool_output=$(otool -L libxtb_accelerate.dylib)
+#swift "install-libraries.swift" \
+#  "$otool_output" \
+#  --check-accelerate
 
 # Solution to the following problems:
 # - The dylib gets recompiled, but the program doesn't register the change.
