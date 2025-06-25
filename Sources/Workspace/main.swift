@@ -11,6 +11,38 @@ import xTB
 // Try making a fork of homebrew-qc and installing it on my system. Updated
 // with mctc v0.4.0, which may fix issues causing the crash.
 
+// Energy - GFN-FF
+//
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
+// ------ | ----------------- | ------------------- | ------------ |
+// 122    |
+// 222    |
+// 233    |
+
+// Energy - GFN2-xTB
+//
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
+// ------ | ----------------- | ------------------- | ------------ |
+// 122    |
+// 222    |
+// 233    |
+
+// Latency - GFN-FF
+//
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
+// ------ | ----------------- | ------------------- | ------------ |
+// 122    |
+// 222    |
+// 233    |
+
+// Latency - GFN2-xTB
+//
+// System | Homebrew OpenBLAS | Homebrew Accelerate | Custom Build |
+// ------ | ----------------- | ------------------- | ------------ |
+// 122    |
+// 222    |
+// 233    |
+
 // Prepare the environment for maximum performance with xTB.
 setenv("OMP_STACKSIZE", "2G", 1)
 setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
@@ -48,6 +80,6 @@ for _ in 0..<1 {
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   print()
   print("actual latency:", latency)
-  print("energy:", energy)
+  print("energy:", energy, "zJ")
   print("orbitals:", calculator.orbitals.count, calculator.orbitals.eigenvalues.count)
 }

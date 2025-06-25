@@ -1,12 +1,7 @@
-# Tasks:
-# - Compile all necessary dependencies from source, using v0.3.2 (before the
-#   bug fix I'm seeking).
-#   - Figure out how to even approach this task. I've never understood how to
-#     do Fortran, meson, gfortran, and CMake.
-#   - mctc-lib is out of scope for the initial project. Just swap out the
-#     'libxtb.6.dylib' and leave the other binaries untouched.
 mkdir .build
 cd .build
+rm -rf mctc-lib
+rm -rf xtb
 
 # Links referenced in the Homebrew installer:
 #

@@ -59,3 +59,12 @@ fi
 #
 # binary size:
 # - libxtb_accelerate.dylib: 6.4 MB
+
+install_name_tool -id \
+  "libxtb_accelerate.dylib" \
+  libxtb_accelerate.dylib
+
+echo ""
+echo "This code-sign should report success:"
+codesign --verify --verbose libxtb_accelerate.dylib
+echo ""
