@@ -1,20 +1,20 @@
-mkdir .build
-cd .build
-rm -rf xtb
-git clone https://github.com/grimme-lab/xtb
-
-cd xtb
-cmake -B build \
- -DCMAKE_BUILD_TYPE=Release \
- -DCMAKE_C_COMPILER="gcc-15" \
- -DCMAKE_Fortran_COMPILER="gfortran-15" \
- -DWITH_TBLITE=OFF \
- -DWITH_CPCMX=OFF \
- -DBLA_VENDOR=Apple
-make -C build -j8
-
-cd ../ # balance 'cd xtb'
-cd ../ # balance 'cd .build'
+#mkdir .build
+#cd .build
+#rm -rf xtb
+#git clone https://github.com/grimme-lab/xtb
+#
+#cd xtb
+#cmake -B build \
+# -DCMAKE_BUILD_TYPE=Release \
+# -DCMAKE_C_COMPILER="gcc-15" \
+# -DCMAKE_Fortran_COMPILER="gfortran-15" \
+# -DWITH_TBLITE=OFF \
+# -DWITH_CPCMX=OFF \
+# -DBLA_VENDOR=Apple
+#make -C build -j8
+#
+#cd ../ # balance 'cd xtb'
+#cd ../ # balance 'cd .build'
 
 # Purge the existing dylib to avoid "Permission denied" errors.
 rm -rf libxtb_accelerate.dylib

@@ -56,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -121,6 +121,23 @@ print("minimum latency:", formattedLatency, "ms")
 actual latency: 3647.7 ms
 energy: -1796496.862 zJ
 orbitals: 776 776
+
+E+G (total)                   0 d,  0 h,  0 min,  0.009 sec
+distance/D3 list               ...        0 min,  0.000 sec (  0.765%)
+non bonded repulsion           ...        0 min,  0.001 sec (  8.518%)
+dCN                            ...        0 min,  0.001 sec (  7.975%)
+EEQ energy and q               ...        0 min,  0.001 sec ( 10.861%)
+D3                             ...        0 min,  0.004 sec ( 43.356%)
+EEQ gradient                   ...        0 min,  0.000 sec (  1.512%)
+bonds                          ...        0 min,  0.001 sec ( 11.427%)
+bend and torsion               ...        0 min,  0.000 sec (  2.155%)
+bonded ATM                     ...        0 min,  0.000 sec (  2.719%)
+HB/XB (incl list setup)        ...        0 min,  0.001 sec ( 10.509%)
+
+
+actual latency: 11.0 ms
+energy: -208177.354 zJ
+orbitals: 0 0
  */
 
 
@@ -158,6 +175,23 @@ orbitals: 776 776
 actual latency: 1821.9 ms
 energy: -1796496.862 zJ
 orbitals: 776 776
+
+E+G (total)                   0 d,  0 h,  0 min,  0.008 sec
+distance/D3 list               ...        0 min,  0.000 sec (  0.876%)
+non bonded repulsion           ...        0 min,  0.001 sec (  9.245%)
+dCN                            ...        0 min,  0.001 sec (  8.467%)
+EEQ energy and q               ...        0 min,  0.001 sec (  8.053%)
+D3                             ...        0 min,  0.003 sec ( 40.246%)
+EEQ gradient                   ...        0 min,  0.000 sec (  1.981%)
+bonds                          ...        0 min,  0.001 sec ( 13.464%)
+bend and torsion               ...        0 min,  0.000 sec (  2.665%)
+bonded ATM                     ...        0 min,  0.000 sec (  2.993%)
+HB/XB (incl list setup)        ...        0 min,  0.001 sec ( 11.875%)
+
+
+actual latency: 9.1 ms
+energy: -208177.354 zJ
+orbitals: 0 0
  */
 
 
@@ -195,4 +229,21 @@ orbitals: 776 776
 actual latency: 1490.0 ms
 energy: -1796496.861 zJ
 orbitals: 776 776
+ 
+E+G (total)                   0 d,  0 h,  0 min,  0.007 sec
+distance/D3 list               ...        0 min,  0.000 sec (  1.811%)
+non bonded repulsion           ...        0 min,  0.000 sec (  4.569%)
+dCN                            ...        0 min,  0.001 sec (  9.661%)
+EEQ energy and q               ...        0 min,  0.001 sec ( 10.600%)
+D3                             ...        0 min,  0.003 sec ( 44.505%)
+EEQ gradient                   ...        0 min,  0.000 sec (  2.007%)
+bonds                          ...        0 min,  0.001 sec (  8.373%)
+bend and torsion               ...        0 min,  0.000 sec (  2.370%)
+bonded ATM                     ...        0 min,  0.000 sec (  3.424%)
+HB/XB (incl list setup)        ...        0 min,  0.001 sec ( 12.387%)
+
+
+actual latency: 7.6 ms
+energy: -208177.354 zJ
+orbitals: 0 0
  */
