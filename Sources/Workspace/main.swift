@@ -28,9 +28,6 @@ import xTB
 
 
 
-// TODO: Make a new script, 'run.sh', that queries the core count and sets
-// these environment variables. Then, it calls 'swift run -Xswiftc -Ounchecked'.
-
 let cString1 = getenv("OMP_STACKSIZE")
 let cString2 = getenv("OMP_NUM_THREADS")
 if let cString1 {
@@ -40,12 +37,6 @@ if let cString2 {
   print("OMP_NUM_THREADS:", String(cString: cString2))
 }
 
-/*
-// Prepare the environment for maximum performance with xTB.
-setenv("OMP_STACKSIZE", "2G", 1)
-setenv("OMP_NUM_THREADS", "8", 1) // replace '8' with number of P-cores
- */
-
 // Suppress unwanted output from GFN-FF.
 let url = FileManager.default.temporaryDirectory
 let path = url.relativePath
@@ -53,8 +44,8 @@ let worked = FileManager.default.changeCurrentDirectoryPath(path)
 guard worked else {
   fatalError("Could not redirect gfnff_topo directory.")
 }
-xTB_Environment.verbosity = .muted
-xTB_Environment.setOutput("/dev/null")
+xTB_Environment.verbosity = .minimal
+//xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem233
@@ -65,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-calculatorDesc.hamiltonian = .forceField
+//calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
