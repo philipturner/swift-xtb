@@ -44,11 +44,11 @@ let worked = FileManager.default.changeCurrentDirectoryPath(path)
 guard worked else {
   fatalError("Could not redirect gfnff_topo directory.")
 }
-xTB_Environment.verbosity = .full
-//xTB_Environment.setOutput("/dev/null")
+xTB_Environment.verbosity = .muted
+xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem233
+let system: [SIMD4<Float>] = diamondSystem122
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -82,7 +82,7 @@ for _ in 0..<10 {
 }
 
 // Summarize the results
-let formattedLatency = String(format: "%.1f", minLatency * 1000)
+let formattedLatency = String(format: "%.2f", minLatency * 1000)
 print()
 print("minimum latency:", formattedLatency, "ms")
 
