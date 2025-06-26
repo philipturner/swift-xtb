@@ -8,46 +8,17 @@
 import Foundation
 import xTB
 
-// Try making a fork of homebrew-qc and installing it on my system. Updated
-// with mctc v0.4.0, which may fix issues causing the crash.
+// TODO: Make a new script, 'run.sh', that queries the core count and sets
+// these environment variables. Then, it calls 'swift run -Xswiftc -Ounchecked'.
 
-
-
-// Energy - GFN-FF
-//
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
-// ------ | ----------------- | ------------------- | ---------------- |
-// 122    |     -57126.394 zJ |       -57126.394 zJ |    -57126.394 zJ |
-// 222    |    -100762.569 zJ |      -100762.569 zJ |   -100762.569 zJ |
-// 233    |    -208433.751 zJ |      -208433.751 zJ |   -208433.751 zJ |
-
-// Latency - GFN-FF
-//
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
-// ------ | ----------------- | ------------------- | ---------------- |
-// 122    |            1.6 ms |              1.5 ms |           1.2 ms |
-// 222    |            2.9 ms |              3.0 ms |           2.4 ms |
-// 233    |           10.0 ms |              9.6 ms |           8.2 ms |
-
-
-
-// Energy - GFN2-xTB
-//
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
-// ------ | ----------------- | ------------------- | ---------------- |
-// 122    |    -452321.592 zJ |      -452321.592 zJ |   -452321.592 zJ |
-// 222    |    -841344.658 zJ |      -841344.658 zJ |   -841344.658 zJ |
-// 233    |           crashes |             crashes |          crashes |
-
-// Latency - GFN2-xTB
-//
-// System | Homebrew OpenBLAS | Homebrew Accelerate | Latest Commit    |
-// ------ | ----------------- | ------------------- | ---------------- |
-// 122    |          268.3 ms |             70.5 ms |          63.2 ms |
-// 222    |          870.1 ms |            264.8 ms |         219.4 ms |
-// 233    |           crashes |             crashes |          crashes |
-
-
+let cString1 = getenv("OMP_STACKSIZE")
+let cString2 = getenv("OMP_NUM_THREADS")
+if let cString1 {
+  print("OMP_STACKSIZE:", String(cString: cString1))
+}
+if let cString2 {
+  print("OMP_NUM_THREADS:", String(cString: cString2))
+}
 
 // Prepare the environment for maximum performance with xTB.
 setenv("OMP_STACKSIZE", "2G", 1)
@@ -72,7 +43,6 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -82,7 +52,7 @@ for _ in 0..<1 {
   }
   
   let checkpoint0 = Date()
-  let energy = calculator.energy
+  let energy = calculator.energy * xTB_HartreePerZJ
   let checkpoint1 = Date()
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   
@@ -90,7 +60,7 @@ for _ in 0..<1 {
   print()
   print("actual latency:", formattedLatency, "ms")
   
-  let formattedEnergy = String(format: "%.3f", energy)
-  print("energy:", formattedEnergy, "zJ")
+  let formattedEnergy = String(format: "%.7f", energy)
+  print("energy:", formattedEnergy, "Ha")
   print("orbitals:", calculator.orbitals.count, calculator.orbitals.eigenvalues.count)
 }

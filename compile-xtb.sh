@@ -1,5 +1,3 @@
-# Get all of this working, comment it out, then prototype the commands that follow.
-
 mkdir .build
 cd .build
 rm -rf xtb
