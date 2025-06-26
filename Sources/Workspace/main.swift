@@ -65,7 +65,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -75,11 +75,8 @@ for _ in 0..<10 {
     SIMD3($0.x, $0.y, $0.z)
   }
   
-  
-  
   let checkpoint0 = Date()
   let energy = calculator.energy
-//  _ = calculator.molecule.forces
   let checkpoint1 = Date()
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   minLatency = min(latency, minLatency)
