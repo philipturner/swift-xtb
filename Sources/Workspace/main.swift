@@ -10,44 +10,21 @@ import xTB
 
 
 
-// TODO: Move this data over to Google Sheets. Except for keeping track of the
-// correct energy for GFN2-xTB with 233, which belongs in this script.
-
-
-
-// Energy - GFN-FF
+// GFN-FF
 //
-// System | 6.7.1 OpenBLAS  | 6.7.1 Accelerate | Default OpenMP  | Fixed OMP, 1 thread | Fixed OMP, 8 threads |
-// ------ | --------------- | ---------------- | --------------- | ------------------- | -------------------- |
-// 122    |   -57126.394 zJ |    -57126.394 zJ |   -57126.394 zJ |
-// 222    |  -100762.569 zJ |   -100762.569 zJ |  -100762.569 zJ |
-// 233    |  -208433.751 zJ |   -208433.751 zJ |  -208433.751 zJ |
-
-// Latency - GFN-FF
+// System | Correct Energy  |
+// ------ | --------------- |
+// 122    |   -57126.394 zJ |
+// 222    |  -100762.569 zJ |
+// 233    |  -208433.751 zJ |
 //
-// System | 6.7.1 OpenBLAS  | 6.7.1 Accelerate | Default OpenMP  | Fixed OMP, 1 thread | Fixed OMP, 8 threads |
-// ------ | --------------- | ---------------- | --------------- | ------------------- | -------------------- |
-// 122    |          1.6 ms |           1.5 ms |          1.2 ms |
-// 222    |          2.9 ms |           3.0 ms |          2.3 ms |
-// 233    |         10.0 ms |           9.6 ms |          7.1 ms |
-
-
-
-// Energy - GFN2-xTB
+// GFN2-xTB
 //
-// System | 6.7.1 OpenBLAS  | 6.7.1 Accelerate | Default OpenMP  | Fixed OMP, 1 thread | Fixed OMP, 8 threads |
-// ------ | --------------- | ---------------- | --------------- | ------------------- | -------------------- |
-// 122    |  -452321.592 zJ |   -452321.592 zJ |  -452321.592 zJ |
-// 222    |  -841344.658 zJ |   -841344.658 zJ |  -841344.658 zJ |
-// 233    |         crashes |          crashes |         crashes |
-
-// Latency - GFN2-xTB
-//
-// System | 6.7.1 OpenBLAS  | 6.7.1 Accelerate | Default OpenMP  | Fixed OMP, 1 thread | Fixed OMP, 8 threads |
-// ------ | --------------- | ---------------- | --------------- | ------------------- | -------------------- |
-// 122    |        268.3 ms |          70.5 ms |         61.9 ms |
-// 222    |        870.1 ms |         264.8 ms |        216.4 ms |
-// 233    |         crashes |          crashes |         crashes |
+// System | Correct Energy  |
+// ------ | --------------- |
+// 122    |  -452321.592 zJ |
+// 222    |  -841344.658 zJ |
+// 233    | -1796496.861 zJ |
 
 
 
@@ -100,6 +77,7 @@ for _ in 0..<10 {
   
   let checkpoint0 = Date()
   let energy = calculator.energy
+  _ = calculator.molecule.forces
   let checkpoint1 = Date()
   let latency = checkpoint1.timeIntervalSince(checkpoint0)
   minLatency = min(latency, minLatency)
