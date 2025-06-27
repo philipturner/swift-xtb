@@ -86,6 +86,7 @@ extension xTB_Molecule {
   }
   
   func update() {
+    print("breakpoing - xtb_updateMolecule")
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }

@@ -48,7 +48,7 @@ xTB_Environment.verbosity = .muted
 xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem122
+let system: [SIMD4<Float>] = diamondSystem233
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -79,10 +79,13 @@ for _ in 0..<10 {
   let formattedEnergy = String(format: "%.3f", energy)
   print("energy:", formattedEnergy, "zJ")
   print("orbitals:", calculator.orbitals.count, calculator.orbitals.eigenvalues.count)
+  print("bond orders:", calculator.molecule.bondOrders.count)
+  print("charges:", calculator.molecule.charges.count)
+  print("forces:", calculator.molecule.forces.count)
 }
 
 // Summarize the results
-let formattedLatency = String(format: "%.2f", minLatency * 1000)
+let formattedLatency = String(format: "%.1f", minLatency * 1000)
 print()
 print("minimum latency:", formattedLatency, "ms")
 

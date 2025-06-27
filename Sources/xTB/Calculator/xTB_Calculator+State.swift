@@ -38,6 +38,7 @@ extension xTB_Calculator {
   
   /// Ensure the C API objects are up to date.
   private func flushUpdateRecord() {
+    print("breakpoint - flushUpdateRecord")
     if updateRecord.molecule {
       molecule.update()
     }
@@ -46,6 +47,7 @@ extension xTB_Calculator {
   
   /// Run a self-consistent field calculation.
   private func singlepoint() {
+    print("breakpoint - xtb_singlepoint")
     let results = xTB_Results()
     xtb_singlepoint(
       xTB_Environment._environment,
@@ -59,6 +61,7 @@ extension xTB_Calculator {
 
 extension xTB_Calculator {
   func ensureEnergyCached() {
+    print("breakpoint - ensureEnergyCached")
     requestSinglepoint()
     
     if results.energy == nil {
@@ -67,6 +70,7 @@ extension xTB_Calculator {
   }
   
   func ensureMoleculeCached() {
+    print("breakpoint - ensureMoleculeCached")
     requestSinglepoint()
     
     if results.forces == nil {
@@ -77,9 +81,11 @@ extension xTB_Calculator {
   }
   
   func ensureOrbitalsCached() {
+    print("breakpoint - ensureOrbitalsCached")
     requestSinglepoint()
     
     if results.orbitalEigenvalues == nil {
+      print("breakpoint - results.orbitalEigenvalues == nil")
       results.checkOrbitalCount()
       results.getOrbitalEigenvalues()
       results.getOrbitalOccupations()
