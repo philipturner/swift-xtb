@@ -1,6 +1,6 @@
 //
 //  Utilities.swift
-//  
+//  swift-xtb
 //
 //  Created by Philip Turner on 5/30/24.
 //
@@ -22,9 +22,9 @@ func convertPositions(_ input: [SIMD3<Float>]) -> [Double] {
   return output
 }
 
-// Utility function for casting a Float64 array (in Ha/Bohr) to a Float32
-// array (in zJ/nm). In addition, converts a gradient into a force by negating
-// it.
+/// Utility function for casting a Float64 array (in Ha/Bohr) to a Float32
+/// array (in zJ/nm). In addition, converts a gradient into a force by negating
+/// it.
 func convertGradientToForces(_ input: [Double]) -> [SIMD3<Float>] {
   // The caller should have guaranteed that the input is divisible by 3.
   var output: [SIMD3<Float>] = []

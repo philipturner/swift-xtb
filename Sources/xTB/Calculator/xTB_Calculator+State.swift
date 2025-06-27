@@ -1,6 +1,6 @@
 //
 //  xTB_Calculator+State.swift
-//
+//  swift-xtb
 //
 //  Created by Philip Turner on 5/30/24.
 //

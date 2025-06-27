@@ -1,6 +1,6 @@
 //
 //  main.swift
-//  xTB
+//  swift-xtb
 //
 //  Created by Philip Turner on 6/19/25.
 //
