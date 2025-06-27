@@ -61,9 +61,10 @@ let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
 var minLatency: Double = 1_000_000
-for _ in 0..<10 {
+for i in 0..<10 {
+  let multiplier = Float(1.000) - Float(i) * 0.001
   calculator.molecule.positions = system.map {
-    SIMD3($0.x, $0.y, $0.z)
+    SIMD3($0.x, $0.y, $0.z) * multiplier
   }
   
   let checkpoint0 = Date()
@@ -84,13 +85,13 @@ for _ in 0..<10 {
   print("forces:", calculator.molecule.forces.count)
   
   // If this is commented out, then the energies change.
-  print()
-  print(xTB_Environment.status)
-  print(xTB_Environment.flushErrorStack())
-  print(xTB_Environment.status)
-  xTB_Environment.show()
-  print(xTB_Environment.status)
-  print()
+//  print()
+//  print(xTB_Environment.status)
+//  print(xTB_Environment.flushErrorStack())
+//  print(xTB_Environment.status)
+//  xTB_Environment.show()
+//  print(xTB_Environment.status)
+//  print()
 }
 
 // Summarize the results
