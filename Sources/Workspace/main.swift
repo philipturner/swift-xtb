@@ -45,15 +45,7 @@ guard worked else {
   fatalError("Could not redirect gfnff_topo directory.")
 }
 xTB_Environment.verbosity = .muted
-xTB_Environment.setOutput("YEET1")
-xTB_Environment.setOutput("YEET2")
-xTB_Environment.setOutput("YEET3")
-xTB_Environment.setOutput("/dev/null")
-xTB_Environment.setOutput("YEET4")
-xTB_Environment.setOutput("YEET5")
-
-print(xTB_Environment.status)
-xTB_Environment.show()
+//xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem233
@@ -64,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -97,9 +89,14 @@ for _ in 0..<10 {
 //    print(charge)
 //  }
 //  print()
+  
+  print()
+  print(xTB_Environment.status)
+  print(xTB_Environment.flushErrorStack())
   print(xTB_Environment.status)
   xTB_Environment.show()
-  
+  print(xTB_Environment.status)
+  print()
 }
 
 // Summarize the results
