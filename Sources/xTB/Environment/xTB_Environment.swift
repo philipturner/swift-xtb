@@ -49,32 +49,6 @@ extension xTB_Environment {
   
   /// Show errors to the console and purge the errors.
   public static func show() {
-    // TODO: Expose xtb_getError for cleaner API to handle errors.
-    
-    
-//    if status != 0 {
-//      var characters: [CChar] = []
-//      var iterationCount: Int = 0
-//      while true {
-//        iterationCount += 1
-//        print("getError iteration count: \(iterationCount)")
-//        
-//        var buffer = [CChar](repeating: 0, count: 512)
-//        var bufferSize: Int32 = 512
-//        xtb_getError(tEnvironment, &buffer, &bufferSize)
-//        print("bufferSize:", bufferSize)
-//        
-//        characters += buffer
-//        
-//        if buffer[511] == 0 {
-//          break
-//        }
-//      }
-//      print("total character count:", characters.count)
-//      print("message:", String(cString: characters))
-      
-//    }
-    
     xtb_showEnvironment(tEnvironment, nil)
   }
   

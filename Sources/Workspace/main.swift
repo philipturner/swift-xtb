@@ -45,7 +45,7 @@ guard worked else {
   fatalError("Could not redirect gfnff_topo directory.")
 }
 xTB_Environment.verbosity = .muted
-//xTB_Environment.setOutput("/dev/null")
+xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem233
