@@ -30,7 +30,15 @@ extension xTB_Calculator {
       }
       positionsUpdated = false
       
-      singlepoint()
+      let results = xTB_Results()
+      xtb_singlepoint(
+        xTB_Environment.tEnvironment,
+        tMolecule,
+        tCalculator,
+        results.tResults)
+      results.calculator = self
+      
+      self.results = results
     }
   }
   
@@ -38,7 +46,7 @@ extension xTB_Calculator {
     requestSinglepoint()
     
     if results.energy == nil {
-      results.getEnergy()
+      results.energy = results.getEnergy()
     }
   }
   
@@ -46,8 +54,8 @@ extension xTB_Calculator {
     requestSinglepoint()
     
     if results.forces == nil {
-      results.getForces()
-      results.getCharges()
+      results.forces = results.getForces()
+      results.charges = results.getCharges()
       results.getBondOrders()
     }
   }
@@ -61,18 +69,5 @@ extension xTB_Calculator {
       results.getOrbitalOccupations()
       results.getOrbitalCoefficients()
     }
-  }
-  
-  /// Run a self-consistent field calculation.
-  private func singlepoint() {
-    let results = xTB_Results()
-    xtb_singlepoint(
-      xTB_Environment.tEnvironment,
-      tMolecule,
-      tCalculator,
-      results.tResults)
-    results.calculator = self
-    
-    self.results = results
   }
 }

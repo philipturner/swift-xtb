@@ -33,13 +33,13 @@ public struct xTB_Molecule {
     
     // Set the atom coordinates.
     if let positions = descriptor.positions {
-      self._positions = positions
+      _positions = positions
     } else {
       switch descriptor.hamiltonian {
       case .forceField:
         fatalError("GFN-FF requires positions to initialize.")
       case .tightBinding:
-        self._positions = xTB_Molecule
+        _positions = xTB_Molecule
           .createInitialPositions(atomCount: atomicNumbers.count)
       }
     }
