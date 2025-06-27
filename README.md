@@ -35,11 +35,21 @@ New goals (just spilling my TODO list):
 - Remove the energy minimizer from MM4
 - Fix the errors with HDL
 - Fix up the xTB bindings and move on
-    - Get automatic suppression of `gfnff_topo` working
-    - Get the code correctly compiling from source on Windows, and figure out the need for `param_gfn2.txt`
-    - Get benchmarks on Windows
+  - Get automatic suppression of `gfnff_topo` working 
+  - Get the code correctly compiling from source on Windows, and figure out the need for `param_gfn2.txt`
+  - Get benchmarks on Windows
 - Create simulators TODO list in molecular-renderer
 - Get all simulators integrated into the new molecular-renderer
+
+Benchmarks:
+- Slightly expand the benchmark set, to enhance the data from the latest performance investigation
+- Some slightly larger systems (waterSystem190, waterSystem303)
+  - Benchmark GFN-FF
+  - Also test GFN2-xTB, but only the latest commit to `main`. Test the two cases of `OMP_NUM_THREADS`.
+- The entire suite of protein tests
+  - Benchmark GFN-FF, to get better data about scaling to large systems.
+  - Only test the 3 most promising candidates for `OMP_NUM_THREADS`, to save time during testing.
+- Download the tests from their source URL, and parse the files on-the-fly.
 
 The latest set of goals combines with all of the concerns preceding it. Resolve all of them during this round of software maintenance.
 
