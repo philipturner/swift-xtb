@@ -48,7 +48,7 @@ xTB_Environment.verbosity = .muted
 xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem233
+let system: [SIMD4<Float>] = diamondSystem122
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -56,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-calculatorDesc.hamiltonian = .forceField
+//calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -78,6 +78,10 @@ for i in 0..<10 {
   
   let formattedEnergy = String(format: "%.3f", energy)
   print("energy:", formattedEnergy, "zJ")
+  if calculator.hamiltonian == .tightBinding {
+    let eigenvalues = calculator.orbitals.eigenvalues
+    print(eigenvalues[0], eigenvalues[1], eigenvalues[2])
+  }
 }
 
 // Summarize the results

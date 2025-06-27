@@ -7,7 +7,6 @@
 
 import C_xTB
 
-/// Calculation environment.
 public class xTB_Environment {
   /// Lazily initialized singleton for the environment.
   static let tEnvironment: xtb_TEnvironment = {

@@ -34,6 +34,10 @@ extension xTB_Calculator {
       results.tResults)
     results.calculator = self
     
+    // This was another difficult decision. Out of the many options, the most
+    // workable one was to check after fetching each results object.
+    results.checkOrbitalCount()
+    
     self.results = results
   }
   
@@ -66,8 +70,6 @@ extension xTB_Calculator {
     requestSinglepoint()
     
     if results.orbitalEigenvalues == nil {
-      results.checkOrbitalCount()
-      
       switch hamiltonian {
       case .forceField:
         results.orbitalEigenvalues = []

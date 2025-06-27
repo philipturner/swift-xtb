@@ -89,7 +89,7 @@ extension xTB_Orbitals {
   /// The energy of each orbital (in zeptojoules).
   ///
   /// > Note: Not available for GFN-FF.
-  public var eigenvalues: [Float] {
+  public var eigenvalues: [Double] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalEigenvalues!
   }

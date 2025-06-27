@@ -20,7 +20,7 @@ class xTB_Results {
   
   var bondOrders: [Float]?
   
-  var orbitalEigenvalues: [Float]?
+  var orbitalEigenvalues: [Double]?
   
   var orbitalOccupations: [Float]?
   
@@ -114,7 +114,7 @@ extension xTB_Results {
     }
   }
   
-  func getOrbitalEigenvalues() -> [Float] {
+  func getOrbitalEigenvalues() -> [Double] {
     let orbitalCount = calculator.orbitals.count
     let orbitalEigenvalues64 = getDoubleArray(
       symbol: xtb_getOrbitalEigenvalues,
@@ -122,7 +122,7 @@ extension xTB_Results {
     
     // Convert energy into nanomechanical units.
     return orbitalEigenvalues64.map {
-      Float($0) * Float(xTB_ZJPerHartree)
+      $0 * xTB_ZJPerHartree
     }
   }
   

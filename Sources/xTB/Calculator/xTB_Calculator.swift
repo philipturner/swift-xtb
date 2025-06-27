@@ -7,7 +7,7 @@
 
 import C_xTB
 
-/// A configuration for a singlepoint calculator.
+/// A configuration for a calculator.
 public struct xTB_CalculatorDescriptor {
   /// Required. The number of protons in each atom's nucleus.
   public var atomicNumbers: [UInt8]?
@@ -39,7 +39,6 @@ public struct xTB_CalculatorDescriptor {
   }
 }
 
-/// Singlepoint calculator.
 public class xTB_Calculator {
   /// The parameterized method for evaluating forces.
   public let hamiltonian: xTB_Hamiltonian

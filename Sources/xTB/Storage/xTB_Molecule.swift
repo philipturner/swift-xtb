@@ -7,7 +7,6 @@
 
 import C_xTB
 
-/// Molecular structure data class.
 public struct xTB_Molecule {
   unowned var calculator: xTB_Calculator!
   
