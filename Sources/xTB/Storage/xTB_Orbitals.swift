@@ -8,6 +8,9 @@
 public struct xTB_Orbitals {
   unowned var calculator: xTB_Calculator!
   
+  /// The number of atomic orbitals used for matrix diagonalization.
+  ///
+  /// > Note: Not available for GFN-FF.
   public let count: Int
   
   init(descriptor: xTB_CalculatorDescriptor) {

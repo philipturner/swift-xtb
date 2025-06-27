@@ -9,11 +9,12 @@ import C_xTB
 
 /// Calculation environment.
 public class xTB_Environment {
-  // Lazily initialized global variable.
+  /// Lazily initialized singleton for the environment.
   static let tEnvironment: xtb_TEnvironment = {
     return xTB_Environment.createObject()
   }()
   
+  /// Create the reference-counted object from the C API.
   static func createObject() -> xtb_TEnvironment {
     let env = xtb_newEnvironment()
     guard let env else {

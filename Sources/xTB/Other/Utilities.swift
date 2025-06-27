@@ -26,7 +26,8 @@ func convertPositions(_ input: [SIMD3<Float>]) -> [Double] {
 /// array (in zJ/nm). In addition, converts a gradient into a force by negating
 /// it.
 func convertGradientToForces(_ input: [Double]) -> [SIMD3<Float>] {
-  // The caller should have guaranteed that the input is divisible by 3.
+  // The caller should have guaranteed that the input array's length is
+  // divisible by 3.
   var output: [SIMD3<Float>] = []
   var cursor: Int = .zero
   for _ in 0..<(input.count / 3) {

@@ -18,15 +18,12 @@ extension xTB_Calculator {
     }
     
     // Do not access via the public API, otherwise it calls
-    // 'invalidateSinglepoint(). The outcome would be harmless, but we still
+    // 'invalidateSinglepoint()'. The outcome would be harmless, but we still
     // don't want it.
     //
     // An alternative option would be managing '.molecule' state changes in
     // a separate container, outside of the molecule data types. This removes
     // encapsulation/abstraction and has proven unworkable.
-    
-    // TODO: Double check that multiplying positions by 1.001 causes a
-    // registered change in energy.
     storage.molecule.update()
     
     let results = xTB_Results()
@@ -42,11 +39,10 @@ extension xTB_Calculator {
   
   func ensureEnergyCached() {
     requestSinglepoint()
-    guard results.energy == nil else {
-      return
-    }
     
-    results.energy = results.getEnergy()
+    if results.energy == nil {
+      results.energy = results.getEnergy()
+    }
   }
   
   func ensureMoleculeCached() {
