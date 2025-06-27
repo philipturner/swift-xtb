@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
+import C_xTB
+
 extension xTB_Calculator {
   public var molecule: xTB_Molecule {
     _read {

@@ -10,8 +10,8 @@ public struct xTB_Molecule {
   unowned var calculator: xTB_Calculator!
   
   public let atomicNumbers: [UInt8]
-  var netCharge: Float
-  var netSpin: Float
+  public let netCharge: Float
+  public let netSpin: Float
   var _positions: [SIMD3<Float>] = []
   
   /// Create new molecular structure data
@@ -23,13 +23,13 @@ public struct xTB_Molecule {
     self.netCharge = descriptor.netCharge
     self.netSpin = descriptor.netSpin
     
+    // Set the atom coordinates.
     if let positions = descriptor.positions {
       self._positions = positions
     } else {
       switch descriptor.hamiltonian {
       case .forceField:
         fatalError("GFN-FF requires positions to initialize.")
-        
       case .tightBinding:
         self._positions = xTB_Molecule
           .createInitialPositions(atomCount: atomicNumbers.count)

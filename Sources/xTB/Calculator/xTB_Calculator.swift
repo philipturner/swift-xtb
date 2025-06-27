@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+import C_xTB
+
 /// A configuration for a singlepoint calculator.
 public struct xTB_CalculatorDescriptor {
   /// Required. The number of protons in each atom's nucleus.

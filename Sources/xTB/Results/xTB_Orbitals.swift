@@ -14,6 +14,8 @@ public struct xTB_Orbitals {
     guard let atomicNumbers = descriptor.atomicNumbers else {
       fatalError("Atomic numbers were not specified.")
     }
+    
+    // Set the orbital count.
     if descriptor.hamiltonian == .forceField {
       count = .zero
     } else {
