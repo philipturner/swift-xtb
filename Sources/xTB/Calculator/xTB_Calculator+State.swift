@@ -5,6 +5,8 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
+import C_xTB
+
 extension xTB_Calculator {
   struct State {
     // Immediately synchronized properties.
@@ -17,51 +19,22 @@ extension xTB_Calculator {
     var orbitals: xTB_Orbitals!
   }
   
-  struct UpdateRecord {
-    var molecule: Bool = false
-    
-    mutating func erase() {
-      molecule = false
-    }
-  }
-  
   func invalidateSinglepoint() {
     results = nil
   }
   
   func requestSinglepoint() {
     if results == nil {
-      flushUpdateRecord()
+      if positionsUpdated {
+        molecule.update()
+      }
+      positionsUpdated = false
+      
       singlepoint()
     }
   }
   
-  /// Ensure the C API objects are up to date.
-  private func flushUpdateRecord() {
-    print("breakpoint - flushUpdateRecord")
-    if updateRecord.molecule {
-      molecule.update()
-    }
-    updateRecord.erase()
-  }
-  
-  /// Run a self-consistent field calculation.
-  private func singlepoint() {
-    print("breakpoint - xtb_singlepoint")
-    let results = xTB_Results()
-    xtb_singlepoint(
-      xTB_Environment._environment,
-      _molecule,
-      _calculator,
-      results._results)
-    results.calculator = self
-    self.results = results
-  }
-}
-
-extension xTB_Calculator {
   func ensureEnergyCached() {
-    print("breakpoint - ensureEnergyCached")
     requestSinglepoint()
     
     if results.energy == nil {
@@ -70,7 +43,6 @@ extension xTB_Calculator {
   }
   
   func ensureMoleculeCached() {
-    print("breakpoint - ensureMoleculeCached")
     requestSinglepoint()
     
     if results.forces == nil {
@@ -81,15 +53,25 @@ extension xTB_Calculator {
   }
   
   func ensureOrbitalsCached() {
-    print("breakpoint - ensureOrbitalsCached")
     requestSinglepoint()
     
     if results.orbitalEigenvalues == nil {
-      print("breakpoint - results.orbitalEigenvalues == nil")
       results.checkOrbitalCount()
       results.getOrbitalEigenvalues()
       results.getOrbitalOccupations()
       results.getOrbitalCoefficients()
     }
+  }
+  
+  /// Run a self-consistent field calculation.
+  private func singlepoint() {
+    let results = xTB_Results()
+    xtb_singlepoint(
+      xTB_Environment.tEnvironment,
+      tMolecule,
+      tCalculator,
+      results._results)
+    results.calculator = self
+    self.results = results
   }
 }

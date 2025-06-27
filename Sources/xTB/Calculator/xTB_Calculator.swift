@@ -42,23 +42,30 @@ public struct xTB_CalculatorDescriptor {
 /// Singlepoint calculator.
 public class xTB_Calculator {
   public let hamiltonian: xTB_Hamiltonian
-  
   var tCalculator: xtb_TCalculator!
   var tMolecule: xtb_TMolecule!
   
   var state = State()
-  var updateRecord = UpdateRecord()
+  var positionsUpdated: Bool = false
   var results: xTB_Results!
   
   public init(descriptor: xTB_CalculatorDescriptor) {
     self.hamiltonian = descriptor.hamiltonian
     
+    let molecule = xTB_Molecule(descriptor: descriptor)
+    let orbitals = xTB_Orbitals(descriptor: descriptor)
+    
     // Create the 'TCalculator'.
     self.tCalculator = xTB_Calculator.createObject()
     
     // Create the 'TMolecule'.
-    let molecule = xTB_Molecule(descriptor: descriptor)
     self.tMolecule = xTB_Molecule.createObject(molecule)
+    
+    // Assign ownership of 'molecule' and 'orbitals' to 'state'.
+    state.molecule = molecule
+    state.orbitals = orbitals
+    state.molecule.calculator = self
+    state.orbitals.calculator = self
     
     // Load the parameters.
     switch descriptor.hamiltonian {
@@ -69,19 +76,11 @@ public class xTB_Calculator {
       xtb_loadGFN2xTB(
         xTB_Environment.tEnvironment, tMolecule, tCalculator, nil)
     }
-    
-    // Assign ownership of 'molecule' and 'orbitals' to 'state'.
-    let orbitals = xTB_Orbitals(descriptor: descriptor)
-    state.molecule = molecule
-    state.orbitals = orbitals
-    
-    state.molecule.calculator = self
-    state.orbitals.calculator = self
   }
   
   deinit {
-    xtb_delMolecule(&_molecule)
-    xtb_delCalculator(&_calculator)
+    xtb_delMolecule(&tMolecule)
+    xtb_delCalculator(&tCalculator)
   }
   
   /// Create the reference-counted object from the C API.

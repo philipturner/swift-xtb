@@ -14,7 +14,7 @@ extension xTB_Calculator {
     }
     _modify {
       yield &state.molecule!
-      updateRecord.molecule = true
+      positionsUpdated = true
       invalidateSinglepoint()
     }
   }
