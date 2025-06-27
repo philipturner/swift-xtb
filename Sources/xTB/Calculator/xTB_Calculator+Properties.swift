@@ -21,7 +21,7 @@ extension xTB_Calculator {
   
   public var orbitals: xTB_Orbitals { state.orbitals! }
   
-  /// Numerical accuracy of calculator (in atomic units).
+  /// Numerical accuracy of calculator.
   ///
   /// The default value is 1. The value may range from 1e3 to 1e-4.
   public var accuracy: Float {
@@ -52,6 +52,8 @@ extension xTB_Calculator {
   }
   
   /// Electronic temperature for level filling (in Kelvin).
+  ///
+  /// The default value is 300 K.
   public var electronicTemperature: Float {
     get {
       state.electronicTemperature

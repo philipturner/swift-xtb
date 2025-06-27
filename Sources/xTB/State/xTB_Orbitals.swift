@@ -84,12 +84,16 @@ public struct xTB_Orbitals {
 
 extension xTB_Orbitals {
   /// The energy of each orbital (in zeptojoules).
+  ///
+  /// > Note: Not available for GFN-FF.
   public var eigenvalues: [Float] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalEigenvalues!
   }
   
   /// The fractional occupation of each orbital.
+  ///
+  /// > Note: Not available for GFN-FF.
   public var occupations: [Float] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalOccupations!
@@ -98,6 +102,8 @@ extension xTB_Orbitals {
   /// Matrix of orbital coefficients.
   ///
   /// Dimensions: (orbital count) x (orbital count)
+  ///
+  /// > Note: Not available for GFN-FF.
   public var coefficients: [Float] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalCoefficients!

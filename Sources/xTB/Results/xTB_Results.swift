@@ -86,12 +86,17 @@ extension xTB_Results {
   }
   
   func getCharges() {
-    print("xtb_getCharges")
-    let atomCount = calculator.molecule.atomicNumbers.count
-    let charges64 = getDoubleArray(
-      symbol: xtb_getCharges,
-      size: atomCount)
-    charges = charges64.map(Float.init)
+    switch calculator.hamiltonian {
+    case .forceField:
+      charges = []
+    case .tightBinding:
+      print("xtb_getCharges")
+      let atomCount = calculator.molecule.atomicNumbers.count
+      let charges64 = getDoubleArray(
+        symbol: xtb_getCharges,
+        size: atomCount)
+      charges = charges64.map(Float.init)
+    }
   }
   
   func getBondOrders() {

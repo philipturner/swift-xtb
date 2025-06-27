@@ -125,6 +125,8 @@ extension xTB_Molecule {
   }
   
   /// Partial charge in units of proton charge.
+  ///
+  /// > Note: Not available for GFN-FF.
   public var charges: [Float] {
     calculator.ensureMoleculeCached()
     return calculator.results.charges!
@@ -133,6 +135,8 @@ extension xTB_Molecule {
   /// Matrix of Wiberg bond orders.
   ///
   /// Dimensions: (atom count) x (atom count)
+  ///
+  /// > Note: Not available for GFN-FF.
   public var bondOrders: [Float] {
     calculator.ensureMoleculeCached()
     return calculator.results.bondOrders!

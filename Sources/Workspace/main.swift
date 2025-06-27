@@ -44,8 +44,8 @@ let worked = FileManager.default.changeCurrentDirectoryPath(path)
 guard worked else {
   fatalError("Could not redirect gfnff_topo directory.")
 }
-xTB_Environment.verbosity = .muted
-xTB_Environment.setOutput("/dev/null")
+xTB_Environment.verbosity = .minimal
+//xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem233
@@ -56,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-calculatorDesc.hamiltonian = .forceField
+//calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -65,6 +65,7 @@ for _ in 0..<10 {
   calculator.molecule.positions = system.map {
     SIMD3($0.x, $0.y, $0.z)
   }
+  calculator.accuracy = 0.0002
   
   let checkpoint0 = Date()
   let energy = calculator.energy
@@ -84,13 +85,13 @@ for _ in 0..<10 {
   print("forces:", calculator.molecule.forces.count)
   
   // If this is commented out, then the energies change.
-//  print()
-//  print(xTB_Environment.status)
-//  print(xTB_Environment.flushErrorStack())
-//  print(xTB_Environment.status)
-//  xTB_Environment.show()
-//  print(xTB_Environment.status)
-//  print()
+  print()
+  print(xTB_Environment.status)
+  print(xTB_Environment.flushErrorStack())
+  print(xTB_Environment.status)
+  xTB_Environment.show()
+  print(xTB_Environment.status)
+  print()
 }
 
 // Summarize the results
