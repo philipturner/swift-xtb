@@ -31,7 +31,7 @@ extension xTB_Calculator {
     set {
       state.accuracy = newValue
       xtb_setAccuracy(
-        xTB_Environment._environment, _calculator, Double(newValue))
+        xTB_Environment.tEnvironment, tCalculator, Double(newValue))
       invalidateSinglepoint()
     }
   }
@@ -46,7 +46,7 @@ extension xTB_Calculator {
     set {
       state.maximumIterations = newValue
       xtb_setMaxIter(
-        xTB_Environment._environment, _calculator, Int32(newValue))
+        xTB_Environment.tEnvironment, tCalculator, Int32(newValue))
       invalidateSinglepoint()
     }
   }
@@ -59,7 +59,7 @@ extension xTB_Calculator {
     set {
       state.electronicTemperature = newValue
       xtb_setElectronicTemp(
-        xTB_Environment._environment, _calculator, Double(newValue))
+        xTB_Environment.tEnvironment, tCalculator, Double(newValue))
       invalidateSinglepoint()
     }
   }

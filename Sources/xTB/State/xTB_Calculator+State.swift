@@ -72,6 +72,7 @@ extension xTB_Calculator {
       tCalculator,
       results._results)
     results.calculator = self
+    
     self.results = results
   }
 }

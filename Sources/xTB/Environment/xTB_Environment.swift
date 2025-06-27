@@ -5,14 +5,22 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+import C_xTB
+
 /// Calculation environment.
 public class xTB_Environment {
+  // Lazily initialized global variable.
   static let tEnvironment: xtb_TEnvironment = {
-    guard let env = xtb_newEnvironment() else {
+    return xTB_Environment.createObject()
+  }()
+  
+  static func createObject() -> xtb_TEnvironment {
+    let env = xtb_newEnvironment()
+    guard let env else {
       fatalError("Could not create new xTB_Environment.")
     }
     return env
-  }()
+  }
 }
 
 extension xTB_Environment {
@@ -40,6 +48,7 @@ extension xTB_Environment {
   
   /// Show and empty error stack.
   public static func show() {
+    // TODO: Expose xtb_getError for cleaner API to handle errors.
     xtb_showEnvironment(tEnvironment, nil)
   }
   
