@@ -43,13 +43,13 @@ New goals (just spilling my TODO list):
 
 Benchmarks:
 - Slightly expand the benchmark set, to enhance the data from the latest performance investigation
-- Some slightly larger systems (waterSystem190, waterSystem303)
-  - Benchmark GFN-FF
-  - Also test GFN2-xTB, but only the latest commit to `main`. Test the two cases of `OMP_NUM_THREADS`.
-- The entire suite of protein tests
-  - Benchmark GFN-FF, to get better data about scaling to large systems.
-  - Only test the 3 most promising candidates for `OMP_NUM_THREADS`, to save time during testing.
+  - The entire suite of water systems
+  - The entire suite of protein tests
 - Download the tests from their source URL, and parse the files on-the-fly.
+- Making benchmarking easier:
+  - Only gather detailed performance data for GFN2-xTB for waterSystem190 and waterSystem303.
+  - All other benchmarks have xTB output muted.
+  - GFN2-xTB should become impractical for the largest systems, but it shouldn't crash.
 
 The latest set of goals combines with all of the concerns preceding it. Resolve all of them during this round of software maintenance.
 
