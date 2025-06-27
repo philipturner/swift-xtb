@@ -12,7 +12,7 @@ public struct xTB_CalculatorDescriptor {
   /// Required. The number of protons in each atom's nucleus.
   public var atomicNumbers: [UInt8]?
   
-  /// Required. The parametrized method for evaluating forces.
+  /// Required. The parameterized method for evaluating forces.
   ///
   /// The default value is GFN2-xTB.
   public var hamiltonian: xTB_Hamiltonian = .tightBinding
@@ -41,14 +41,13 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  /// The parametrized method for evaluating forces.
+  /// The parameterized method for evaluating forces.
   public let hamiltonian: xTB_Hamiltonian
   
   var tCalculator: xtb_TCalculator!
   var tMolecule: xtb_TMolecule!
   
-  var state = State()
-  var positionsUpdated: Bool = false
+  var storage: xTB_CalculatorStorage
   var results: xTB_Results!
   
   public init(descriptor: xTB_CalculatorDescriptor) {
@@ -63,11 +62,12 @@ public class xTB_Calculator {
     // Create the 'TMolecule'.
     self.tMolecule = xTB_Molecule.createObject(molecule)
     
-    // Assign ownership of 'molecule' and 'orbitals' to 'state'.
-    state.molecule = molecule
-    state.orbitals = orbitals
-    state.molecule.calculator = self
-    state.orbitals.calculator = self
+    // Assign ownership of 'molecule' and 'orbitals' to 'storage'.
+    storage = xTB_CalculatorStorage()
+    storage.molecule = molecule
+    storage.orbitals = orbitals
+    storage.molecule.calculator = self
+    storage.orbitals.calculator = self
     
     // Load the parameters.
     switch descriptor.hamiltonian {

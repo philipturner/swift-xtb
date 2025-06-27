@@ -115,45 +115,30 @@ extension xTB_Results {
   }
   
   func getOrbitalEigenvalues() -> [Float] {
-    switch calculator.hamiltonian {
-    case .forceField:
-      return []
-    case .tightBinding:
-      let orbitalCount = calculator.orbitals.count
-      let orbitalEigenvalues64 = getDoubleArray(
-        symbol: xtb_getOrbitalEigenvalues,
-        size: orbitalCount)
-      
-      // Convert energy into nanomechanical units.
-      return orbitalEigenvalues64.map {
-        Float($0) * Float(xTB_ZJPerHartree)
-      }
+    let orbitalCount = calculator.orbitals.count
+    let orbitalEigenvalues64 = getDoubleArray(
+      symbol: xtb_getOrbitalEigenvalues,
+      size: orbitalCount)
+    
+    // Convert energy into nanomechanical units.
+    return orbitalEigenvalues64.map {
+      Float($0) * Float(xTB_ZJPerHartree)
     }
   }
   
   func getOrbitalOccupations() -> [Float] {
-    switch calculator.hamiltonian {
-    case .forceField:
-      return []
-    case .tightBinding:
-      let orbitalCount = calculator.orbitals.count
-      let orbitalOccupations64 = getDoubleArray(
-        symbol: xtb_getOrbitalOccupations,
-        size: orbitalCount)
-      return orbitalOccupations64.map(Float.init)
-    }
+    let orbitalCount = calculator.orbitals.count
+    let orbitalOccupations64 = getDoubleArray(
+      symbol: xtb_getOrbitalOccupations,
+      size: orbitalCount)
+    return orbitalOccupations64.map(Float.init)
   }
   
   func getOrbitalCoefficients() -> [Float] {
-    switch calculator.hamiltonian {
-    case .forceField:
-      return []
-    case .tightBinding:
-      let orbitalCount = calculator.orbitals.count
-      let orbitalCoefficients64 = getDoubleArray(
-        symbol: xtb_getOrbitalCoefficients,
-        size: orbitalCount * orbitalCount)
-      return orbitalCoefficients64.map(Float.init)
-    }
+    let orbitalCount = calculator.orbitals.count
+    let orbitalCoefficients64 = getDoubleArray(
+      symbol: xtb_getOrbitalCoefficients,
+      size: orbitalCount * orbitalCount)
+    return orbitalCoefficients64.map(Float.init)
   }
 }

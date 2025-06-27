@@ -22,6 +22,8 @@ public struct xTB_Molecule {
   
   var _positions: [SIMD3<Float>] = []
   
+  private var positionsUpdated: Bool = false
+  
   /// Create new molecular structure data
   init(descriptor: xTB_CalculatorDescriptor) {
     guard let atomicNumbers = descriptor.atomicNumbers else {
@@ -101,23 +103,27 @@ extension xTB_Molecule {
     }
     _modify {
       yield &_positions
+      positionsUpdated = true
     }
   }
   
-  func update() {
+  mutating func update() {
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
     
-    // Convert positions into atomic units.
-    let positions64 = convertPositions(_positions)
-    
-    // Update the molecular structure data.
-    xtb_updateMolecule(
-      xTB_Environment.tEnvironment,
-      calculator.tMolecule,
-      positions64,
-      nil)
+    if positionsUpdated {
+      // Convert positions into atomic units.
+      let positions64 = convertPositions(_positions)
+      
+      // Update the molecular structure data.
+      xtb_updateMolecule(
+        xTB_Environment.tEnvironment,
+        calculator.tMolecule,
+        positions64,
+        nil)
+    }
+    positionsUpdated = false
   }
   
   /// The force on each atom (in piconewtons).
