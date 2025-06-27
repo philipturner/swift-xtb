@@ -47,21 +47,29 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
-  var _calculator: xtb_TCalculator!
-  var _molecule: xtb_TMolecule!
+  public let hamiltonian: xTB_Hamiltonian
+  
+  var tCalculator: xtb_TCalculator!
+  var tMolecule: xtb_TMolecule!
   
   var state = State()
   var updateRecord = UpdateRecord()
   var results: xTB_Results!
   
   public init(descriptor: xTB_CalculatorDescriptor) {
-    guard let calc = xtb_newCalculator() else {
+    self.hamiltonian = descriptor.hamiltonian
+    
+    // Create the 'TCalculator'.
+    guard let tCalculator = xtb_newCalculator() else {
       fatalError("Could not create new xTB_Calculator.")
     }
-    let molecule = xTB_Molecule(descriptor: descriptor)
-    _calculator = calc
-    _molecule = xTB_Molecule.createObject(molecule)
+    self.tCalculator = tCalculator
     
+    // Create the 'TMolecule'.
+    let molecule = xTB_Molecule(descriptor: descriptor)
+    self.tMolecule = xTB_Molecule.createObject(molecule)
+    
+    // Load the parameters.
     switch descriptor.hamiltonian {
     case .forceField:
       xtb_loadGFNFF(

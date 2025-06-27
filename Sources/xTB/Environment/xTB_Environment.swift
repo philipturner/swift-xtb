@@ -7,7 +7,7 @@
 
 /// Calculation environment.
 public class xTB_Environment {
-  static let _environment: xtb_TEnvironment = {
+  static let tEnvironment: xtb_TEnvironment = {
     guard let env = xtb_newEnvironment() else {
       fatalError("Could not create new xTB_Environment.")
     }
@@ -28,19 +28,19 @@ extension xTB_Environment {
   /// The default value is `.minimal`.
   public static var verbosity: Verbosity = .minimal {
     didSet {
-      xtb_setVerbosity(_environment, Int32(verbosity.rawValue))
+      xtb_setVerbosity(tEnvironment, Int32(verbosity.rawValue))
     }
   }
   
   /// Check current status of calculation environment.
   public static var status: Int {
-    let status = xtb_checkEnvironment(_environment)
+    let status = xtb_checkEnvironment(tEnvironment)
     return Int(status)
   }
   
   /// Show and empty error stack.
   public static func show() {
-    xtb_showEnvironment(_environment, nil)
+    xtb_showEnvironment(tEnvironment, nil)
   }
   
   /// Redirect the output to something other than stdout.
@@ -53,6 +53,6 @@ extension xTB_Environment {
   ///
   /// `releaseOutput` doesn't do anything, at least on macOS.
   public static func setOutput(_ filename: String) {
-    xtb_setOutput(_environment, filename)
+    xtb_setOutput(tEnvironment, filename)
   }
 }

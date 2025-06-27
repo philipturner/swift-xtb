@@ -22,8 +22,19 @@ public struct xTB_Molecule {
     self.atomicNumbers = atomicNumbers
     self.netCharge = descriptor.netCharge
     self.netSpin = descriptor.netSpin
-    self._positions = descriptor.positions ?? xTB_Molecule
-      .createInitialPositions(atomCount: atomicNumbers.count)
+    
+    if let positions = descriptor.positions {
+      self._positions = positions
+    } else {
+      switch descriptor.hamiltonian {
+      case .forceField:
+        fatalError("GFN-FF requires positions to initialize.")
+        
+      case .tightBinding:
+        self._positions = xTB_Molecule
+          .createInitialPositions(atomCount: atomicNumbers.count)
+      }
+    }
   }
   
   /// Initialization procedure that bypasses an error with atoms having
@@ -86,7 +97,6 @@ extension xTB_Molecule {
   }
   
   func update() {
-    print("breakpoing - xtb_updateMolecule")
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
