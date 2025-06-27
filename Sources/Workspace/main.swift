@@ -56,7 +56,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
@@ -84,13 +84,13 @@ for _ in 0..<10 {
   print("forces:", calculator.molecule.forces.count)
   
   // If this is commented out, then the energies change.
-  print()
-  print(xTB_Environment.status)
-  print(xTB_Environment.flushErrorStack())
-  print(xTB_Environment.status)
-  xTB_Environment.show()
-  print(xTB_Environment.status)
-  print()
+//  print()
+//  print(xTB_Environment.status)
+//  print(xTB_Environment.flushErrorStack())
+//  print(xTB_Environment.status)
+//  xTB_Environment.show()
+//  print(xTB_Environment.status)
+//  print()
 }
 
 // Summarize the results
