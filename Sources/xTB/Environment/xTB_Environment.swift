@@ -6,7 +6,6 @@
 //
 
 import C_xTB
-import QuartzCore
 
 /// Calculation environment.
 public class xTB_Environment {

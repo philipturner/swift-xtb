@@ -24,11 +24,24 @@ API improvements:
   - Make sure to use a cross-platform equivalent of NSTemporaryDirectory
     - Get the xTB bindings working on Windows
 - Automatically set `OMP_STACKSIZE` and `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
+  - Set the number of CPU cores to `perflevel0.physicalcpu` during the `run.sh` script, but only on macOS.
 - Ensure all issues currently on the README are addressed. Then, proceed with intercepting linear algebra library calls.
 
 End goals:
 - Production-ready API with an opt-in FP32 mode, on both macOS and Windows
 - Able to gather data about contributions to latency across a diverse set of environments, for the 3 diamond systems
+
+New goals (just spilling my TODO list):
+- Remove the energy minimizer from MM4
+- Fix the errors with HDL
+- Fix up the xTB bindings and move on
+    - Get automatic suppression of `gfnff_topo` working
+    - Get the code correctly compiling from source on Windows, and figure out the need for `param_gfn2.txt`
+    - Get benchmarks on Windows
+- Create simulators TODO list in molecular-renderer
+- Get all simulators integrated into the new molecular-renderer
+
+The latest set of goals combines with all of the concerns preceding it. Resolve all of them during this round of software maintenance.
 
 ## Current Documentation
 

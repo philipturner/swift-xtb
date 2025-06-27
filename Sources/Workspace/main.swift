@@ -83,13 +83,6 @@ for _ in 0..<10 {
   print("charges:", calculator.molecule.charges.count)
   print("forces:", calculator.molecule.forces.count)
   
-//  let charges = calculator.molecule.charges
-//  print()
-//  for charge in charges {
-//    print(charge)
-//  }
-//  print()
-  
   print()
   print(xTB_Environment.status)
   print(xTB_Environment.flushErrorStack())
