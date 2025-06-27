@@ -78,10 +78,6 @@ for i in 0..<10 {
   
   let formattedEnergy = String(format: "%.3f", energy)
   print("energy:", formattedEnergy, "zJ")
-  if calculator.hamiltonian == .tightBinding {
-    let eigenvalues = calculator.orbitals.eigenvalues
-    print(eigenvalues[0], eigenvalues[1], eigenvalues[2])
-  }
 }
 
 // Summarize the results

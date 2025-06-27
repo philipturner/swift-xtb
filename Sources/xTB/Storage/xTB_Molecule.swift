@@ -60,12 +60,13 @@ public struct xTB_Molecule {
   
   /// Create the reference-counted object from the C API.
   static func createObject(_ molecule: xTB_Molecule) -> xtb_TMolecule {
-    // Convert the positions.
     let atomicNumbers = molecule.atomicNumbers
     let positions = molecule._positions
     guard positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
+    
+    // Convert positions into atomic units.
     var positions64 = convertPositions(positions)
     
     // Determine the unpaired electron count.
@@ -92,19 +93,6 @@ public struct xTB_Molecule {
     }
     return mol
   }
-}
-
-extension xTB_Molecule {
-  /// The position of each atom's nucleus (in nanometers).
-  public var positions: [SIMD3<Float>] {
-    _read {
-      yield _positions
-    }
-    _modify {
-      yield &_positions
-      positionsUpdated = true
-    }
-  }
   
   mutating func update() {
     guard _positions.count == atomicNumbers.count else {
@@ -123,6 +111,19 @@ extension xTB_Molecule {
         nil)
     }
     positionsUpdated = false
+  }
+}
+
+extension xTB_Molecule {
+  /// The position of each atom's nucleus (in nanometers).
+  public var positions: [SIMD3<Float>] {
+    _read {
+      yield _positions
+    }
+    _modify {
+      yield &_positions
+      positionsUpdated = true
+    }
   }
   
   /// The force on each atom (in piconewtons).
