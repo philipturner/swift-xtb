@@ -30,8 +30,8 @@ public struct xTB_CalculatorDescriptor {
   /// Optional. The position of each atom's nucleus (in nanometers).
   ///
   /// When using GFN-FF, the positions are needed to initialize force field
-  /// parameters. When using tight binding, positions can be specified
-  /// after initialization.
+  /// parameters. When using GFN2-xTB, positions can be specified after
+  /// initialization.
   public var positions: [SIMD3<Float>]?
   
   public init() {

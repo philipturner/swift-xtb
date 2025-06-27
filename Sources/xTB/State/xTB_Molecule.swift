@@ -108,6 +108,8 @@ extension xTB_Molecule {
     guard _positions.count == atomicNumbers.count else {
       fatalError("Position count did not match atom count.")
     }
+    
+    // Convert positions into atomic units.
     let positions64 = convertPositions(_positions)
     
     // Update the molecular structure data.

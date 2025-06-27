@@ -39,6 +39,8 @@ extension xTB_Calculator {
   /// Maximum number of self-consistency iterations.
   ///
   /// The default value is 250.
+  ///
+  /// > Note: Not available for GFN-FF.
   public var maximumIterations: Int {
     get {
       state.maximumIterations
@@ -54,6 +56,8 @@ extension xTB_Calculator {
   /// Electronic temperature for level filling (in Kelvin).
   ///
   /// The default value is 300 K.
+  ///
+  /// > Note: Not available for GFN-FF.
   public var electronicTemperature: Float {
     get {
       state.electronicTemperature
