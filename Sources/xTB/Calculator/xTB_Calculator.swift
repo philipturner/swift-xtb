@@ -41,7 +41,9 @@ public struct xTB_CalculatorDescriptor {
 
 /// Singlepoint calculator.
 public class xTB_Calculator {
+  /// The parametrized method for evaluating forces.
   public let hamiltonian: xTB_Hamiltonian
+  
   var tCalculator: xtb_TCalculator!
   var tMolecule: xtb_TMolecule!
   

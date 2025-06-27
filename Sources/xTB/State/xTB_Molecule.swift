@@ -5,13 +5,21 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
+import C_xTB
+
 /// Molecular structure data class.
 public struct xTB_Molecule {
   unowned var calculator: xTB_Calculator!
   
+  /// The number of protons in each atom's nucleus.
   public let atomicNumbers: [UInt8]
+  
+  /// The net charge of the system.
   public let netCharge: Float
+  
+  /// The net spin of the system.
   public let netSpin: Float
+  
   var _positions: [SIMD3<Float>] = []
   
   /// Create new molecular structure data
@@ -70,7 +78,7 @@ public struct xTB_Molecule {
     var numbers = atomicNumbers.map(Int32.init)
     var charge = Double(molecule.netCharge)
     let mol = xtb_newMolecule(
-      xTB_Environment._environment,
+      xTB_Environment.tEnvironment,
       &natoms,
       &numbers,
       &positions64,
@@ -104,8 +112,8 @@ extension xTB_Molecule {
     
     // Update the molecular structure data.
     xtb_updateMolecule(
-      xTB_Environment._environment,
-      calculator._molecule, // guarantee source of truth
+      xTB_Environment.tEnvironment,
+      calculator.tMolecule, // guarantee source of truth
       positions64,
       nil)
   }
