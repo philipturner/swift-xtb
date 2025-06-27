@@ -70,7 +70,7 @@ extension xTB_Calculator {
       xTB_Environment.tEnvironment,
       tMolecule,
       tCalculator,
-      results._results)
+      results._results) // guarantee source of truth
     results.calculator = self
     
     self.results = results

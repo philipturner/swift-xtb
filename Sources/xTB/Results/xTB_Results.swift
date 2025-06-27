@@ -56,7 +56,7 @@ class xTB_Results {
     var output = [Double](repeating: .zero, count: size)
     symbol(
       xTB_Environment.tEnvironment,
-      calculator.results._results,
+      calculator.results.tResults, // guarantee source of truth
       &output)
     return output
   }
@@ -69,7 +69,7 @@ extension xTB_Results {
     var energy: Double = .zero
     xtb_getEnergy(
       xTB_Environment._environment,
-      calculator.results._results,
+      calculator.results._results, // guarantee source of truth
       &energy)
     
     // Convert energy into nanomechanical units.
@@ -113,7 +113,7 @@ extension xTB_Results {
     var orbitalCount: Int32 = .max
     xtb_getNao(
       xTB_Environment._environment,
-      calculator.results._results,
+      calculator.results._results, // guarantee source of truth
       &orbitalCount)
     guard calculator.orbitals.count == Int(orbitalCount) else {
       fatalError("Orbital count did not match expectations.")

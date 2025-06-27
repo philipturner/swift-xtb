@@ -105,7 +105,7 @@ extension xTB_Molecule {
     // Update the molecular structure data.
     xtb_updateMolecule(
       xTB_Environment._environment,
-      calculator._molecule,
+      calculator._molecule, // guarantee source of truth
       positions64,
       nil)
   }
