@@ -43,6 +43,12 @@ class xTB_Results {
     return res
   }
   
+  private func checkSourceOfTruth() {
+    guard self === calculator.results else {
+      fatalError("Unexpected source of truth.")
+    }
+  }
+  
   private typealias DoubleArrayFunction = @convention(c) (
     xtb_TEnvironment?,
     xtb_TResults?,
@@ -54,6 +60,7 @@ class xTB_Results {
     size: Int
   ) -> [Double] {
     var output = [Double](repeating: .zero, count: size)
+    checkSourceOfTruth()
     symbol(
       xTB_Environment.tEnvironment,
       calculator.results.tResults, // guarantee source of truth
@@ -68,6 +75,7 @@ extension xTB_Results {
   func getEnergy() {
     print("xtb_getEnergy")
     var energy: Double = .zero
+    checkSourceOfTruth()
     xtb_getEnergy(
       xTB_Environment.tEnvironment,
       calculator.results.tResults, // guarantee source of truth
@@ -115,6 +123,7 @@ extension xTB_Results {
   func checkOrbitalCount() {
     print("xtb_getNao")
     var orbitalCount: Int32 = .max
+    checkSourceOfTruth()
     xtb_getNao(
       xTB_Environment.tEnvironment,
       calculator.results.tResults, // guarantee source of truth

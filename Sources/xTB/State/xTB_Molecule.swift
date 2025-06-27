@@ -113,7 +113,7 @@ extension xTB_Molecule {
     // Update the molecular structure data.
     xtb_updateMolecule(
       xTB_Environment.tEnvironment,
-      calculator.tMolecule, // guarantee source of truth
+      calculator.tMolecule,
       positions64,
       nil)
   }
