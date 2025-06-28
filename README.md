@@ -3,7 +3,6 @@
 ## TODO List
 
 GFN2-xTB
-- Properly document how to set up the OpenMP threads and stack size for optimal performance
 - Why are there text files for GFN2-xTB parameters?
   - Try deleting the Homebrew installation and the build artifacts from `compile-xtb.sh`.
   - This may give hints to the GFN-FF crash relating to the `FileManager` directory in Xcode.
@@ -18,8 +17,6 @@ API improvements:
   - Purge `gfnff_topo` and `gfnff_charges` from the NSTemporaryDirectory, so that every initialization of `xTB_Calculator` regenerates the GFN-FF parameters from scratch.
   - Make sure to use a cross-platform equivalent of NSTemporaryDirectory
     - Get the xTB bindings working on Windows
-- Automatically set `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
-  - Set the number of CPU cores to `perflevel0.physicalcpu` during the `run.sh` script, but only on macOS.
 
 New goals:
 - Remove the energy minimizer from MM4

@@ -28,15 +28,6 @@ import xTB
 
 
 
-let cString1 = getenv("OMP_STACKSIZE")
-let cString2 = getenv("OMP_NUM_THREADS")
-if let cString1 {
-  print("OMP_STACKSIZE:", String(cString: cString1))
-}
-if let cString2 {
-  print("OMP_NUM_THREADS:", String(cString: cString2))
-}
-
 // Suppress unwanted output from GFN-FF.
 xTB_Environment.verbosity = .full
 xTB_Environment.setOutput("/dev/null")
