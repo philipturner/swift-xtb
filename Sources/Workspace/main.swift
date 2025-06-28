@@ -28,9 +28,8 @@ import xTB
 
 
 
-// Suppress unwanted output from GFN-FF.
+// Set the environment verbosity.
 xTB_Environment.verbosity = .muted
-//xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem122
@@ -64,8 +63,6 @@ for _ in 0..<10 {
   let formattedEnergy = String(format: "%.3f", energy)
   print("energy:", formattedEnergy, "zJ")
 }
-
-print(xTB_Environment.flushErrorStack())
 
 // Summarize the results
 let formattedLatency = String(format: "%.1f", minLatency * 1000)

@@ -9,9 +9,10 @@ var linkerSettings: [LinkerSetting] = []
 #if os(macOS)
 import class Foundation.FileManager
 
+// TODO: Try removing this linker flag.
 linkerSettings += [
   .unsafeFlags(["-L\(FileManager.default.currentDirectoryPath)"]),
-  .linkedLibrary("xtb_accelerate") // change to 'xtb' before supporting Windows
+  .linkedLibrary("xtb") // change to 'xtb' before supporting Windows
 ]
 #endif
 

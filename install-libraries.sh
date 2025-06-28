@@ -37,21 +37,21 @@ XTB_DIR="$TARGET_DIR/$(ls "$TARGET_DIR")"
 echo "Installation directory: $XTB_DIR"
 
 # Purge the existing dylib to avoid "Permission denied" errors.
-rm -rf libxtb_accelerate.dylib
-if [ -f "libxtb_accelerate.dylib" ]; then
+rm -rf libxtb.dylib
+if [ -f "libxtb.dylib" ]; then
   echo "Could not remove existing dylib."
   exit -1
 fi
 
 # Copy the library to the package directory.
-cp "$XTB_DIR/lib/libxtb.6.dylib" libxtb_accelerate.dylib
-if [ ! -f "libxtb_accelerate.dylib" ]; then
+cp "$XTB_DIR/lib/libxtb.6.dylib" libxtb.dylib
+if [ ! -f "libxtb.dylib" ]; then
   echo "Could not copy the fresh dylib."
   exit -1
 fi
 
 # Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb_accelerate.dylib)
+otool_output=$(otool -L libxtb.dylib)
 openblas_address=$(swift "install-libraries.swift" \
   "$otool_output" \
   --check-openblas \
@@ -61,10 +61,10 @@ openblas_address=$(swift "install-libraries.swift" \
 install_name_tool -change \
   "$openblas_address" \
   "/System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate" \
-  libxtb_accelerate.dylib
+  libxtb.dylib
 
 # Inspect the dylib's binary dependencies.
-otool_output=$(otool -L libxtb_accelerate.dylib)
+otool_output=$(otool -L libxtb.dylib)
 swift "install-libraries.swift" \
   "$otool_output" \
   --check-accelerate
@@ -74,23 +74,19 @@ swift "install-libraries.swift" \
 # - It keeps referencing the dylib from Homebrew Cellar, not the one pasted
 #   into the project's directory.
 #
-# macOS: renamed to "libxtb_accelerate.dylib" to prevent people from
-#        using an unmodified (OpenBLAS) dylib with this repo
-# Windows: renamed to "libxtb_mkl.dll" or similar
-#
 # Source: https://stackoverflow.com/a/2989954
 install_name_tool -id \
-  "libxtb_accelerate.dylib" \
-  libxtb_accelerate.dylib
+  "libxtb.dylib" \
+  libxtb.dylib
 
 # Running 'otool' invalidates the code signature. This causes the program to
 # crash when loading the dylib through 'dlopen'. The solution is to re-sign
 # the dylib with an ad-hoc signature.
 #
 # Source: https://developer.apple.com/forums/thread/747909
-codesign -fs - libxtb_accelerate.dylib
+codesign -fs - libxtb.dylib
 
 echo ""
 echo "This code-sign should report success:"
-codesign --verify --verbose libxtb_accelerate.dylib
+codesign --verify --verbose libxtb.dylib
 echo ""
