@@ -103,3 +103,8 @@ Package.resolved
 /*.dylib
 /*.exp
 /*.lib
+
+# Issue with xTB C API writing files I don't want.
+gfnff_topo
+gfnff_charges
+

@@ -38,13 +38,7 @@ if let cString2 {
 }
 
 // Suppress unwanted output from GFN-FF.
-let url = FileManager.default.temporaryDirectory
-let path = url.relativePath
-let worked = FileManager.default.changeCurrentDirectoryPath(path)
-guard worked else {
-  fatalError("Could not redirect gfnff_topo directory.")
-}
-xTB_Environment.verbosity = .muted
+xTB_Environment.verbosity = .full
 xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
@@ -56,12 +50,12 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-//calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .forceField
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
 var minLatency: Double = 1_000_000
-for i in 0..<10 {
+for _ in 0..<10 {
   calculator.molecule.positions = system.map {
     SIMD3($0.x, $0.y, $0.z)
   }
