@@ -3,45 +3,33 @@
 ## TODO List
 
 GFN2-xTB
-- Properly document how to inject the Accelerate symbolic link
-  - Validate that the acceleration works with a fresh install
-  - Provide a performance test with the three diamond systems
-  - Unable to quantify performance with `diamondSystem233` due to a crash with the current xTB version
 - Properly document how to set up the OpenMP threads and stack size for optimal performance
+- Why are there text files for GFN2-xTB parameters?
+  - Try deleting the Homebrew installation and the build artifacts from `compile-xtb.sh`.
+  - This may give hints to the GFN-FF crash relating to the `FileManager` directory in Xcode.
 
 GFN-FF
 - Properly document how to fix the GFN-FF crash:
   - Clarify why the crash occurs
-  - Try to reproduce the crash in the old molecular-renderer, with the new xTB bindings
-    - Patch up the current main branch of molecular-renderer in a non-main branch. This can serve as a surrogate for testing simulators until the overhaul is complete.
-    - Fresh `bypass_dependencies` folder in the fresh MolecularRenderer directory. No need for the extra dylibs (probably due to swift-gif and other community packages). Using the most recent OpenMM and the standard OpenCL backend.
 
 API improvements:
-- Update the API for Swift 6
 - Automatically suppress `gfnff_topo` file writing in a robust manner
   - Figure out exactly when it's written, then switch back to the previous directory afterward
   - Purge `gfnff_topo` and `gfnff_charges` from the NSTemporaryDirectory, so that every initialization of `xTB_Calculator` regenerates the GFN-FF parameters from scratch.
   - Make sure to use a cross-platform equivalent of NSTemporaryDirectory
     - Get the xTB bindings working on Windows
-- Automatically set `OMP_STACKSIZE` and `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
+- Automatically set `OMP_NUM_THREADS` prior to invoking either GFN2-xTB or GFN-FF, in a testable manner.
   - Set the number of CPU cores to `perflevel0.physicalcpu` during the `run.sh` script, but only on macOS.
-- Ensure all issues currently on the README are addressed. Then, proceed with intercepting linear algebra library calls.
 
-End goals:
-- Production-ready API with an opt-in FP32 mode, on both macOS and Windows
-- Able to gather data about contributions to latency across a diverse set of environments, for the 3 diamond systems
-
-New goals (just spilling my TODO list):
+New goals:
 - Remove the energy minimizer from MM4
-- Fix the errors with HDL
-- Fix up the xTB bindings and move on
-  - Get automatic suppression of `gfnff_topo` working 
-  - Get the code correctly compiling from source on Windows, and figure out the need for `param_gfn2.txt`
-  - Get benchmarks on Windows
-- Create simulators TODO list in molecular-renderer
-- Get all simulators integrated into the new molecular-renderer
+- Get the code correctly compiling from source on Windows
+  - Benchmark the diamond systems to test for correct optimization flags
 
-The latest set of goals combines with all of the concerns preceding it. Resolve all of them during this round of software maintenance.
+Cleanups to all code bases:
+- Migrate to Swift 6 (MM4, xTB)
+- Migrate tests to the official Swift Testing repo for Swift 6 (MM4)
+- Migrate archived code (MM4, xTB) and HardwareCatalog (molecular-renderer) to a dedicated repo
 
 ## Current Documentation
 
