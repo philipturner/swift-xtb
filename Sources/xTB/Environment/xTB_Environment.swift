@@ -9,6 +9,7 @@ import C_xTB
 
 public class xTB_Environment {
   /// Lazily initialized singleton for the environment.
+  nonisolated(unsafe)
   static let tEnvironment: xtb_TEnvironment = {
     return xTB_Environment.createObject()
   }()
@@ -34,6 +35,7 @@ extension xTB_Environment {
   /// Verbosity of calculation output.
   ///
   /// The default value is `.minimal`.
+  nonisolated(unsafe)
   public static var verbosity: Verbosity = .minimal {
     didSet {
       xtb_setVerbosity(tEnvironment, Int32(verbosity.rawValue))
@@ -58,14 +60,14 @@ extension xTB_Environment {
     // So make sure everything gets retrieved in the first call.
     let BUFFER_CHUNK_SIZE: Int = 4096
     
-    var buffer = [CChar](repeating: 0, count: BUFFER_CHUNK_SIZE)
+    var buffer = [UInt8](repeating: 0, count: BUFFER_CHUNK_SIZE)
     var bufferSize = Int32(BUFFER_CHUNK_SIZE)
     xtb_getError(tEnvironment, &buffer, &bufferSize)
     
     guard buffer[BUFFER_CHUNK_SIZE - 1] == 0 else {
       fatalError("Buffer chunk was not null-terminated.")
     }
-    return String(cString: buffer)
+    return String(decoding: buffer, as: UTF8.self)
   }
   
   /// Redirect the output to something other than the console.
