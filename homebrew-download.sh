@@ -52,7 +52,7 @@ fi
 
 # Inspect the dylib's binary dependencies.
 otool_output=$(otool -L libxtb.dylib)
-openblas_address=$(swift "install-libraries.swift" \
+openblas_address=$(swift "homebrew-download.swift" \
   "$otool_output" \
   --check-openblas \
   --report-openblas)
@@ -65,7 +65,7 @@ install_name_tool -change \
 
 # Inspect the dylib's binary dependencies.
 otool_output=$(otool -L libxtb.dylib)
-swift "install-libraries.swift" \
+swift "homebrew-download.swift" \
   "$otool_output" \
   --check-accelerate
 

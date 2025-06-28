@@ -1,20 +1,16 @@
 // swift-tools-version: 6.1
 
 import PackageDescription
+import class Foundation.ProcessInfo
 
 var linkerSettings: [LinkerSetting] = []
 
-// Best attempt at scoping this peculiar search path to macOS for now. MM4
-// handles it differently, with an environment variable for the path.
-#if os(macOS)
-import class Foundation.FileManager
-
-// TODO: Try removing this linker flag.
-linkerSettings += [
-  .unsafeFlags(["-L\(FileManager.default.currentDirectoryPath)"]),
-  .linkedLibrary("xtb") // change to 'xtb' before supporting Windows
-]
-#endif
+if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
+  linkerSettings = [
+    .unsafeFlags(["-L\(path)"]),
+    .linkedLibrary("xtb"),
+  ]
+}
 
 let package = Package(
   name: "swift-xtb",
