@@ -41,16 +41,6 @@ New goals (just spilling my TODO list):
 - Create simulators TODO list in molecular-renderer
 - Get all simulators integrated into the new molecular-renderer
 
-Benchmarks:
-- Slightly expand the benchmark set, to enhance the data from the latest performance investigation
-  - The entire suite of water systems
-  - The entire suite of protein tests
-- Download the tests from their source URL, and parse the files on-the-fly.
-- Making benchmarking easier:
-  - Only gather detailed performance data for GFN2-xTB for waterSystem190 and waterSystem303.
-  - All other benchmarks have xTB output muted.
-  - GFN2-xTB should become impractical for the largest systems, but it shouldn't crash.
-
 The latest set of goals combines with all of the concerns preceding it. Resolve all of them during this round of software maintenance.
 
 ## Current Documentation
