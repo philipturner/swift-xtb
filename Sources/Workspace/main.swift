@@ -29,8 +29,8 @@ import xTB
 
 
 // Suppress unwanted output from GFN-FF.
-xTB_Environment.verbosity = .full
-xTB_Environment.setOutput("/dev/null")
+//xTB_Environment.verbosity = .full
+//xTB_Environment.setOutput("/dev/null")
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem122

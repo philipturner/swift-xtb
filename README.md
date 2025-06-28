@@ -2,15 +2,6 @@
 
 ## TODO List
 
-GFN2-xTB
-- Why are there text files for GFN2-xTB parameters?
-  - Try deleting the Homebrew installation and the build artifacts from `compile-xtb.sh`.
-  - This may give hints to the GFN-FF crash relating to the `FileManager` directory in Xcode.
-
-GFN-FF
-- Properly document how to fix the GFN-FF crash:
-  - Clarify why the crash occurs
-
 API improvements:
 - Automatically suppress `gfnff_topo` file writing in a robust manner
   - Figure out exactly when it's written, then switch back to the previous directory afterward
@@ -22,6 +13,9 @@ New goals:
 - Remove the energy minimizer from MM4
 - Get the code correctly compiling from source on Windows
   - Benchmark the diamond systems to test for correct optimization flags
+- Benchmark performance of CPU code in MM4 repo on Windows, ensure no regressions from macOS
+  - Use performance test from the test suite, which will be migrated to the new Swift Testing framework
+  - Record performance on macOS before and after the migration, to ensure no regressions
 
 Cleanups to all code bases:
 - Migrate to Swift 6 (MM4, xTB)
