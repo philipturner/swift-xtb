@@ -88,11 +88,18 @@ rm -rf "libquadmath-0.dll"
 # Attempt to isolate the dependent DLLs:
 export MINGW64_DIR="/c/msys64/mingw64"
 
-rm -rf xtb_exe_dir
-mkdir xtb_exe_dir
-cp xtb.exe xtb_exe_dir/xtb.exe
-cp -r "$MINGW64_DIR/bin" xtb_exe_dir/bin
+# rm -rf xtb_exe_dir
+# mkdir xtb_exe_dir
+# cp xtb.exe xtb_exe_dir/xtb.exe
+# cp -r "$MINGW64_DIR/bin" xtb_exe_dir/bin
 export PATH="$(pwd)/xtb_exe_dir/bin:$PATH"
 
 cd xtb_exe_dir
 ./xtb.exe --version
+
+# Deletable libraries:
+# - 2to3 through bzcat
+# - bzcmp through ctest
+# - curl through gfortran
+# - gnutls-cli through ld
+# - libarchive-13.dll through libblas.dll
