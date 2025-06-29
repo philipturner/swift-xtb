@@ -82,6 +82,17 @@ rm -rf "libquadmath-0.dll"
 # /mingw64/bin:/usr/local/bin:/usr/bin:/bin:/c/Windows/System32:/c/Windows:/c/Windows/System32/Wbem:/c/Windows/System32/WindowsPowerShell/v1.0/:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
 
 # One method that works:
-export PATH="/c/msys64/mingw64/bin:$PATH"
-./xtb.exe --version
+# export PATH="/c/msys64/mingw64/bin:$PATH"
+# ./xtb.exe --version
 
+# Attempt to isolate the dependent DLLs:
+export MINGW64_DIR="/c/msys64/mingw64"
+
+rm -rf xtb_exe_dir
+mkdir xtb_exe_dir
+cp xtb.exe xtb_exe_dir/xtb.exe
+cp -r "$MINGW64_DIR/bin" xtb_exe_dir/bin
+export PATH="$(pwd)/xtb_exe_dir/bin:$PATH"
+
+cd xtb_exe_dir
+./xtb.exe --version
