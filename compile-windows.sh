@@ -98,11 +98,18 @@ cd xtb_exe_dir
 ./xtb.exe --version
 
 # Deletable libraries:
-# - 2to3 through libblas.dll
-# - libbrotlicommon.dll through libformw6.dll
-# - libgcc_s_seh-1.dll
+# - 2to3 through libgcc_s_seh-1.dll
 # - libgmp-10.dll through libgnutlsxx-30.dll
+# - libhistory8.dll through libngtcp2-16.dll
+# - libp11-kit-0.dll through libpython3.dll
+# - libreadline8.dll through libssl-3-x64.dll
+# - libstdc++-6.dll through libtermcap-0.dll
+# - libtre-5.dll through libuv-1.dll
+# - libzstd.dll through zstd
 
 # Required libraries:
 # - libgfortran-5.dll
 # - libgomp-1.dll
+# - libopenblas.dll
+# - libquadmath-0.dll
+# - libwinpthread-1.dll
