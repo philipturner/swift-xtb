@@ -3,11 +3,16 @@ mkdir .build
 cd .build
 
 # Isolate the process of installing MSYS2.
-# rm -rf msys64
-# rm -rf msys2-installer.sfx.exe
-# curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
-# ./msys2-installer.sfx.exe
-# msys64/usr/bin/bash.exe -leo pipefail %*
+rm -rf msys64
+rm -rf msys2-installer.sfx.exe
+curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
+./msys2-installer.sfx.exe
+
+# Make the current working directory 'msys64' while running these commands.
+cd msys64
+usr/bin/bash -leo pipefail %*
+usr/bin/sed -i "s/^CheckSpace/#CheckSpace/g" "/etc/pacman.conf"
+cd ../ # balance 'cd msys64'
 
 # Isolate the process of installing GNU/CMake/Ninja/openblas.
 
