@@ -7,6 +7,7 @@ cd .build
 # rm -rf msys2-installer.sfx.exe
 # curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
 # ./msys2-installer.sfx.exe
+# msys64/usr/bin/bash.exe -leo pipefail %*
 
 # Isolate the process of installing GNU/CMake/Ninja/openblas.
 
