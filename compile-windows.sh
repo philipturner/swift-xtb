@@ -2,6 +2,10 @@
 mkdir .build
 cd .build
 
+
+
+# === Prepare MSYS2 Compiler Environment ===
+
 # # Isolate the process of installing MSYS2.
 # rm -rf msys64
 # rm -rf msys2-installer.sfx.exe
@@ -21,24 +25,28 @@ cd .build
 # msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-ninja"
 # msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-openblas"
 
+
+
+# === Build grimme-lab/xtb ===
+
 # The compiler is installed here.
-export MINGW64_DIR="$(pwd)/msys64/mingw64"
+MINGW64_DIR="$(pwd)/msys64/mingw64"
 
 # Compile the code from source.
-rm -rf xtb
-git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
+# rm -rf xtb
+# git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
 cd xtb
-PATH="$MINGW64_DIR/bin:$PATH" cmake \
- -B build \
- -DCMAKE_BUILD_TYPE=Release \
- -DCMAKE_C_COMPILER="gcc" \
- -DCMAKE_Fortran_COMPILER="gfortran" \
- -DWITH_TBLITE=OFF \
- -DWITH_CPCMX=OFF
-PATH="$MINGW64_DIR/bin:$PATH" ninja \
-  -C build -j4
-PATH="$MINGW64_DIR/bin:$PATH" ninja \
-  -C build test
+# PATH="$MINGW64_DIR/bin:$PATH" cmake \
+#  -B build \
+#  -DCMAKE_BUILD_TYPE=Release \
+#  -DCMAKE_C_COMPILER="gcc" \
+#  -DCMAKE_Fortran_COMPILER="gfortran" \
+#  -DWITH_TBLITE=OFF \
+#  -DWITH_CPCMX=OFF
+# PATH="$MINGW64_DIR/bin:$PATH" ninja \
+#   -C build -j4
+# PATH="$MINGW64_DIR/bin:$PATH" ninja \
+#   -C build test
 
 # Purge any copied binaries.
 cd build
@@ -61,3 +69,33 @@ echo ""
 echo "Should see a message containing 'University of Bonn':"
 ./xtb.exe --version
 echo ""
+
+cd ../ # balance 'cd build'
+cd ../ # balance 'cd xtb'
+cd ../ # balance 'cd .build'
+
+
+
+# === Install into directory visible to Swift ===
+
+# The binaries are located here.
+XTB_DIR="$(pwd)/.build/xtb/build"
+ls "$XTB_DIR"
+
+# Purge any copied binaries.
+rm -rf "libgcc_s_seh-1.dll"
+rm -rf "libgfortran-5.dll"
+rm -rf "libgomp-1.dll"
+rm -rf "libopenblas.dll"
+rm -rf "libquadmath-0.dll"
+rm -rf "libwinpthread-1.dll"
+rm -rf "xtb.dll"
+
+# Copy the binaries into the folder.
+cp "$XTB_DIR/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll"
+cp "$XTB_DIR/libgfortran-5.dll" "libgfortran-5.dll"
+cp "$XTB_DIR/libgomp-1.dll" "libgomp-1.dll"
+cp "$XTB_DIR/libopenblas.dll" "libopenblas.dll"
+cp "$XTB_DIR/libquadmath-0.dll" "libquadmath-0.dll"
+cp "$XTB_DIR/libwinpthread-1.dll" "libwinpthread-1.dll"
+cp "$XTB_DIR/libxtb.dll" "xtb.dll"
