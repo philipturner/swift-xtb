@@ -21,7 +21,7 @@ PATH="$MINGW64_DIR/bin:$PATH" cmake \
  -DWITH_TBLITE=OFF \
  -DWITH_CPCMX=OFF
 PATH="$MINGW64_DIR/bin:$PATH" ninja \
-  -C build
+  -C build -j4
 PATH="$MINGW64_DIR/bin:$PATH" ninja \
   -C build test
 
