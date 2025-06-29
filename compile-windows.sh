@@ -47,6 +47,9 @@
 # - not seen in any folders
 # libwinpthread-1.dll
 # - installed at both Git Bash and MSYS2 MINGW64
+# - dependencies:
+#   - KERNEL32.dll
+#   - msvcrt.dll
 #
 # === Commentary ===
 #
@@ -66,14 +69,16 @@ rm -rf "libgfortran-5.dll"
 rm -rf "libgomp-1.dll"
 rm -rf "libopenblas.dll"
 rm -rf "libquadmath-0.dll"
+rm -rf "libwinpthread-1.dll"
 
 # Copy the binaries into the folder.
-# export MINGW64_DIR="/c/msys64/mingw64"
-# cp "$MINGW64_DIR/bin/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll"
-# cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
-# cp "$MINGW64_DIR/bin/libgomp-1.dll" "libgomp-1.dll"
-# cp "$MINGW64_DIR/bin/libopenblas.dll" "libopenblas.dll"
-# cp "$MINGW64_DIR/bin/libquadmath-0.dll" "libquadmath-0.dll"
+export MINGW64_DIR="/c/msys64/mingw64"
+cp "$MINGW64_DIR/bin/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll"
+cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
+cp "$MINGW64_DIR/bin/libgomp-1.dll" "libgomp-1.dll"
+cp "$MINGW64_DIR/bin/libopenblas.dll" "libopenblas.dll"
+cp "$MINGW64_DIR/bin/libquadmath-0.dll" "libquadmath-0.dll"
+cp "$MINGW64_DIR/bin/libwinpthread-1.dll" "libwinpthread-1.dll"
 
 # PATH for Git Bash terminal:
 # /c/Users/phili/bin:/mingw64/bin:/usr/local/bin:/usr/bin:/bin:/mingw64/bin:/usr/bin:/c/Users/phili/bin:/c/Windows/system32:/c/Windows:/c/Windows/System32/Wbem:/c/Windows/System32/WindowsPowerShell/v1.0:/c/Windows/System32/OpenSSH:/cmd:/c/ProgramData/chocolatey/bin:/c/Program Files (x86)/Windows Kits/10/Windows Performance Toolkit:/c/Program Files/PowerShell/7:/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit:/c/Users/phili/AppData/Local/Microsoft/WindowsApps:/c/Users/phili/miniforge3:/c/Users/phili/miniforge3/python:/c/tools/dart-sdk/bin:/c/Users/phili/AppData/Local/Pub/Cache/bin:/c/Users/phili/AppData/Local/Programs/Microsoft VS Code/bin:/c/Users/phili/AppData/Local/Programs/Swift/Runtimes/6.1.0/usr/bin:/c/Users/phili/AppData/Local/Programs/Swift/Toolchains/6.1.0+Asserts/usr/bin:/usr/bin/vendor_perl:/usr/bin/core_perl
@@ -86,16 +91,16 @@ rm -rf "libquadmath-0.dll"
 # ./xtb.exe --version
 
 # Attempt to isolate the dependent DLLs:
-export MINGW64_DIR="/c/msys64/mingw64"
+# export MINGW64_DIR="/c/msys64/mingw64"
 
 # rm -rf xtb_exe_dir
 # mkdir xtb_exe_dir
 # cp xtb.exe xtb_exe_dir/xtb.exe
 # cp -r "$MINGW64_DIR/bin" xtb_exe_dir/bin
-export PATH="$(pwd)/xtb_exe_dir/bin:$PATH"
+# export PATH="$(pwd)/xtb_exe_dir/bin:$PATH"
 
-cd xtb_exe_dir
-./xtb.exe --version
+# cd xtb_exe_dir
+# ./xtb.exe --version
 
 # Deletable libraries:
 # - 2to3 through libgcc_s_seh-1.dll
@@ -113,3 +118,5 @@ cd xtb_exe_dir
 # - libopenblas.dll
 # - libquadmath-0.dll
 # - libwinpthread-1.dll
+
+./xtb.exe --version
