@@ -32,7 +32,7 @@ import xTB
 xTB_Environment.verbosity = .muted
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem233
+let system: [SIMD4<Float>] = diamondSystem122
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
