@@ -5,7 +5,7 @@ git clone --single-branch --branch fix-gfnff-output https://github.com/philiptur
 
 # Flags to explore:
 # impact of '-fopenmp'
-# impact of '-O0, -O1, -O2, -O3'
+# impact of '-O0, -O1, -O2, -O3, -Ofast'
 # impact of 'march/mavx' for certain vector instructions
 # impact of flags to enable loop unrolling/vectorization
 
@@ -14,7 +14,7 @@ cmake -B build \
  -DCMAKE_BUILD_TYPE=Release \
  -DCMAKE_C_COMPILER="gcc-15" \
  -DCMAKE_Fortran_COMPILER="gfortran-15" \
- -DCMAKE_Fortran_FLAGS="YEET" \
+ -DCMAKE_Fortran_FLAGS="-O2" \
  -DWITH_TBLITE=OFF \
  -DWITH_CPCMX=OFF \
  -DBLA_VENDOR=Apple
