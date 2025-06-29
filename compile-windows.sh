@@ -2,23 +2,31 @@
 mkdir .build
 cd .build
 
-# Isolate the process of installing MSYS2.
-rm -rf msys64
-rm -rf msys2-installer.sfx.exe
-curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
-./msys2-installer.sfx.exe
+# # Isolate the process of installing MSYS2.
+# rm -rf msys64
+# rm -rf msys2-installer.sfx.exe
+# curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
+# ./msys2-installer.sfx.exe
 
-# Make the current working directory 'msys64' while running these commands.
-cd msys64
-usr/bin/bash -leo pipefail %*
-usr/bin/sed -i "s/^CheckSpace/#CheckSpace/g" "/etc/pacman.conf"
-cd ../ # balance 'cd msys64'
+# # Make the current working directory 'msys64' while running these commands.
+# # They are a one-time setup procedure before MSYS2 can work properly.
+# cd msys64
+# usr/bin/bash -leo pipefail %*
+# usr/bin/sed -i "s/^CheckSpace/#CheckSpace/g" "/etc/pacman.conf"
+# cd ../ # balance 'cd msys64'
 
-# Isolate the process of installing GNU/CMake/Ninja/openblas.
+# # Isolate the process of installing GNU/CMake/Ninja/openblas.
+# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-gcc-fortran"
+# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-cmake"
+# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-ninja"
+# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-openblas"
+
+# The compiler is installed here.
+export MINGW64_DIR="$(pwd)/msys64/mingw64"
 
 # Compile the code from source.
-# rm -rf xtb
-# git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
+rm -rf xtb
+git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
 cd xtb
 PATH="$MINGW64_DIR/bin:$PATH" cmake \
  -B build \
