@@ -22,18 +22,27 @@
 # libgomp-1.dll
 # - installed at MSYS2 MINGW64
 # - dependencies:
-#   - TODO
+#   - libgcc_s_seh-1.dll
+#   - KERNEL32.dll
+#   - msvcrt.dll
+#   - libwinpthread-1.dll
 # libopenblas.dll
 # - installed at MSYS2 MINGW64
 # - dependencies:
-#   - TODO
+#   - libgcc_s_seh-1.dll
+#   - libgfortran-5.dll
+#   - KERNEL32.dll
+#   - msvcrt.dll
+#   - libgomp-1.dll
 #
 # === Secondary dependencies ===
 #
 # libquadmath-0.dll
 # - installed at MSYS2 MINGW64
 # - dependencies:
-#   - TODO
+#   - libgcc_s_seh-1.dll
+#   - KERNEL32.dll
+#   - msvcrt.dll
 # ADVAPI32.dll
 # - not seen in any folders
 # libwinpthread-1.dll
