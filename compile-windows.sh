@@ -1,17 +1,18 @@
-# Isolate the process of installing MSYS2 and MINGW64
-#
-# For now, invoke the compiler from a regular command line, using the binaries
-# already installed on the PC. After that, we can trace it back to CLI commands
-# that download the GNU/CMake/Ninja dependencies.
-export MINGW64_DIR="/c/msys64/mingw64"
-
 # Enter the build folder.
 mkdir .build
 cd .build
-rm -rf xtb
-git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
+
+# Isolate the process of installing MSYS2.
+# rm -rf msys64
+# rm -rf msys2-installer.sfx.exe
+# curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
+# ./msys2-installer.sfx.exe
+
+# Isolate the process of installing GNU/CMake/Ninja/openblas.
 
 # Compile the code from source.
+# rm -rf xtb
+# git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
 cd xtb
 PATH="$MINGW64_DIR/bin:$PATH" cmake \
  -B build \
