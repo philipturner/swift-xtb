@@ -4,7 +4,6 @@ rm -rf xtb
 git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
 
 # Flags to explore:
-# impact of '-fopenmp'
 # try changing to CMake Debug mode
 # restrict to 1 OpenMP thread to isolate changes to single-threaded performance
 # impact of 'mtune' (https://stackoverflow.com/a/75739441)
@@ -12,7 +11,7 @@ git clone --single-branch --branch fix-gfnff-output https://github.com/philiptur
 
 cd xtb
 cmake -B build \
- -DCMAKE_BUILD_TYPE=Release \
+ -DCMAKE_BUILD_TYPE=Debug \
  -DCMAKE_C_COMPILER="gcc-15" \
  -DCMAKE_Fortran_COMPILER="gfortran-15" \
  -DWITH_TBLITE=OFF \
