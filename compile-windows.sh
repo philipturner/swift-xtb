@@ -98,8 +98,11 @@ cd xtb_exe_dir
 ./xtb.exe --version
 
 # Deletable libraries:
-# - 2to3 through bzcat
-# - bzcmp through ctest
-# - curl through gfortran
-# - gnutls-cli through ld
-# - libarchive-13.dll through libblas.dll
+# - 2to3 through libblas.dll
+# - libbrotlicommon.dll through libformw6.dll
+# - libgcc_s_seh-1.dll
+# - libgmp-10.dll through libgnutlsxx-30.dll
+
+# Required libraries:
+# - libgfortran-5.dll
+# - libgomp-1.dll
