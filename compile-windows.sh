@@ -83,22 +83,23 @@ XTB_DIR="$(pwd)/.build/xtb/build"
 ls "$XTB_DIR"
 
 # Copy dynamic libraries into the folder.
+# cp "$XTB_DIR/libxtb.dll" "xtb.dll"
 # cp "$MINGW64_DIR/bin/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll"
 # cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
 # cp "$MINGW64_DIR/bin/libgomp-1.dll" "libgomp-1.dll"
 # cp "$MINGW64_DIR/bin/libopenblas.dll" "libopenblas.dll"
 # cp "$MINGW64_DIR/bin/libquadmath-0.dll" "libquadmath-0.dll"
 # cp "$MINGW64_DIR/bin/libwinpthread-1.dll" "libwinpthread-1.dll"
-# cp "$XTB_DIR/libxtb.dll" "xtb.dll"
 
 # Copy static libraries into the folder.
+cp "$XTB_DIR/libxtb.a" "xtb.lib"
+cp "$XTB_DIR/_deps/mctc-lib-build/libmctc-lib.a" "libmctc-lib.lib"
 cp "$MINGW64_DIR/lib/libgcc_s.a" "libgcc_s_seh-1.lib"
 cp "$MINGW64_DIR/lib/libgfortran.a" "libgfortran-5.lib"
 cp "$MINGW64_DIR/lib/libgomp.a" "libgomp-1.lib"
 cp "$MINGW64_DIR/lib/libopenblas.a" "libopenblas.lib"
 cp "$MINGW64_DIR/lib/libquadmath.a" "libquadmath-0.lib"
 cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
-cp "$XTB_DIR/libxtb.a" "xtb.lib"
 cp "$MINGW64_DIR/lib/libmingwex.a" "libmingwex.lib"
 cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc.lib"
 

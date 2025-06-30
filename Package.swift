@@ -13,6 +13,7 @@ if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
   
   #if os(Windows)
   linkerSettings += [
+    .linkedLibrary("libmctc-lib"),
     .linkedLibrary("libgcc_s_seh-1"),
     .linkedLibrary("libgfortran-5"),
     .linkedLibrary("libgomp-1"),
