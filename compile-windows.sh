@@ -86,6 +86,7 @@ ls "$XTB_DIR"
 # cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
 # cp "$XTB_DIR/libxtb.dll" "xtb.dll"
 
+
 # Copy static libraries into the folder.
 #cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/libgcc_eh.a" "libgcc_s_seh-1.lib"
 cp "$MINGW64_DIR/lib/libgfortran.a" "libgfortran-5.lib"
