@@ -6,10 +6,16 @@ import class Foundation.ProcessInfo
 var linkerSettings: [LinkerSetting] = []
 
 if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
-  linkerSettings = [
+  linkerSettings += [
     .unsafeFlags(["-L\(path)"]),
     .linkedLibrary("xtb"),
   ]
+  
+  #if os(Windows)
+  linkerSettings += [
+    //.linkedLibrary("libgfortran-5"),
+  ]
+  #endif
 }
 
 let package = Package(

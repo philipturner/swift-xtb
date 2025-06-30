@@ -78,24 +78,13 @@ cd ../ # balance 'cd .build'
 
 # === Install into directory visible to Swift ===
 
-# The binaries are located here.
+# The xTB binaries are located here.
 XTB_DIR="$(pwd)/.build/xtb/build"
 ls "$XTB_DIR"
 
-# Purge any copied binaries.
-rm -rf "libgcc_s_seh-1.dll"
-rm -rf "libgfortran-5.dll"
-rm -rf "libgomp-1.dll"
-rm -rf "libopenblas.dll"
-rm -rf "libquadmath-0.dll"
-rm -rf "libwinpthread-1.dll"
-rm -rf "xtb.dll"
+# Copy dynamic libraries into the folder.
+cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
+#cp "$XTB_DIR/libxtb.dll" "xtb.dll"
 
-# Copy the binaries into the folder.
-cp "$XTB_DIR/libgcc_s_seh-1.dll" "libgcc_s_seh-1.dll"
-cp "$XTB_DIR/libgfortran-5.dll" "libgfortran-5.dll"
-cp "$XTB_DIR/libgomp-1.dll" "libgomp-1.dll"
-cp "$XTB_DIR/libopenblas.dll" "libopenblas.dll"
-cp "$XTB_DIR/libquadmath-0.dll" "libquadmath-0.dll"
-cp "$XTB_DIR/libwinpthread-1.dll" "libwinpthread-1.dll"
-cp "$XTB_DIR/libxtb.dll" "xtb.dll"
+# Copy static libraries into the folder.
+cp "$XTB_DIR/libxtb.a" "xtb.lib"
