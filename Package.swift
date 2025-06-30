@@ -20,6 +20,7 @@ if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
     .linkedLibrary("libquadmath-0"),
     .linkedLibrary("libwinpthread-1"),
     .linkedLibrary("libmingwex"),
+    .linkedLibrary("libgcc"),
   ]
   #endif
 }

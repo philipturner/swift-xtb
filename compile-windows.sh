@@ -100,6 +100,4 @@ cp "$MINGW64_DIR/lib/libquadmath.a" "libquadmath-0.lib"
 cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
 cp "$XTB_DIR/libxtb.a" "xtb.lib"
 cp "$MINGW64_DIR/lib/libmingwex.a" "libmingwex.lib"
-
-# Alternative valid command for libgcc_s_seh-1
-#cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc_s_seh-1.lib"
+cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc.lib"
