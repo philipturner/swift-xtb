@@ -101,9 +101,13 @@ cp "$MINGW64_DIR/lib/libopenblas.a" "libopenblas.lib"
 cp "$MINGW64_DIR/lib/libquadmath.a" "libquadmath-0.lib"
 cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
 cp "$MINGW64_DIR/lib/libmingwex.a" "libmingwex.lib"
+cp "$MINGW64_DIR/lib/libmsvcrt.a" "libmsvcrt.lib"
+cp "$MINGW64_DIR/lib/libmingw32.a" "libmingw32.lib"
+cp "$MINGW64_DIR/lib/libucrtbased.a" "libucrtbased.lib"
 cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc.lib"
 
-
+MSVC_DIR="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/"
+#cp "$MSVC_DIR/lib/x64/msvcrt.lib" "libmsvcrt.lib"
 
 # Is there a difference in symbols exported from '.dll' vs '.dll.a'?
 #

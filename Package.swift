@@ -21,7 +21,18 @@ if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
     .linkedLibrary("libquadmath-0"),
     .linkedLibrary("libwinpthread-1"),
     .linkedLibrary("libmingwex"),
+    .linkedLibrary("libmsvcrt"),
+    .linkedLibrary("libmingw32"),
+    .linkedLibrary("libucrtbased"),
     .linkedLibrary("libgcc"),
+  ]
+  
+  linkerSettings += [
+    //.unsafeFlags(["-L\(MSVC_DIR)"]),
+    .linkedLibrary("libvcruntimed"),
+    //.linkedLibrary("libucrtd"),
+    //.linkedLibrary("libcmtd"),
+    //.linkedLibrary("msvcrtd"),
   ]
   #endif
 }
