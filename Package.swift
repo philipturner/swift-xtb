@@ -17,7 +17,9 @@ if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
     .linkedLibrary("libgfortran-5"),
     .linkedLibrary("libgomp-1"),
     .linkedLibrary("libopenblas"),
+    .linkedLibrary("libquadmath-0"),
     .linkedLibrary("libwinpthread-1"),
+    .linkedLibrary("libmingwex"),
   ]
   #endif
 }
