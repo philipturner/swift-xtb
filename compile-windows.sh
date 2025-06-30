@@ -101,3 +101,27 @@ cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
 cp "$XTB_DIR/libxtb.a" "xtb.lib"
 cp "$MINGW64_DIR/lib/libmingwex.a" "libmingwex.lib"
 cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc.lib"
+
+# stat64:
+# promising candidate is msvcrt.dll:
+# _fstat64
+# _stat64
+#
+# sincos:
+# promising candidate is msvcrt.dll:
+# acos
+# asin
+# cosh
+# promising candidate is libquadmath-0.dll:???
+#
+# symbols exported from libxtb.dll:
+# __mctc_io_write_MOD_write_structure_to_unit
+# __mctc_io_read_MOD_read_structure_from_unit
+# __mctc_io_structure_MOD_new_structure
+# __mctc_io_structure_MOD___vtab_mctc_io_structure_Structure_type
+
+# Is there a difference in symbols exported from '.dll' vs '.dll.a'?
+#
+# symbols exported from libxtb.a:
+#
+# symbols exported from libxtb.dll.a:
