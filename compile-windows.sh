@@ -88,9 +88,12 @@ ls "$XTB_DIR"
 
 
 # Copy static libraries into the folder.
-#cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/libgcc_eh.a" "libgcc_s_seh-1.lib"
+cp "$MINGW64_DIR/lib/libgcc_s.a" "libgcc_s_seh-1.lib"
 cp "$MINGW64_DIR/lib/libgfortran.a" "libgfortran-5.lib"
 cp "$MINGW64_DIR/lib/libgomp.a" "libgomp-1.lib"
 cp "$MINGW64_DIR/lib/libopenblas.a" "libopenblas.lib"
 cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
 cp "$XTB_DIR/libxtb.a" "xtb.lib"
+
+# Alternative valid command for libgcc_s_seh-1
+# cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc_s_seh-1.lib"
