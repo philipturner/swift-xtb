@@ -83,8 +83,9 @@ XTB_DIR="$(pwd)/.build/xtb/build"
 ls "$XTB_DIR"
 
 # Copy dynamic libraries into the folder.
-cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
-#cp "$XTB_DIR/libxtb.dll" "xtb.dll"
+# cp "$MINGW64_DIR/bin/libgfortran-5.dll" "libgfortran-5.dll"
+# cp "$XTB_DIR/libxtb.dll" "xtb.dll"
 
 # Copy static libraries into the folder.
+# cp "$MINGW64_DIR/lib
 cp "$XTB_DIR/libxtb.a" "xtb.lib"
