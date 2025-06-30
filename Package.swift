@@ -10,31 +10,6 @@ if let path = ProcessInfo.processInfo.environment["XTB_LIBRARY_PATH"] {
     .unsafeFlags(["-L\(path)"]),
     .linkedLibrary("xtb"),
   ]
-  
-  #if os(Windows)
-  linkerSettings += [
-    .linkedLibrary("libmctc-lib"),
-    .linkedLibrary("libgcc_s_seh-1"),
-    .linkedLibrary("libgfortran-5"),
-    .linkedLibrary("libgomp-1"),
-    .linkedLibrary("libopenblas"),
-    .linkedLibrary("libquadmath-0"),
-    .linkedLibrary("libwinpthread-1"),
-    .linkedLibrary("libmingwex"),
-    .linkedLibrary("libmsvcrt"),
-    .linkedLibrary("libmingw32"),
-    .linkedLibrary("libucrtbased"),
-    .linkedLibrary("libgcc"),
-  ]
-  
-  linkerSettings += [
-    //.unsafeFlags(["-L\(MSVC_DIR)"]),
-    .linkedLibrary("libvcruntimed"),
-    //.linkedLibrary("libucrtd"),
-    //.linkedLibrary("libcmtd"),
-    //.linkedLibrary("msvcrtd"),
-  ]
-  #endif
 }
 
 let package = Package(
