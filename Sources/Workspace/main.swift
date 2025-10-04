@@ -9,6 +9,9 @@ import Foundation
 import xTB
 
 // Start by querying the xTB API version.
+var path = FileManager.default.currentDirectoryPath
+path += "/xtb.dll"
+xTB_Library.useLibrary(at: path)
 
 
 
