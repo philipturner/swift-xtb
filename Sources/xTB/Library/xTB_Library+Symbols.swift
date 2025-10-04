@@ -40,7 +40,20 @@ let xtb_showEnvironment: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_showEnvironment")
 
+/// Return and empty error stack
+let xtb_getError: @convention(c) (
+  xtb_TEnvironment?,
+  UnsafeMutablePointer<CChar>?, // buffer
+  UnsafePointer<Int32> // buffersize
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_getError")
+
 /// Bind output from this environment
+let xtb_setOutput: @convention(c) (
+  xtb_TEnvironment?,
+  UnsafePointer<CChar>? // filename
+) -> Void =
+xTB_Library.loadSymbol(name: "xtb_setOutput")
 
 /// Set verbosity of calculation output
 let xtb_setVerbosity: @convention(c) (
