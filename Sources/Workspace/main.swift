@@ -35,10 +35,10 @@ print(xtb_getAPIVersion())
 
 
 
-#if false
+#if true
 
 // Set the environment verbosity.
-xTB_Environment.verbosity = .full
+xTB_Environment.verbosity = .muted
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem122
