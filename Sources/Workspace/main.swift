@@ -8,13 +8,6 @@
 import Foundation
 import xTB
 
-// Start by querying the xTB API version.
-var path = FileManager.default.currentDirectoryPath
-path += "/xtb.dll"
-xTB_Library.useLibrary(at: path)
-
-print(xtb_getAPIVersion())
-
 
 
 // GFN-FF
@@ -34,8 +27,6 @@ print(xtb_getAPIVersion())
 // 233    | -1796496.861 zJ |
 
 
-
-#if true
 
 // Set the environment verbosity.
 xTB_Environment.verbosity = .muted
@@ -77,6 +68,3 @@ for _ in 0..<10 {
 let formattedLatency = String(format: "%.2f", minLatency * 1000)
 print()
 print("minimum latency:", formattedLatency, "ms")
-
-
-#endif
