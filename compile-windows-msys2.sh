@@ -6,24 +6,24 @@ cd .build
 
 # === Prepare MSYS2 Compiler Environment ===
 
-# # Isolate the process of installing MSYS2.
-# rm -rf msys64
-# rm -rf msys2-installer.sfx.exe
-# curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
-# ./msys2-installer.sfx.exe
+# Isolate the process of installing MSYS2.
+rm -rf msys64
+rm -rf msys2-installer.sfx.exe
+curl -L -o "msys2-installer.sfx.exe" "https://github.com/msys2/msys2-installer/releases/download/2025-06-22/msys2-base-x86_64-20250622.sfx.exe"
+./msys2-installer.sfx.exe
 
-# # Make the current working directory 'msys64' while running these commands.
-# # They are a one-time setup procedure before MSYS2 can work properly.
-# cd msys64
-# usr/bin/bash -leo pipefail %*
-# usr/bin/sed -i "s/^CheckSpace/#CheckSpace/g" "/etc/pacman.conf"
-# cd ../ # balance 'cd msys64'
+# Make the current working directory 'msys64' while running these commands.
+# They are a one-time setup procedure before MSYS2 can work properly.
+cd msys64
+usr/bin/bash -leo pipefail %*
+usr/bin/sed -i "s/^CheckSpace/#CheckSpace/g" "/etc/pacman.conf"
+cd ../ # balance 'cd msys64'
 
-# # Isolate the process of installing GNU/CMake/Ninja/openblas.
-# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-gcc-fortran"
-# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-cmake"
-# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-ninja"
-# msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-openblas"
+# Isolate the process of installing GNU/CMake/Ninja/openblas.
+msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-gcc-fortran"
+msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-cmake"
+msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-ninja"
+msys64/usr/bin/pacman --noconfirm -S "mingw-w64-x86_64-openblas"
 
 
 
@@ -33,20 +33,20 @@ cd .build
 MINGW64_DIR="$(pwd)/msys64/mingw64"
 
 # Compile the code from source.
-# rm -rf xtb
-# git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
+rm -rf xtb
+git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
 cd xtb
-# PATH="$MINGW64_DIR/bin:$PATH" cmake \
-#  -B build \
-#  -DCMAKE_BUILD_TYPE=Release \
-#  -DCMAKE_C_COMPILER="gcc" \
-#  -DCMAKE_Fortran_COMPILER="gfortran" \
-#  -DWITH_TBLITE=OFF \
-#  -DWITH_CPCMX=OFF
-# PATH="$MINGW64_DIR/bin:$PATH" ninja \
-#   -C build -j4
-# PATH="$MINGW64_DIR/bin:$PATH" ninja \
-#   -C build test
+PATH="$MINGW64_DIR/bin:$PATH" cmake \
+  -B build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_COMPILER="gcc" \
+  -DCMAKE_Fortran_COMPILER="gfortran" \
+  -DWITH_TBLITE=OFF \
+  -DWITH_CPCMX=OFF
+PATH="$MINGW64_DIR/bin:$PATH" ninja \
+  -C build -j4
+PATH="$MINGW64_DIR/bin:$PATH" ninja \
+  -C build test
 
 # Purge any copied binaries.
 cd build
@@ -90,21 +90,3 @@ ls "$XTB_DIR"
 # cp "$MINGW64_DIR/bin/libopenblas.dll" "libopenblas.dll"
 # cp "$MINGW64_DIR/bin/libquadmath-0.dll" "libquadmath-0.dll"
 # cp "$MINGW64_DIR/bin/libwinpthread-1.dll" "libwinpthread-1.dll"
-
-# Copy static libraries into the folder.
-cp "$XTB_DIR/libxtb.a" "xtb.lib"
-cp "$XTB_DIR/_deps/mctc-lib-build/libmctc-lib.a" "libmctc-lib.lib"
-cp "$MINGW64_DIR/lib/libgcc_s.a" "libgcc_s_seh-1.lib"
-cp "$MINGW64_DIR/lib/libgfortran.a" "libgfortran-5.lib"
-cp "$MINGW64_DIR/lib/libgomp.a" "libgomp-1.lib"
-cp "$MINGW64_DIR/lib/libopenblas.a" "libopenblas.lib"
-cp "$MINGW64_DIR/lib/libquadmath.a" "libquadmath-0.lib"
-cp "$MINGW64_DIR/lib/libwinpthread.a" "libwinpthread-1.lib"
-cp "$MINGW64_DIR/lib/libmingwex.a" "libmingwex.lib"
-cp "$MINGW64_DIR/lib/libmsvcrt.a" "libmsvcrt.lib"
-cp "$MINGW64_DIR/lib/libmingw32.a" "libmingw32.lib"
-cp "$MINGW64_DIR/lib/libucrtbased.a" "libucrtbased.lib"
-cp "$MINGW64_DIR/lib/gcc/x86_64-w64-mingw32/15.1.0/libgcc.a" "libgcc.lib"
-
-MSVC_DIR="C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.39.33519/"
-#cp "$MSVC_DIR/lib/x64/msvcrt.lib" "libmsvcrt.lib"
