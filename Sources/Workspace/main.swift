@@ -8,6 +8,8 @@
 import Foundation
 import xTB
 
+// Start by querying the xTB API version.
+
 
 
 // GFN-FF
@@ -28,8 +30,10 @@ import xTB
 
 
 
+#if false
+
 // Set the environment verbosity.
-xTB_Environment.verbosity = .muted
+xTB_Environment.verbosity = .full
 
 // Select the system.
 let system: [SIMD4<Float>] = diamondSystem122
@@ -69,3 +73,5 @@ let formattedLatency = String(format: "%.2f", minLatency * 1000)
 print()
 print("minimum latency:", formattedLatency, "ms")
 
+
+#endif
