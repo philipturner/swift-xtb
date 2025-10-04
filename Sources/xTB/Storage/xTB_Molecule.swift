@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
-import C_xTB
-
 public struct xTB_Molecule {
   unowned var calculator: xTB_Calculator!
   

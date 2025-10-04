@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 6/27/25.
 //
 
-import C_xTB
-
 extension xTB_Calculator {
   func invalidateSinglepoint() {
     results = nil

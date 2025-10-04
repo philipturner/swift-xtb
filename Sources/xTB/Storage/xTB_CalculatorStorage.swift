@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-import C_xTB
-
 /// All of the state variables inside xTB that must be monitored during a
 /// calculation.
 struct xTB_CalculatorStorage {

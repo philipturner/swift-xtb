@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-import C_xTB
-
 class xTB_Results {
   unowned var calculator: xTB_Calculator!
   

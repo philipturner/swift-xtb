@@ -5,8 +5,6 @@
 //  Created by Philip Turner on 5/29/24.
 //
 
-import C_xTB
-
 public class xTB_Environment {
   /// Lazily initialized singleton for the environment.
   nonisolated(unsafe)

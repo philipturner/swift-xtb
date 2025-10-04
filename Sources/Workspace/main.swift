@@ -13,6 +13,8 @@ var path = FileManager.default.currentDirectoryPath
 path += "/xtb.dll"
 xTB_Library.useLibrary(at: path)
 
+print(xtb_getAPIVersion())
+
 
 
 // GFN-FF
