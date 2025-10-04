@@ -12,7 +12,7 @@ typealias xtb_TCalculator = OpaquePointer
 typealias xtb_TResults = OpaquePointer
 
 /// Returns API version as 10000 * major + 100 * minor + 1 * patch
-let xtb_getAPIVersion: @convention(c) () -> Int32 =
+public let xtb_getAPIVersion: @convention(c) () -> Int32 =
 xTB_Library.loadSymbol(name: "xtb_getAPIVersion")
 
 //===----------------------------------------------------------------------===//
@@ -43,7 +43,7 @@ xTB_Library.loadSymbol(name: "xtb_showEnvironment")
 /// Return and empty error stack
 let xtb_getError: @convention(c) (
   xtb_TEnvironment?,
-  UnsafeMutablePointer<CChar>?, // buffer
+  UnsafeMutablePointer<UInt8>?, // buffer
   UnsafePointer<Int32> // buffersize
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getError")

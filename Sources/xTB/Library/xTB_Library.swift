@@ -30,7 +30,9 @@ public struct xTB_Library {
     }
   }
   
+  nonisolated(unsafe)
   private static var isXTBLibraryLoaded = false
+  nonisolated(unsafe)
   private static var _xtbLibraryHandle: UnsafeMutableRawPointer?
   private static var xtbLibraryHandle: UnsafeMutableRawPointer? {
     try! xTB_Library.loadLibrary()
@@ -60,6 +62,7 @@ public struct xTB_Library {
 
 // Methods of `xTB_Library` required to load the xTB library.
 extension xTB_Library {
+  nonisolated(unsafe)
   private static var libraryPath: String?
   
   private static func loadSymbol(
