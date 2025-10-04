@@ -40,6 +40,8 @@ let xtb_showEnvironment: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_showEnvironment")
 
+/// Bind output from this environment
+
 /// Set verbosity of calculation output
 let xtb_setVerbosity: @convention(c) (
   xtb_TEnvironment?,
@@ -109,24 +111,6 @@ let xtb_loadGFNFF: @convention(c) (
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_loadGFNFF")
 
-/// Add a external charge potential to calculator (only supported in GFN1/2-xTB)
-let xtb_setExternalCharges: @convention(c) (
-  xtb_TEnvironment?,
-  xtb_TCalculator?,
-  UnsafeMutablePointer<Int32>?, // n
-  UnsafeMutablePointer<Int32>?, // numbers [n]
-  UnsafeMutablePointer<Double>?, // charges [n]
-  UnsafeMutablePointer<Double>? // positions [n][3]
-) -> Void =
-xTB_Library.loadSymbol(name: "xtb_setExternalCharges")
-
-/// Unset the external charge potential
-let xtb_releaseExternalCharges: @convention(c) (
-  xtb_TEnvironment?,
-  xtb_TCalculator?
-) -> Void =
-xTB_Library.loadSymbol(name: "xtb_releaseExternalCharges")
-
 /// Set numerical accuracy of calculator in the range of 1000 to 0.0001
 let xtb_setAccuracy: @convention(c) (
   xtb_TEnvironment?,
@@ -188,14 +172,6 @@ let xtb_getGradient: @convention(c) (
   UnsafeMutablePointer<Double>? // gradient [natoms][3]
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getGradient")
-
-/// Query singlepoint results object for pc gradient in Hartree / Bohr
-let xtb_getPCGradient: @convention(c) (
-  xtb_TEnvironment?,
-  xtb_TResults?,
-  UnsafeMutablePointer<Double>? // gradient [natoms][3]
-) -> Void =
-xTB_Library.loadSymbol(name: "xtb_getPCGradient")
 
 /// Query singlepoint results object for partial charges in e
 let xtb_getCharges: @convention(c) (
