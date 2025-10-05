@@ -7,4 +7,4 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 fi
 
 # Run in release mode with incremental compilation.
-swift run -Xswiftc -Ounchecked
+swift test -Xswiftc -Ounchecked

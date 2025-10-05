@@ -9,8 +9,8 @@ let package = Package(
     .target(
       name: "xTB",
       dependencies: []),
-    .executableTarget(
-      name: "Workspace",
+    .testTarget(
+      name: "xTB_Tests",
       dependencies: ["xTB"]),
   ]
 )

@@ -5,6 +5,22 @@
 //  Created by Philip Turner on 6/17/24.
 //
 
+// GFN-FF
+//
+// System | Correct Energy  |
+// ------ | --------------- |
+// 122    |   -57126.394 zJ |
+// 222    |  -100762.569 zJ |
+// 233    |  -208433.751 zJ |
+//
+// GFN2-xTB
+//
+// System | Correct Energy  |
+// ------ | --------------- |
+// 122    |  -452321.592 zJ |
+// 222    |  -841344.658 zJ |
+// 233    | -1796496.861 zJ |
+
 // Atomic orbitals: 196
 let diamondSystem122: [SIMD4<Float>] = [
   SIMD4<Float>(0.089175, 0.089175, 0.089175, 6.0),
