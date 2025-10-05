@@ -1,16 +1,12 @@
 //
 //  xTB_Library.swift
-//
+//  swift-xtb
 //
 //  Created by Philip Turner on 5/29/24.
 //
 
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#elseif os(Windows)
-import CRT
+import Foundation
+#if os(Windows)
 import WinSDK
 #endif
 
@@ -30,7 +26,9 @@ public struct xTB_Library {
     }
   }
   
+  nonisolated(unsafe)
   private static var isXTBLibraryLoaded = false
+  nonisolated(unsafe)
   private static var _xtbLibraryHandle: UnsafeMutableRawPointer?
   private static var xtbLibraryHandle: UnsafeMutableRawPointer? {
     try! xTB_Library.loadLibrary()
@@ -49,7 +47,7 @@ public struct xTB_Library {
     self._xtbLibraryHandle = xtbLibraryHandle
   }
   
-  public static func loadSymbol<T>(
+  static func loadSymbol<T>(
     name: String,
     type: T.Type = T.self
   ) -> T {
@@ -60,21 +58,24 @@ public struct xTB_Library {
 
 // Methods of `xTB_Library` required to load the xTB library.
 extension xTB_Library {
+  nonisolated(unsafe)
   private static var libraryPath: String?
   
   private static func loadSymbol(
     _ libraryHandle: UnsafeMutableRawPointer?,
     _ name: String
   ) -> UnsafeMutableRawPointer? {
-#if canImport(Darwin) || canImport(Glibc)
+    #if os(macOS)
     return dlsym(libraryHandle, name)
-#elseif os(Windows)
+    #elseif os(Windows)
     guard let libraryHandle = libraryHandle else { return nil }
     let moduleHandle = libraryHandle
       .assumingMemoryBound(to: HINSTANCE__.self)
     let moduleSymbol = GetProcAddress(moduleHandle, name)
     return unsafeBitCast(moduleSymbol, to: UnsafeMutableRawPointer?.self)
-#endif
+    #else
+    #error("Linux is no longer supported.")
+    #endif
   }
   
   private static func isXTBLibraryLoaded(
@@ -84,21 +85,20 @@ extension xTB_Library {
   }
   
   private static func loadXTBLibrary() -> UnsafeMutableRawPointer? {
-    var xtbLibraryHandle: UnsafeMutableRawPointer?
-    if let xtbLibraryPath = xTB_Library.libraryPath {
-      xtbLibraryHandle = self.loadXTBLibrary(at: xtbLibraryPath)
-    }
-    return xtbLibraryHandle
+    let xtbLibraryPath = xTB_Library.libraryPath ?? defaultLibraryPath()
+    return self.loadXTBLibrary(at: xtbLibraryPath)
   }
   
   private static func loadXTBLibrary(
     at path: String
   ) -> UnsafeMutableRawPointer? {
-#if canImport(Darwin) || canImport(Glibc)
+    #if os(macOS)
     let xtbLibraryHandle = dlopen(path, RTLD_LAZY | RTLD_GLOBAL)
-#elseif os(Windows)
+    #elseif os(Windows)
     let xtbLibraryHandle = UnsafeMutableRawPointer(LoadLibraryA(path))
-#endif
+    #else
+    #error("Linux is no longer supported.")
+    #endif
     return xtbLibraryHandle
   }
 }
@@ -122,5 +122,16 @@ extension xTB_Library {
   public static func useLibrary(at path: String?) {
     self.enforceNonLoadedXTBLibrary()
     xTB_Library.libraryPath = path
+  }
+  
+  // Install the xTB library and dependent MSYS2 DLLs in the repo folder.
+  private static func defaultLibraryPath() -> String {
+    var path = FileManager.default.currentDirectoryPath
+    #if os(macOS)
+    path += "/libxtb.dylib"
+    #else
+    path += "/xtb.dll"
+    #endif
+    return path
   }
 }

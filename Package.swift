@@ -1,5 +1,4 @@
-// swift-tools-version: 5.9
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.1
 
 import PackageDescription
 
@@ -10,10 +9,15 @@ let package = Package(
       name: "xTB",
       targets: ["xTB"]),
   ],
-  dependencies: [],
+  dependencies: [
+    .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main"),
+  ],
   targets: [
     .target(
       name: "xTB",
       dependencies: []),
+    .testTarget(
+      name: "xTB_Tests",
+      dependencies: ["xTB"]),
   ]
 )

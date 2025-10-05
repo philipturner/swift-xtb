@@ -1,24 +1,16 @@
 //
 //  xTB_Calculator.swift
-//
+//  swift-xtb
 //
 //  Created by Philip Turner on 5/29/24.
 //
 
-public enum xTB_Hamiltonian {
-  /// GFN-FF
-  case forceField
-  
-  /// GFN2-xTB
-  case tightBinding
-}
-
-/// A configuration for a singlepoint calculator.
+/// A configuration for a calculator.
 public struct xTB_CalculatorDescriptor {
   /// Required. The number of protons in each atom's nucleus.
   public var atomicNumbers: [UInt8]?
   
-  /// Required. The parametrized method for evaluating forces.
+  /// Required. The parameterized method for evaluating forces.
   ///
   /// The default value is GFN2-xTB.
   public var hamiltonian: xTB_Hamiltonian = .tightBinding
@@ -36,8 +28,8 @@ public struct xTB_CalculatorDescriptor {
   /// Optional. The position of each atom's nucleus (in nanometers).
   ///
   /// When using GFN-FF, the positions are needed to initialize force field
-  /// parameters. When using tight binding, positions can be specified
-  /// after initialization.
+  /// parameters. When using GFN2-xTB, positions can be specified after
+  /// initialization.
   public var positions: [SIMD3<Float>]?
   
   public init() {
@@ -45,45 +37,57 @@ public struct xTB_CalculatorDescriptor {
   }
 }
 
-/// Singlepoint calculator.
 public class xTB_Calculator {
-  var _calculator: xtb_TCalculator
-  var _molecule: xtb_TMolecule
+  /// The parameterized method for evaluating forces.
+  public let hamiltonian: xTB_Hamiltonian
   
-  var state = State()
-  var updateRecord = UpdateRecord()
+  var tCalculator: xtb_TCalculator!
+  var tMolecule: xtb_TMolecule!
+  
+  var storage: xTB_CalculatorStorage
   var results: xTB_Results!
   
   public init(descriptor: xTB_CalculatorDescriptor) {
-    guard let calc = xtb_newCalculator() else {
-      fatalError("Could not create new xTB_Calculator.")
-    }
-    let molecule = xTB_Molecule(descriptor: descriptor)
-    _calculator = calc
-    _molecule = xTB_Molecule.createObject(molecule)
+    self.hamiltonian = descriptor.hamiltonian
     
+    let molecule = xTB_Molecule(descriptor: descriptor)
+    let orbitals = xTB_Orbitals(descriptor: descriptor)
+    
+    // Create the 'TCalculator'.
+    self.tCalculator = xTB_Calculator.createObject()
+    
+    // Create the 'TMolecule'.
+    self.tMolecule = xTB_Molecule.createObject(molecule)
+    
+    // Assign ownership of 'molecule' and 'orbitals' to 'storage'.
+    storage = xTB_CalculatorStorage()
+    storage.molecule = molecule
+    storage.orbitals = orbitals
+    storage.molecule.calculator = self
+    storage.orbitals.calculator = self
+    
+    // Load the parameters.
     switch descriptor.hamiltonian {
     case .forceField:
       xtb_loadGFNFF(
-        xTB_Environment._environment, _molecule, _calculator, nil)
+        xTB_Environment.tEnvironment, tMolecule, tCalculator, nil)
     case .tightBinding:
       xtb_loadGFN2xTB(
-        xTB_Environment._environment, _molecule, _calculator, nil)
+        xTB_Environment.tEnvironment, tMolecule, tCalculator, nil)
     }
-    
-    let externalCharges = xTB_ExternalCharges()
-    let orbitals = xTB_Orbitals(descriptor: descriptor)
-    state.externalCharges = externalCharges
-    state.molecule = molecule
-    state.orbitals = orbitals
-    
-    state.externalCharges.calculator = self
-    state.molecule.calculator = self
-    state.orbitals.calculator = self
   }
   
   deinit {
-    xtb_delMolecule(&_molecule)
-    xtb_delCalculator(&_calculator)
+    xtb_delMolecule(&tMolecule)
+    xtb_delCalculator(&tCalculator)
+  }
+  
+  /// Create the reference-counted object from the C API.
+  static func createObject() -> xtb_TCalculator {
+    let calc = xtb_newCalculator()
+    guard let calc else {
+      fatalError("Could not create new xTB_Calculator.")
+    }
+    return calc
   }
 }

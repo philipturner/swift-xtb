@@ -1,6 +1,6 @@
 //
 //  xTB_Results.swift
-//  
+//  swift-xtb
 //
 //  Created by Philip Turner on 5/30/24.
 //
@@ -8,133 +8,135 @@
 class xTB_Results {
   unowned var calculator: xTB_Calculator!
   
-  var _results: xtb_TResults
+  var tResults: xtb_TResults!
   
   var energy: Double?
   
   var forces: [SIMD3<Float>]?
   
-  var externalChargeForces: [SIMD3<Float>]?
-  
   var charges: [Float]?
   
   var bondOrders: [Float]?
   
-  var orbitalEigenvalues: [Float]?
+  var orbitalEigenvalues: [Double]?
   
   var orbitalOccupations: [Float]?
   
   var orbitalCoefficients: [Float]?
   
   init() {
-    guard let res = xtb_newResults() else {
-      fatalError("Could not create new xTB_Results.")
-    }
-    _results = res
+    self.tResults = xTB_Results.createObject()
   }
   
   deinit {
-    xtb_delResults(&_results)
+    xtb_delResults(&tResults)
   }
-}
-
-extension xTB_Results {
+  
+  /// Create the reference-counted object from the C API.
+  static func createObject() -> xtb_TResults {
+    let res = xtb_newResults()
+    guard let res else {
+      fatalError("Could not create new xTB_Results.")
+    }
+    return res
+  }
+  
   private typealias DoubleArrayFunction = @convention(c) (
-    xtb_TEnvironment,
-    xtb_TResults,
+    xtb_TEnvironment?,
+    xtb_TResults?,
     UnsafeMutablePointer<Double>?
   ) -> Void
   
   private func getDoubleArray(
-    _ closure: DoubleArrayFunction,
+    symbol: DoubleArrayFunction,
     size: Int
   ) -> [Double] {
     var output = [Double](repeating: .zero, count: size)
-    closure(
-      xTB_Environment._environment,
-      calculator.results._results,
-      &output)
+    symbol(xTB_Environment.tEnvironment, tResults, &output)
     return output
   }
 }
 
+// MARK: - Energy
+
 extension xTB_Results {
-  func getEnergy() {
+  func getEnergy() -> Double {
     var energy: Double = .zero
     xtb_getEnergy(
-      xTB_Environment._environment,
-      calculator.results._results,
-      &energy)
+      xTB_Environment.tEnvironment, tResults, &energy)
     
     // Convert energy into nanomechanical units.
-    self.energy = energy * xTB_ZJPerHartree
-  }
-  
-  func getExternalChargeForces() {
-    let externalChargeCount = calculator.externalCharges.atomicNumbers.count
-    let pointChargeGradient64 = getDoubleArray(
-      xtb_getPCGradient, size: externalChargeCount * 3)
-    externalChargeForces = convertGradientToForces(pointChargeGradient64)
+    return energy * xTB_ZJPerHartree
   }
 }
 
+// MARK: - Molecule
+
 extension xTB_Results {
-  func getForces() {
+  func getForces() -> [SIMD3<Float>] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let gradient64 = getDoubleArray(
-      xtb_getGradient, size: atomCount * 3)
-    forces = convertGradientToForces(gradient64)
+      symbol: xtb_getGradient,
+      size: atomCount * 3)
+    
+    // Convert forces into nanomechanical units and flip their sign.
+    return convertGradientToForces(gradient64)
   }
   
-  func getCharges() {
+  func getCharges() -> [Float] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let charges64 = getDoubleArray(
-      xtb_getCharges, size: atomCount * 3)
-    charges = charges64.map(Float.init)
+      symbol: xtb_getCharges,
+      size: atomCount)
+    return charges64.map(Float.init)
   }
   
-  func getBondOrders() {
+  func getBondOrders() -> [Float] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let bondOrders64 = getDoubleArray(
-      xtb_getBondOrders, size: atomCount * atomCount)
-    bondOrders = bondOrders64.map(Float.init)
+      symbol: xtb_getBondOrders,
+      size: atomCount * atomCount)
+    return bondOrders64.map(Float.init)
   }
 }
+
+// MARK: - Orbitals
 
 extension xTB_Results {
   func checkOrbitalCount() {
     var orbitalCount: Int32 = .max
     xtb_getNao(
-      xTB_Environment._environment,
-      calculator.results._results,
-      &orbitalCount)
+      xTB_Environment.tEnvironment, tResults, &orbitalCount)
     guard calculator.orbitals.count == Int(orbitalCount) else {
       fatalError("Orbital count did not match expectations.")
     }
   }
   
-  func getOrbitalEigenvalues() {
+  func getOrbitalEigenvalues() -> [Double] {
     let orbitalCount = calculator.orbitals.count
     let orbitalEigenvalues64 = getDoubleArray(
-      xtb_getOrbitalEigenvalues, size: orbitalCount)
+      symbol: xtb_getOrbitalEigenvalues,
+      size: orbitalCount)
     
     // Convert energy into nanomechanical units.
-    orbitalEigenvalues = orbitalEigenvalues64.map {
-      Float($0) * Float(xTB_ZJPerHartree)
+    return orbitalEigenvalues64.map {
+      $0 * xTB_ZJPerHartree
     }
   }
   
-  func getOrbitalOccupations() {
+  func getOrbitalOccupations() -> [Float] {
     let orbitalCount = calculator.orbitals.count
     let orbitalOccupations64 = getDoubleArray(
-      xtb_getOrbitalOccupations, size: orbitalCount)
-    orbitalOccupations = orbitalOccupations64.map(Float.init)
+      symbol: xtb_getOrbitalOccupations,
+      size: orbitalCount)
+    return orbitalOccupations64.map(Float.init)
   }
   
-  func getOrbitalCoefficients() {
+  func getOrbitalCoefficients() -> [Float] {
     let orbitalCount = calculator.orbitals.count
     let orbitalCoefficients64 = getDoubleArray(
-      xtb_getOrbitalCoefficients, size: orbitalCount * orbitalCount)
-    orbitalCoefficients = orbitalCoefficients64.map(Float.init)
+      symbol: xtb_getOrbitalCoefficients,
+      size: orbitalCount * orbitalCount)
+    return orbitalCoefficients64.map(Float.init)
   }
 }
