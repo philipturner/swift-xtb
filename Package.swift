@@ -4,7 +4,9 @@ import PackageDescription
 
 let package = Package(
   name: "swift-xtb",
-  dependencies: [],
+  dependencies: [
+    .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main"),
+  ],
   targets: [
     .target(
       name: "xTB",
