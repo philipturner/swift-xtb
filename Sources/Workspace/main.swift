@@ -32,7 +32,7 @@ import xTB
 xTB_Environment.verbosity = .muted
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem122
+let system: [SIMD4<Float>] = diamondSystem233
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -40,7 +40,7 @@ calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
 calculatorDesc.positions = system.map {
   SIMD3($0.x, $0.y, $0.z)
 }
-calculatorDesc.hamiltonian = .forceField
+calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
 // Run just one loop iteration.
