@@ -4,6 +4,11 @@ import PackageDescription
 
 let package = Package(
   name: "swift-xtb",
+  products: [
+    .library(
+      name: "xTB",
+      targets: ["xTB"]),
+  ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main"),
   ],
