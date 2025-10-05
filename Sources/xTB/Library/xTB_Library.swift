@@ -47,7 +47,7 @@ public struct xTB_Library {
     self._xtbLibraryHandle = xtbLibraryHandle
   }
   
-  public static func loadSymbol<T>(
+  static func loadSymbol<T>(
     name: String,
     type: T.Type = T.self
   ) -> T {
