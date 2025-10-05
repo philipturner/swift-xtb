@@ -11,8 +11,14 @@
 // when comparing against DFT literature data. That is the reason these
 // constants are exposed to the public API.
 
+/// 0.0529177
 public let xTB_NmPerBohr: Double = 0.0529177
+
+/// 18.897269
 public let xTB_BohrPerNm: Double = 1 / xTB_NmPerBohr
 
+/// 4359.7482
 public let xTB_ZJPerHartree: Double = 4359.7482
+
+/// 2.293710e-4
 public let xTB_HartreePerZJ: Double = 1 / xTB_ZJPerHartree

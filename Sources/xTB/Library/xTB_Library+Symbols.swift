@@ -12,7 +12,7 @@ typealias xtb_TCalculator = OpaquePointer
 typealias xtb_TResults = OpaquePointer
 
 /// Returns API version as 10000 * major + 100 * minor + 1 * patch
-public let xtb_getAPIVersion: @convention(c) () -> Int32 =
+let xtb_getAPIVersion: @convention(c) () -> Int32 =
 xTB_Library.loadSymbol(name: "xtb_getAPIVersion")
 
 //===----------------------------------------------------------------------===//
