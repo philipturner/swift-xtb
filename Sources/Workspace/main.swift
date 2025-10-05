@@ -32,7 +32,7 @@ import xTB
 xTB_Environment.verbosity = .muted
 
 // Select the system.
-let system: [SIMD4<Float>] = diamondSystem233
+let system: [SIMD4<Float>] = diamondSystem222
 
 // Create the calculator.
 var calculatorDesc = xTB_CalculatorDescriptor()
@@ -43,28 +43,6 @@ calculatorDesc.positions = system.map {
 calculatorDesc.hamiltonian = .tightBinding
 let calculator = xTB_Calculator(descriptor: calculatorDesc)
 
-// Run just one loop iteration.
-var minLatency: Double = 1_000_000
-for _ in 0..<10 {
-  calculator.molecule.positions = system.map {
-    SIMD3($0.x, $0.y, $0.z)
-  }
-  
-  let checkpoint0 = Date()
-  let energy = calculator.energy
-  let checkpoint1 = Date()
-  let latency = checkpoint1.timeIntervalSince(checkpoint0)
-  minLatency = min(latency, minLatency)
-  
-  let formattedLatency = String(format: "%.1f", latency * 1000)
-  print()
-  print("actual latency:", formattedLatency, "ms")
-  
-  let formattedEnergy = String(format: "%.3f", energy)
-  print("energy:", formattedEnergy, "zJ")
-}
-
-// Summarize the results
-let formattedLatency = String(format: "%.2f", minLatency * 1000)
-print()
-print("minimum latency:", formattedLatency, "ms")
+let energy = calculator.energy
+let formattedEnergy = String(format: "%.3f", energy)
+print("energy:", formattedEnergy, "zJ")
