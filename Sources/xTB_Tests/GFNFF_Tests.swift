@@ -17,6 +17,7 @@ final class GFNFF_Tests: XCTestCase {
     }
     calculatorDesc.hamiltonian = .forceField
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
+    XCTAssertEqual(calculator.molecule.atomicNumbers.count, 82)
 
     let energy = calculator.energy
     let formattedEnergy = String(format: "%.3f", energy)

@@ -21,7 +21,8 @@
 // 222    |  -841344.658 zJ |
 // 233    | -1796496.861 zJ |
 
-// Atomic orbitals: 196
+// atoms: 82
+// orbitals: 196
 let diamondSystem122: [SIMD4<Float>] = [
   SIMD4<Float>(0.089175, 0.089175, 0.089175, 6.0),
   SIMD4<Float>(0.0, 0.17835, 0.17835, 6.0),
@@ -107,7 +108,8 @@ let diamondSystem122: [SIMD4<Float>] = [
   SIMD4<Float>(0.24012649, 0.5968265, 0.77517647, 1.0),
 ]
 
-// Atomic orbitals: 364
+// atoms: 139
+// orbitals: 364
 let diamondSystem222: [SIMD4<Float>] = [
   SIMD4<Float>(0.089175, 0.089175, 0.089175, 6.0),
   SIMD4<Float>(0.0, 0.17835, 0.17835, 6.0),
@@ -250,7 +252,8 @@ let diamondSystem222: [SIMD4<Float>] = [
   SIMD4<Float>(0.59682655, 0.59682655, 0.77517647, 1.0),
 ]
 
-// Atomic orbitals: 776
+// atoms: 275
+// orbitals: 776
 let diamondSystem233: [SIMD4<Float>] = [
   SIMD4<Float>(0.089175, 0.089175, 0.089175, 6.0),
   SIMD4<Float>(0.0, 0.17835, 0.17835, 6.0),
