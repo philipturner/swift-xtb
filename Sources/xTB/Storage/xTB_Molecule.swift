@@ -12,12 +12,12 @@ public struct xTB_Molecule {
   public let atomicNumbers: [UInt8]
   
   /// The net charge of the system.
-  public let netCharge: Float
+  public let netCharge: Double
   
   /// The net spin of the system.
-  public let netSpin: Float
+  public let netSpin: Double
   
-  var _positions: [SIMD3<Float>] = []
+  var _positions: [SIMD3<Double>] = []
   
   private var positionsUpdated: Bool = false
   
@@ -46,10 +46,10 @@ public struct xTB_Molecule {
   
   /// Initialization procedure that bypasses an error with atoms having
   /// equal positions.
-  static func createInitialPositions(atomCount: Int) -> [SIMD3<Float>] {
-    var output: [SIMD3<Float>] = []
+  static func createInitialPositions(atomCount: Int) -> [SIMD3<Double>] {
+    var output: [SIMD3<Double>] = []
     for atomID in 0..<atomCount {
-      let scalar = Float(atomID) * 1e-5
+      let scalar = Double(atomID) * 1e-5
       let position = SIMD3(repeating: scalar)
       output.append(position)
     }
@@ -114,7 +114,7 @@ public struct xTB_Molecule {
 
 extension xTB_Molecule {
   /// The position of each atom's nucleus (in nanometers).
-  public var positions: [SIMD3<Float>] {
+  public var positions: [SIMD3<Double>] {
     _read {
       yield _positions
     }
@@ -125,7 +125,7 @@ extension xTB_Molecule {
   }
   
   /// The force on each atom (in piconewtons).
-  public var forces: [SIMD3<Float>] {
+  public var forces: [SIMD3<Double>] {
     calculator.ensureMoleculeCached()
     return calculator.results.forces!
   }
@@ -133,7 +133,7 @@ extension xTB_Molecule {
   /// Partial charge in units of proton charge.
   ///
   /// > Note: Not available for GFN-FF.
-  public var charges: [Float] {
+  public var charges: [Double] {
     calculator.ensureMoleculeCached()
     return calculator.results.charges!
   }
@@ -143,7 +143,7 @@ extension xTB_Molecule {
   /// Dimensions: (atom count) x (atom count)
   ///
   /// > Note: Not available for GFN-FF.
-  public var bondOrders: [Float] {
+  public var bondOrders: [Double] {
     calculator.ensureMoleculeCached()
     return calculator.results.bondOrders!
   }

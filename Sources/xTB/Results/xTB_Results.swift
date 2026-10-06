@@ -12,17 +12,17 @@ class xTB_Results {
   
   var energy: Double?
   
-  var forces: [SIMD3<Float>]?
+  var forces: [SIMD3<Double>]?
   
-  var charges: [Float]?
+  var charges: [Double]?
   
-  var bondOrders: [Float]?
+  var bondOrders: [Double]?
   
   var orbitalEigenvalues: [Double]?
   
-  var orbitalOccupations: [Float]?
+  var orbitalOccupations: [Double]?
   
-  var orbitalCoefficients: [Float]?
+  var orbitalCoefficients: [Double]?
   
   init() {
     self.tResults = xTB_Results.createObject()
@@ -73,7 +73,7 @@ extension xTB_Results {
 // MARK: - Molecule
 
 extension xTB_Results {
-  func getForces() -> [SIMD3<Float>] {
+  func getForces() -> [SIMD3<Double>] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let gradient64 = getDoubleArray(
       symbol: xtb_getGradient,
@@ -83,20 +83,20 @@ extension xTB_Results {
     return convertGradientToForces(gradient64)
   }
   
-  func getCharges() -> [Float] {
+  func getCharges() -> [Double] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let charges64 = getDoubleArray(
       symbol: xtb_getCharges,
       size: atomCount)
-    return charges64.map(Float.init)
+    return charges64
   }
   
-  func getBondOrders() -> [Float] {
+  func getBondOrders() -> [Double] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let bondOrders64 = getDoubleArray(
       symbol: xtb_getBondOrders,
       size: atomCount * atomCount)
-    return bondOrders64.map(Float.init)
+    return bondOrders64
   }
 }
 
@@ -124,19 +124,19 @@ extension xTB_Results {
     }
   }
   
-  func getOrbitalOccupations() -> [Float] {
+  func getOrbitalOccupations() -> [Double] {
     let orbitalCount = calculator.orbitals.count
     let orbitalOccupations64 = getDoubleArray(
       symbol: xtb_getOrbitalOccupations,
       size: orbitalCount)
-    return orbitalOccupations64.map(Float.init)
+    return orbitalOccupations64
   }
   
-  func getOrbitalCoefficients() -> [Float] {
+  func getOrbitalCoefficients() -> [Double] {
     let orbitalCount = calculator.orbitals.count
     let orbitalCoefficients64 = getDoubleArray(
       symbol: xtb_getOrbitalCoefficients,
       size: orbitalCount * orbitalCount)
-    return orbitalCoefficients64.map(Float.init)
+    return orbitalCoefficients64
   }
 }

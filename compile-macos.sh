@@ -6,8 +6,8 @@ git clone --single-branch --branch fix-gfnff-output https://github.com/philiptur
 cd xtb
 cmake -B build \
  -DCMAKE_BUILD_TYPE=Release \
- -DCMAKE_C_COMPILER="gcc-15" \
- -DCMAKE_Fortran_COMPILER="gfortran-15" \
+ -DCMAKE_C_COMPILER="gcc-16" \
+ -DCMAKE_Fortran_COMPILER="gfortran-16" \
  -DWITH_TBLITE=OFF \
  -DWITH_CPCMX=OFF \
  -DBLA_VENDOR=Apple

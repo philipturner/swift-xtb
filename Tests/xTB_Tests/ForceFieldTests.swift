@@ -13,7 +13,7 @@ final class ForceFieldTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3<Float>($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .forceField
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
@@ -35,7 +35,7 @@ final class ForceFieldTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3<Float>($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .forceField
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
@@ -57,7 +57,7 @@ final class ForceFieldTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3<Float>($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .forceField
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
