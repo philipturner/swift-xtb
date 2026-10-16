@@ -6,7 +6,7 @@
 //
 
 // TODO: API for opting in to warm-starting each SCF iteration with
-// xtb_copyResults. 1.2-1.4x speedup for general cases, 2.4x speedup
+// xtb_copyResults. 1.2-1.5x speedup for general cases, 2.4x speedup
 // for a special case with trouble converging.
 
 class xTB_Results {
