@@ -24,7 +24,15 @@ extension xTB_Calculator {
     // encapsulation/abstraction and has proven unworkable.
     storage.molecule.update()
     
-    let results = xTB_Results()
+    // Copy the seed instead of consuming it, so every singlepoint inside
+    // 'withSeed' starts from the same solution.
+    let results: xTB_Results
+    if let seed = pendingSeed {
+      results = xTB_Results(copying: seed.results)
+      pendingSeedUsed = true
+    } else {
+      results = xTB_Results()
+    }
     xtb_singlepoint(
       xTB_Environment.tEnvironment,
       tMolecule,
