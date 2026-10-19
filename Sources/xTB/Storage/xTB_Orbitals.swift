@@ -97,7 +97,7 @@ extension xTB_Orbitals {
   /// The fractional occupation of each orbital.
   ///
   /// > Note: Not available for GFN-FF.
-  public var occupations: [Float] {
+  public var occupations: [Double] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalOccupations!
   }
@@ -107,7 +107,7 @@ extension xTB_Orbitals {
   /// Dimensions: (orbital count) x (orbital count)
   ///
   /// > Note: Not available for GFN-FF.
-  public var coefficients: [Float] {
+  public var coefficients: [Double] {
     calculator.ensureOrbitalsCached()
     return calculator.results.orbitalCoefficients!
   }

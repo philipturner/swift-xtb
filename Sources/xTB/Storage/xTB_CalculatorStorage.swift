@@ -9,8 +9,8 @@
 /// calculation.
 struct xTB_CalculatorStorage {
   // Immediately synchronized properties.
-  var accuracy: Float = 1.0
-  var electronicTemperature: Float = 300
+  var accuracy: Double = 1.0
+  var electronicTemperature: Double = 300
   var maximumIterations: Int = 250
   
   // Lazily synchronized properties.
@@ -34,7 +34,7 @@ extension xTB_Calculator {
   /// Numerical accuracy of calculator.
   ///
   /// The default value is 1. The value may range from 1e3 to 1e-4.
-  public var accuracy: Float {
+  public var accuracy: Double {
     get {
       storage.accuracy
     }
@@ -68,7 +68,7 @@ extension xTB_Calculator {
   /// The default value is 300 K.
   ///
   /// > Note: Not available for GFN-FF.
-  public var electronicTemperature: Float {
+  public var electronicTemperature: Double {
     get {
       storage.electronicTemperature
     }

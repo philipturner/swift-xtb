@@ -18,19 +18,19 @@ public struct xTB_CalculatorDescriptor {
   /// Required. The net charge of the system.
   ///
   /// The default value is zero.
-  public var netCharge: Float = .zero
+  public var netCharge: Double = .zero
   
   /// Required. The net spin of the system.
   ///
   /// The default value is zero.
-  public var netSpin: Float = .zero
+  public var netSpin: Double = .zero
   
   /// Optional. The position of each atom's nucleus (in nanometers).
   ///
   /// When using GFN-FF, the positions are needed to initialize force field
   /// parameters. When using GFN2-xTB, positions can be specified after
   /// initialization.
-  public var positions: [SIMD3<Float>]?
+  public var positions: [SIMD3<Double>]?
   
   public init() {
     
