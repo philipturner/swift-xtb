@@ -11,7 +11,7 @@ final class SeedTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3<Float>($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .tightBinding
     return xTB_Calculator(descriptor: calculatorDesc)
@@ -75,7 +75,7 @@ final class SeedTests: XCTestCase {
     
     // Warm start several displacements from the same seed, like a Hessian.
     let originalPositions = warmCalculator.molecule.positions
-    let displacements: [Float] = [0.001, -0.001]
+    let displacements: [Double] = [0.001, -0.001]
     let warmEnergies = try warmCalculator.withSeed(seed) {
       displacements.map { displacement in
         warmCalculator.molecule.positions = originalPositions
@@ -148,7 +148,7 @@ final class SeedTests: XCTestCase {
     let seed = try XCTUnwrap(warmCalculator.seed)
     
     let originalPositions = warmCalculator.molecule.positions
-    let displacements: [Float] = [-0.001, 0.000, 0.001]
+    let displacements: [Double] = [-0.001, 0.000, 0.001]
     for displacement in displacements {
       var positions = originalPositions
       positions[0].x += displacement
@@ -193,8 +193,8 @@ final class SeedTests: XCTestCase {
     let seed = try XCTUnwrap(calculator.seed)
     
     let originalPositions = calculator.molecule.positions
-    let displacements: [Float] = [-0.001, 0.000, 0.001]
-    func countIterations(displacement: Float) throws -> Int {
+    let displacements: [Double] = [-0.001, 0.000, 0.001]
+    func countIterations(displacement: Double) throws -> Int {
       calculator.molecule.positions = originalPositions
       calculator.molecule.positions[0].x += displacement
       return try SeedTests.countIterations {
