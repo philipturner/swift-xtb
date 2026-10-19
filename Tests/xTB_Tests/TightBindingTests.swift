@@ -13,7 +13,7 @@ final class TightBindingTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .tightBinding
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
@@ -35,7 +35,7 @@ final class TightBindingTests: XCTestCase {
     var calculatorDesc = xTB_CalculatorDescriptor()
     calculatorDesc.atomicNumbers = system.map { UInt8($0.w) }
     calculatorDesc.positions = system.map {
-      SIMD3($0.x, $0.y, $0.z)
+      SIMD3<Double>(SIMD3($0.x, $0.y, $0.z))
     }
     calculatorDesc.hamiltonian = .tightBinding
     let calculator = xTB_Calculator(descriptor: calculatorDesc)
@@ -43,6 +43,6 @@ final class TightBindingTests: XCTestCase {
     XCTAssertEqual(calculator.orbitals.count, 364)
     
     // Evaluate the energy.
-    XCTAssertEqual(calculator.energy, -841344.658, accuracy: 0.001)
+    XCTAssertEqual(calculator.energy, -841344.657, accuracy: 0.001)
   }
 }

@@ -12,7 +12,7 @@ class xTB_Results {
   
   var energy: Double?
   
-  var forces: [SIMD3<Float>]?
+  var forces: [SIMD3<Double>]?
   
   var charges: [Float]?
   
@@ -83,7 +83,7 @@ extension xTB_Results {
 // MARK: - Molecule
 
 extension xTB_Results {
-  func getForces() -> [SIMD3<Float>] {
+  func getForces() -> [SIMD3<Double>] {
     let atomCount = calculator.molecule.atomicNumbers.count
     let gradient64 = getDoubleArray(
       symbol: xtb_getGradient,
