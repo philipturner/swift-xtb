@@ -22,7 +22,7 @@ final class SeedTests: XCTestCase {
   /// exactly one singlepoint.
   static func countIterations(_ body: () throws -> Void) throws -> Int {
     let path = NSTemporaryDirectory() + "SeedTests-\(UUID()).txt"
-    FileManager.default.createFile(atPath: path, contents: nil)
+    _ = FileManager.default.createFile(atPath: path, contents: nil)
     defer { try? FileManager.default.removeItem(atPath: path) }
     
     let redirection = StdoutRedirection(path: path)
@@ -135,6 +135,10 @@ final class SeedTests: XCTestCase {
       })
   }
   
+  // When the test was written:
+  // - warm: [7, 3, 7] SCC iterations
+  // - cold: [12, 13, 12] SCC iterations
+  
   func testWarmStartIterations() throws {
     xTB_Environment.verbosity = .muted
     let warmCalculator = SeedTests.createCalculator()
@@ -218,10 +222,6 @@ final class SeedTests: XCTestCase {
     XCTAssertEqual(sharedScopeIterations, separateScopeIterations)
     
     // If these cases have the same iteration count, the test cannot function.
-    //
-    // When the test was written:
-    // - warm: [7, 3, 7]
-    // - cold: [12, 13, 12]
     XCTAssertNotEqual(sharedScopeIterations[0], sharedScopeIterations[1])
   }
 }
