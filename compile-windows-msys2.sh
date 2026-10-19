@@ -34,7 +34,7 @@ MINGW64_DIR="$(pwd)/msys64/mingw64"
 
 # Compile the code from source.
 rm -rf xtb
-git clone --single-branch --branch fix-gfnff-output https://github.com/philipturner/xtb
+git clone --single-branch --branch swift-xtb-2026 https://github.com/philipturner/xtb
 cd xtb
 PATH="$MINGW64_DIR/bin:$PATH" cmake \
   -B build \
@@ -42,7 +42,8 @@ PATH="$MINGW64_DIR/bin:$PATH" cmake \
   -DCMAKE_C_COMPILER="gcc" \
   -DCMAKE_Fortran_COMPILER="gfortran" \
   -DWITH_TBLITE=OFF \
-  -DWITH_CPCMX=OFF
+  -DWITH_CPCMX=OFF \
+  -DMCTCLIB_FIND_METHOD=fetch
 PATH="$MINGW64_DIR/bin:$PATH" ninja \
   -C build -j4
 PATH="$MINGW64_DIR/bin:$PATH" ninja \

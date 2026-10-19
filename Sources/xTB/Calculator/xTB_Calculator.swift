@@ -46,7 +46,9 @@ public class xTB_Calculator {
   
   var storage: xTB_CalculatorStorage
   var results: xTB_Results!
-  
+  var pendingSeed: xTB_Seed?
+  var pendingSeedUsed: Bool = false
+
   public init(descriptor: xTB_CalculatorDescriptor) {
     self.hamiltonian = descriptor.hamiltonian
     

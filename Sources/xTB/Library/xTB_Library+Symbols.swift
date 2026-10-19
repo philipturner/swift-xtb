@@ -170,6 +170,11 @@ let xtb_delResults: @convention(c) (
   UnsafeMutablePointer<xtb_TResults?>?) -> Void =
 xTB_Library.loadSymbol(name: "xtb_delResults")
 
+/// Create copy from a singlepoint results object
+let xtb_copyResults: @convention(c) (
+  xtb_TResults?) -> xtb_TResults? =
+xTB_Library.loadSymbol(name: "xtb_copyResults")
+
 /// Query singlepoint results object for energy in Hartree
 let xtb_getEnergy: @convention(c) (
   xtb_TEnvironment?,

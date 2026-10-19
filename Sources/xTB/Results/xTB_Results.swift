@@ -5,10 +5,6 @@
 //  Created by Philip Turner on 5/30/24.
 //
 
-// TODO: API for opting in to warm-starting each SCF iteration with
-// xtb_copyResults. 1.2-1.5x speedup for general cases, 2.4x speedup
-// for a special case with trouble converging.
-
 class xTB_Results {
   unowned var calculator: xTB_Calculator!
   
@@ -31,7 +27,17 @@ class xTB_Results {
   init() {
     self.tResults = xTB_Results.createObject()
   }
-  
+
+  /// Copy the C API object, including the converged wavefunction. The cached
+  /// Swift properties are not copied.
+  init(copying source: xTB_Results) {
+    let res = xtb_copyResults(source.tResults)
+    guard let res else {
+      fatalError("Could not copy xTB_Results.")
+    }
+    self.tResults = res
+  }
+
   deinit {
     xtb_delResults(&tResults)
   }
