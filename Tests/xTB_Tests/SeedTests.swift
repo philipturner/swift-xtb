@@ -171,8 +171,12 @@ final class SeedTests: XCTestCase {
       }
       
       XCTAssertGreaterThanOrEqual(warmIterations, 1)
+      XCTAssertLessThan(warmIterations, 20)
+      
       XCTAssertGreaterThanOrEqual(coldIterations1, 5)
-      XCTAssertGreaterThanOrEqual(coldIterations2, 5)
+      XCTAssertLessThan(coldIterations1, 40)
+      
+      print("iterations: (\(warmIterations), \(coldIterations1))")
       
       XCTAssertLessThan(warmIterations, coldIterations1)
       XCTAssertLessThan(warmIterations, coldIterations2)
