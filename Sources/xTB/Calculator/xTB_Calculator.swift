@@ -37,7 +37,7 @@ public struct xTB_CalculatorDescriptor {
   }
 }
 
-public class xTB_Calculator {
+public class xTB_Calculator<RealType: xTB_Real> {
   /// The parameterized method for evaluating forces.
   public let hamiltonian: xTB_Hamiltonian
   
