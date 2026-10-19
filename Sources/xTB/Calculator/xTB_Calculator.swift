@@ -30,14 +30,14 @@ public struct xTB_CalculatorDescriptor {
   /// When using GFN-FF, the positions are needed to initialize force field
   /// parameters. When using GFN2-xTB, positions can be specified after
   /// initialization.
-  public var positions: [SIMD3<Float>]?
+  public var positions: [SIMD3<Double>]?
   
   public init() {
     
   }
 }
 
-public class xTB_Calculator<RealType: xTB_Real> {
+public class xTB_Calculator {
   /// The parameterized method for evaluating forces.
   public let hamiltonian: xTB_Hamiltonian
   
