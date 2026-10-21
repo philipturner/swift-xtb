@@ -43,6 +43,7 @@ extension xTB_Calculator {
     // This was another difficult decision. Out of the many options, the most
     // workable one was to check after fetching each results object.
     results.checkOrbitalCount()
+    results.checkPrecision()
     
     self.results = results
   }

@@ -238,3 +238,52 @@ let xtb_getOrbitalCoefficients: @convention(c) (
   UnsafeMutablePointer<Double>? // c
 ) -> Void =
 xTB_Library.loadSymbol(name: "xtb_getOrbitalCoefficients")
+
+//===----------------------------------------------------------------------===//
+// SCC eigensolve precision
+//
+// Only in xTB builds from the 'diagonalization' branch, so these are loaded
+// as optionals: nil means the library runs every eigensolve in FP64.
+//===----------------------------------------------------------------------===//
+
+/// Set the precision of the SCC eigensolves of an xTB calculator: FP32 while
+/// the charges change by more than fp32_rmsq (0: FP64 only), the FP32
+/// attempt capped at fp32_maxiter cycles before an FP64 rerun, fp32_refine
+/// 1 to refine each FP32 eigensolve in FP64
+let xtb_setSCCPrecision: (@convention(c) (
+  xtb_TEnvironment?,
+  xtb_TCalculator?,
+  Double, // fp32_rmsq
+  Int32, // fp32_maxiter
+  Int32 // fp32_refine
+) -> Void)? =
+xTB_Library.loadOptionalSymbol(name: "xtb_setSCCPrecision")
+
+/// Query singlepoint results object for the SCC eigensolve precision used and
+/// its outcome
+let xtb_getSCCPrecision: (@convention(c) (
+  xtb_TEnvironment?,
+  xtb_TResults?,
+  UnsafeMutablePointer<Double>?, // fp32_rmsq
+  UnsafeMutablePointer<Int32>?, // fp32_maxiter
+  UnsafeMutablePointer<Int32>?, // fp32_refine
+  UnsafeMutablePointer<Int32>?, // fp32_cycles
+  UnsafeMutablePointer<Int32>?, // fp64_restart
+  UnsafeMutablePointer<Int32>? // scc_cycles
+) -> Void)? =
+xTB_Library.loadOptionalSymbol(name: "xtb_getSCCPrecision")
+
+/// Whether both functions of the SCC precision API are present.
+let xtb_supportsSCCPrecision: Bool = {
+  switch (xtb_setSCCPrecision != nil, xtb_getSCCPrecision != nil) {
+  case (true, true):
+    return true
+  case (false, false):
+    return false
+  default:
+    fatalError("""
+      The xTB library exports only one of xtb_setSCCPrecision and \
+      xtb_getSCCPrecision.
+      """)
+  }
+}()

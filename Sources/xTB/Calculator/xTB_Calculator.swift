@@ -77,6 +77,10 @@ public class xTB_Calculator {
       xtb_loadGFN2xTB(
         xTB_Environment.tEnvironment, tMolecule, tCalculator, nil)
     }
+    
+    // Set the default precision explicitly, rather than relying on the
+    // library's default.
+    applyPrecision(storage.precision)
   }
   
   deinit {
