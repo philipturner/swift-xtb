@@ -48,31 +48,52 @@ final class OpenMPTests: XCTestCase {
     return Int(lastTeamSize)
   }
 
+  /// The outcome of a closure run on another thread, handed back to the
+  /// waiting one (the closures that run there must be @Sendable, and so can't
+  /// write a captured variable).
+  final class Outcome<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var result: Result<T, Error>?
+    
+    func set(_ body: @Sendable () throws -> T) {
+      let result = Result { try body() }
+      lock.withLock { self.result = result }
+    }
+    
+    func get() throws -> T {
+      try lock.withLock { result! }.get()
+    }
+  }
+  
   /// Runs `body` on a new thread and waits for it.
-  static func onNewThread<T>(_ body: @escaping () throws -> T) throws -> T {
-    nonisolated(unsafe) var result: Result<T, Error>?
+  static func onNewThread<T>(
+    _ body: @escaping @Sendable () throws -> T
+  ) throws -> T {
+    let outcome = Outcome<T>()
     let done = DispatchSemaphore(value: 0)
     let thread = Thread {
-      result = Result { try body() }
+      outcome.set(body)
       done.signal()
     }
     thread.start()
     done.wait()
-    return try result!.get()
+    return try outcome.get()
   }
-
+  
   /// Runs `body` on a Dispatch worker and waits for it.
-  static func onDispatchWorker<T>(_ body: @escaping () throws -> T) throws -> T {
-    nonisolated(unsafe) var result: Result<T, Error>?
+  static func onDispatchWorker<T>(
+    _ body: @escaping @Sendable () throws -> T
+  ) throws -> T {
+    let outcome = Outcome<T>()
     let done = DispatchSemaphore(value: 0)
     DispatchQueue.global().async {
-      result = Result { try body() }
+      outcome.set(body)
       done.signal()
     }
     done.wait()
-    return try result!.get()
+    return try outcome.get()
   }
-
+  
   static func createCalculator() -> xTB_Calculator {
     let system: [SIMD4<Float>] = diamondSystem122
     var calculatorDesc = xTB_CalculatorDescriptor()
@@ -128,7 +149,7 @@ final class OpenMPTests: XCTestCase {
     XCTAssert(energy.isFinite && energy < 0)
     XCTAssertEqual(try OpenMPTests.teamSize(), a)
     for runner in [OpenMPTests.onNewThread, OpenMPTests.onDispatchWorker]
-      as [(@escaping () throws -> (Double, Int)) throws -> (Double, Int)] {
+      as [(@escaping @Sendable () throws -> (Double, Int)) throws -> (Double, Int)] {
       let (energy, team) = try runner {
         let energy = OpenMPTests.createCalculator().energy
         return (energy, try OpenMPTests.teamSize())
