@@ -1,7 +1,11 @@
 mkdir .build
 cd .build
 rm -rf xtb
-git clone --single-branch --branch swift-xtb-2026 https://github.com/philipturner/xtb
+# This branch (fp32-diagonalization) builds xTB with the faster SCC eigensolver
+# (FP32 eigensolves, OpenMP divide and conquer, parallel reduction):
+# swift-xtb-2026 merged with github.com/philipturner/xtb's 'diagonalization'.
+# macOS only for now; the Windows script still builds swift-xtb-2026.
+git clone --single-branch --branch swift-xtb-2026-diagonalization https://github.com/philipturner/xtb
 
 # Always download mctc-lib at the version xtb expects. Otherwise, CMake may
 # find an incompatible version installed elsewhere (e.g. by conda).
