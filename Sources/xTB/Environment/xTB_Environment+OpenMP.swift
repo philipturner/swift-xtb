@@ -63,7 +63,10 @@ extension xTB_Environment {
   ///
   /// Accelerate's own threads (BLAS and LAPACK calls) follow the environment
   /// variable VECLIB_MAXIMUM_THREADS, which must be set before the program
-  /// starts; swift-xtb doesn't change it.
+  /// starts; swift-xtb doesn't change it. It barely matters: in every case
+  /// tested (M1 Max, 8 OpenMP threads, n = 412-1204, FP64 and FP32), a
+  /// singlepoint took within about 3% of the same time with 1 or 8 Accelerate
+  /// threads, and Accelerate's divide and conquer alone changed by at most 4%.
   ///
   /// When set, swift-xtb sets the count on the calling thread before every
   /// singlepoint and parameter load, so calculations started on any thread
