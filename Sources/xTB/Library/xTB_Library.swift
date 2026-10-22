@@ -97,9 +97,8 @@ public struct xTB_Library {
     var modules = [HMODULE?](repeating: nil, count: 1024)
     var needed: DWORD = 0
     let size = DWORD(MemoryLayout<HMODULE?>.stride * modules.count)
-    // BOOL imports as WindowsBool.
     guard K32EnumProcessModules(
-      GetCurrentProcess(), &modules, size, &needed).boolValue else {
+      GetCurrentProcess(), &modules, size, &needed) else {
       return []
     }
     let count = min(Int(needed) / MemoryLayout<HMODULE?>.stride, modules.count)

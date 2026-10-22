@@ -123,7 +123,7 @@ final class OpenMPTests: XCTestCase {
     var needed: DWORD = 0
     let size = DWORD(MemoryLayout<HMODULE?>.stride * modules.count)
     if K32EnumProcessModules(
-      GetCurrentProcess(), &modules, size, &needed).boolValue {
+      GetCurrentProcess(), &modules, size, &needed) {
       let count = min(Int(needed) / MemoryLayout<HMODULE?>.stride, modules.count)
       for module in modules[0..<count] {
         var buffer = [CChar](repeating: 0, count: 1024)
