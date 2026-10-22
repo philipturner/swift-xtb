@@ -114,34 +114,6 @@ final class OpenMPTests: XCTestCase {
     return xTB_Environment.maximumThreadCount
   }
 
-  /// Paths of the loaded modules named like an OpenMP runtime (GCC's libgomp,
-  /// Intel's libiomp, LLVM's libomp, Microsoft's vcomp).
-  static func openMPModules() -> [String] {
-    var paths: [String] = []
-    #if os(Windows)
-    var modules = [HMODULE?](repeating: nil, count: 1024)
-    var needed: DWORD = 0
-    let size = DWORD(MemoryLayout<HMODULE?>.stride * modules.count)
-    if K32EnumProcessModules(
-      GetCurrentProcess(), &modules, size, &needed) {
-      let count = min(Int(needed) / MemoryLayout<HMODULE?>.stride, modules.count)
-      for module in modules[0..<count] {
-        var buffer = [CChar](repeating: 0, count: 1024)
-        let length = GetModuleFileNameA(module, &buffer, DWORD(buffer.count))
-        paths.append(String(cString: Array(buffer[0..<Int(length)]) + [0]))
-      }
-    }
-    #else
-    for i in 0..<_dyld_image_count() {
-      paths.append(String(cString: _dyld_get_image_name(i)))
-    }
-    #endif
-    return paths.filter { path in
-      let name = path.lowercased()
-      return ["gomp", "iomp", "libomp", "vcomp"].contains { name.contains($0) }
-    }
-  }
-  
   // MARK: - Tests
 
   /// Without the API, the environment at launch decides.
@@ -236,9 +208,11 @@ final class OpenMPTests: XCTestCase {
     }
   }
   
-  /// Where the thread count goes, step by step (prints a report): the OpenMP
-  /// modules loaded, whether omp_set_num_threads called directly changes a
-  /// thread's team, and whether `threadCount` does.
+  /// Each step between `threadCount` and the runtime, on its own (the Windows
+  /// failure documented in xTB_Environment+OpenMP.swift showed none of them
+  /// separately): a direct omp_set_num_threads, the library's view of the
+  /// runtime, applyThreadCount alone, then creating a calculator and running
+  /// a singlepoint.
   func testRuntimeLookup() throws {
     xTB_Environment.verbosity = .muted
     defer { xTB_Environment.threadCount = nil }
@@ -246,59 +220,47 @@ final class OpenMPTests: XCTestCase {
     let initial = OpenMPTests.launchThreadCount
     let (a, b) = initial == 2 ? (3, 4) : initial == 3 ? (2, 4) : (2, 3)
     
-    print("OpenMP report: launch thread count \(initial)")
-    for path in OpenMPTests.openMPModules() {
-      print("OpenMP report: loaded \(path)")
-    }
-    let setter = OpenMPTests.openMPSymbol("omp_set_num_threads")
-    print("OpenMP report: test's omp_set_num_threads found: \(setter != nil)")
-    
-    // Directly, on a fresh thread.
+    // The runtime honors omp_set_num_threads called directly.
     typealias Set = @convention(c) (Int32) -> Void
-    let setterAddress = Int(bitPattern: try XCTUnwrap(setter))
+    let setter = try XCTUnwrap(OpenMPTests.openMPSymbol("omp_set_num_threads"))
+    let setterAddress = Int(bitPattern: setter)
     let direct = try OpenMPTests.onNewThread {
       let setter = UnsafeMutableRawPointer(bitPattern: setterAddress)!
       unsafeBitCast(setter, to: Set.self)(Int32(a))
       return try OpenMPTests.teamSize()
     }
-    print("OpenMP report: direct omp_set_num_threads(\(a)): team \(direct)")
     XCTAssertEqual(direct, a, "The runtime ignored omp_set_num_threads.")
     
-    // The library's own steps (internal API), each on a fresh thread.
-    print("OpenMP report: library sees xTB loaded: \(xTB_Library.isLoaded)")
-    let librarySetter = xTB_Library.loadOpenMPSymbol("omp_set_num_threads")
-    print("OpenMP report: library's omp_set_num_threads: \(String(describing: librarySetter)), " +
-          "test's: \(String(describing: setter))")
-    XCTAssertEqual(librarySetter, setter, "The library found a different symbol.")
+    // The library finds the same runtime.
+    XCTAssertTrue(xTB_Library.isLoaded)
+    XCTAssertEqual(
+      xTB_Library.loadOpenMPSymbol("omp_set_num_threads"), setter,
+      "The library found a different omp_set_num_threads.")
+    
+    // applyThreadCount alone, on a fresh thread.
     xTB_Environment.threadCount = b
     typealias Count = @convention(c) () -> Int32
     let maxAddress = Int(bitPattern: try XCTUnwrap(
       OpenMPTests.openMPSymbol("omp_get_max_threads")))
-    let (seen, passed, maximum, applied) = try OpenMPTests.onNewThread {
+    let (seen, maximum, applied) = try OpenMPTests.onNewThread {
       let seen = xTB_Environment.threadCount
-      let passed = xTB_Environment.applyThreadCount()
+      xTB_Environment.applyThreadCount()
       let maxThreads = UnsafeMutableRawPointer(bitPattern: maxAddress)!
       let maximum = unsafeBitCast(maxThreads, to: Count.self)()
-      return (seen, passed, maximum, try OpenMPTests.teamSize())
+      return (seen, Int(maximum), try OpenMPTests.teamSize())
     }
-    print("OpenMP report: on a fresh thread, threadCount reads \(String(describing: seen)), " +
-          "applyThreadCount passed \(String(describing: passed)), " +
-          "omp_get_max_threads then \(maximum), team \(applied)")
+    XCTAssertEqual(seen, b, "threadCount reads differently on another thread.")
+    XCTAssertEqual(maximum, b, "applyThreadCount didn't set the count.")
     XCTAssertEqual(applied, b, "applyThreadCount didn't set the count.")
-    let afterLoad = try OpenMPTests.onNewThread {
-      let calculator = OpenMPTests.createCalculator()
-      let team = try OpenMPTests.teamSize()
-      _ = calculator.energy
-      return team
-    }
-    print("OpenMP report: after creating a calculator (no singlepoint yet): team \(afterLoad)")
     
-    // Through the API, on a fresh thread.
-    let api = try OpenMPTests.onNewThread {
-      _ = OpenMPTests.createCalculator().energy
-      return try OpenMPTests.teamSize()
+    // Creating a calculator (parameter load), then a singlepoint.
+    let (afterLoad, afterSinglepoint) = try OpenMPTests.onNewThread {
+      let calculator = OpenMPTests.createCalculator()
+      let afterLoad = try OpenMPTests.teamSize()
+      _ = calculator.energy
+      return (afterLoad, try OpenMPTests.teamSize())
     }
-    print("OpenMP report: threadCount = \(b), then a calculation: team \(api)")
-    XCTAssertEqual(api, b, "swift-xtb didn't reach omp_set_num_threads.")
+    XCTAssertEqual(afterLoad, b, "Creating a calculator didn't set the count.")
+    XCTAssertEqual(afterSinglepoint, b, "A singlepoint didn't keep the count.")
   }
 }

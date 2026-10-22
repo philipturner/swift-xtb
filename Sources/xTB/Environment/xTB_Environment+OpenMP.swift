@@ -12,6 +12,40 @@ import Foundation
 // changing the environment variable later has no effect. The count can then be
 // changed only with omp_set_num_threads, which applies to the calling thread
 // alone: a new Thread or a Dispatch worker starts from the load-time value.
+
+/*
+ An unresolved failure on Windows (October 2026)
+ 
+ While this file was being written, OpenMPTests.testThreadCount failed on a
+ Windows PC (x86_64-unknown-windows-msvc, MSYS2 GCC's libgomp-1.dll, 4-core
+ Intel from 2014) for several rounds. Every team stayed at the runtime's
+ default (4) after setting `threadCount` and running a calculation, on the
+ calling thread, a new Thread and a Dispatch worker alike. Step-by-step checks
+ (now testRuntimeLookup) narrowed it to applyThreadCount itself:
+ 
+ - Exactly one OpenMP runtime was loaded: libgomp-1.dll in the package folder.
+ - omp_set_num_threads called directly from the test worked (team 2).
+ - xTB_Library.isLoaded was true, and loadOpenMPSymbol returned the same
+   omp_set_num_threads address the test called successfully.
+ - Yet applyThreadCount alone, on a fresh thread, left the team at 4.
+ - xTB doesn't reset the count: the library imports omp_get_max_threads only,
+   never omp_set_num_threads, so the singlepoint couldn't undo it.
+ 
+ Deleting .build and rebuilding, many times, didn't help. What fixed it was
+ purging the package folder and cloning it fresh: at the same commit as a
+ failing run, every test passed, with no code change. A fresh clone also
+ resets what deleting .build leaves alone (the DLLs in the package folder:
+ xtb.dll, libgomp-1.dll and the other GCC runtime DLLs; Package.resolved;
+ .swiftpm; local edits), so the cause was probably there, but which one was
+ never found: the old folder was gone before it could be compared. Around the
+ same time, one run also aborted with "libgomp: Thread creation failed:
+ Resource temporarily unavailable" (test.sh sets OMP_STACKSIZE=2G); that
+ didn't recur either.
+ 
+ If the tests fail like this again on Windows: first check where the DLLs in
+ the package folder came from and whether a fresh clone also fails, then read
+ testRuntimeLookup's assertion messages, which name the first step that broke.
+ */
 extension xTB_Environment {
   nonisolated(unsafe)
   private static var _threadCount: Int?
@@ -44,9 +78,7 @@ extension xTB_Environment {
   }
 
   /// Sets the calling thread's OpenMP thread count to `threadCount`, if it is
-  /// set. Call only with the xTB library loaded. Returns the count passed to
-  /// omp_set_num_threads, or nil if it wasn't called.
-  @discardableResult
+  /// set. Call only with the xTB library loaded.
   static func applyThreadCount() {
     typealias Function = @convention(c) (Int32) -> Void
     guard let threadCount = _threadCount,
