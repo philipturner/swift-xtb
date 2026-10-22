@@ -68,7 +68,9 @@ public class xTB_Calculator {
     storage.molecule.calculator = self
     storage.orbitals.calculator = self
     
-    // Load the parameters.
+    // Load the parameters (GFN-FF builds its topology here, partly in
+    // parallel). The OpenMP thread count is per thread: set it on this one.
+    xTB_Environment.applyThreadCount()
     switch descriptor.hamiltonian {
     case .forceField:
       xtb_loadGFNFF(
