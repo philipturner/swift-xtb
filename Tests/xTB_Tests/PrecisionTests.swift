@@ -41,7 +41,8 @@ final class PrecisionTests: XCTestCase {
     let fp32Calculator = PrecisionTests.createCalculator()
     fp32Calculator.precision = .fp32()
 
-    // Within the production accuracy gate, 5e-7 Hartree (2.2e-3 zJ).
+    // Within the production accuracy gate, 5e-7 Hartree (2.2e-3 zJ; energies
+    // here are in zJ). The worst case measured over the test set is ~2e-7.
     XCTAssertEqual(fp32Calculator.energy, fp64Calculator.energy, accuracy: 2e-3)
 
     let report = try XCTUnwrap(fp32Calculator.precisionReport)

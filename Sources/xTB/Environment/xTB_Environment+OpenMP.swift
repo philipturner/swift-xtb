@@ -54,6 +54,17 @@ extension xTB_Environment {
   /// ...), or nil to leave the OpenMP runtime's own setting: OMP_NUM_THREADS
   /// as it was when the program launched, else `maximumThreadCount`.
   ///
+  /// With the xTB library this branch builds (philipturner/xtb's
+  /// 'diagonalization'), the count also covers the eigensolve in every SCC
+  /// iteration, from 256 orbitals up: the divide and conquer uses all the
+  /// threads, the reduction to tridiagonal form at most one cluster of the
+  /// fastest cores (4 on an M1 Max), the back-transformation two. On an M1
+  /// Max, a singlepoint was no faster with 8 threads than with 4.
+  ///
+  /// Accelerate's own threads (BLAS and LAPACK calls) follow the environment
+  /// variable VECLIB_MAXIMUM_THREADS, which must be set before the program
+  /// starts; swift-xtb doesn't change it.
+  ///
   /// When set, swift-xtb sets the count on the calling thread before every
   /// singlepoint and parameter load, so calculations started on any thread
   /// use it. Setting it never loads the xTB library. Setting nil again stops

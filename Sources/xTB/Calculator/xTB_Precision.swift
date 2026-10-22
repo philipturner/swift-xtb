@@ -25,8 +25,9 @@ public enum xTB_Precision: Equatable, Sendable {
   /// results within about 1e-12 Hartree of `.fp64`. It is faster than `.fp64`
   /// for one process, but not for one process per core.
   ///
-  /// Measured on an M1 Max (n = 412-776 orbitals): 12-20% faster per
-  /// singlepoint than `.fp64`, 15-25% more throughput with 8 processes x 1
+  /// Measured on an M1 Max with the library this branch builds (n = 412-1204
+  /// orbitals), against the same library in FP64: 8-16% less time per
+  /// singlepoint with 8 threads, 17-43% more throughput with 8 processes x 1
   /// thread.
   ///
   /// > Note: Requires an xTB library with the SCC precision API
