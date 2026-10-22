@@ -114,6 +114,34 @@ final class OpenMPTests: XCTestCase {
     return xTB_Environment.maximumThreadCount
   }
 
+  /// Paths of the loaded modules named like an OpenMP runtime (GCC's libgomp,
+  /// Intel's libiomp, LLVM's libomp, Microsoft's vcomp).
+  static func openMPModules() -> [String] {
+    var paths: [String] = []
+    #if os(Windows)
+    var modules = [HMODULE?](repeating: nil, count: 1024)
+    var needed: DWORD = 0
+    let size = DWORD(MemoryLayout<HMODULE?>.stride * modules.count)
+    if K32EnumProcessModules(
+      GetCurrentProcess(), &modules, size, &needed).boolValue {
+      let count = min(Int(needed) / MemoryLayout<HMODULE?>.stride, modules.count)
+      for module in modules[0..<count] {
+        var buffer = [CChar](repeating: 0, count: 1024)
+        let length = GetModuleFileNameA(module, &buffer, DWORD(buffer.count))
+        paths.append(String(cString: Array(buffer[0..<Int(length)]) + [0]))
+      }
+    }
+    #else
+    for i in 0..<_dyld_image_count() {
+      paths.append(String(cString: _dyld_get_image_name(i)))
+    }
+    #endif
+    return paths.filter { path in
+      let name = path.lowercased()
+      return ["gomp", "iomp", "libomp", "vcomp"].contains { name.contains($0) }
+    }
+  }
+  
   // MARK: - Tests
 
   /// Without the API, the environment at launch decides.
@@ -206,5 +234,43 @@ final class OpenMPTests: XCTestCase {
       let maximum = max(abs(difference.x), abs(difference.y), abs(difference.z))
       XCTAssertLessThan(maximum, 1) // pN
     }
+  }
+  
+  /// Where the thread count goes, step by step (prints a report): the OpenMP
+  /// modules loaded, whether omp_set_num_threads called directly changes a
+  /// thread's team, and whether `threadCount` does.
+  func testRuntimeLookup() throws {
+    xTB_Environment.verbosity = .muted
+    defer { xTB_Environment.threadCount = nil }
+    _ = OpenMPTests.createCalculator().energy
+    let initial = OpenMPTests.launchThreadCount
+    let (a, b) = initial == 2 ? (3, 4) : initial == 3 ? (2, 4) : (2, 3)
+    
+    print("OpenMP report: launch thread count \(initial)")
+    for path in OpenMPTests.openMPModules() {
+      print("OpenMP report: loaded \(path)")
+    }
+    let setter = OpenMPTests.openMPSymbol("omp_set_num_threads")
+    print("OpenMP report: test's omp_set_num_threads found: \(setter != nil)")
+    
+    // Directly, on a fresh thread.
+    typealias Set = @convention(c) (Int32) -> Void
+    let setterAddress = Int(bitPattern: try XCTUnwrap(setter))
+    let direct = try OpenMPTests.onNewThread {
+      let setter = UnsafeMutableRawPointer(bitPattern: setterAddress)!
+      unsafeBitCast(setter, to: Set.self)(Int32(a))
+      return try OpenMPTests.teamSize()
+    }
+    print("OpenMP report: direct omp_set_num_threads(\(a)): team \(direct)")
+    XCTAssertEqual(direct, a, "The runtime ignored omp_set_num_threads.")
+    
+    // Through the API, on a fresh thread.
+    xTB_Environment.threadCount = b
+    let api = try OpenMPTests.onNewThread {
+      _ = OpenMPTests.createCalculator().energy
+      return try OpenMPTests.teamSize()
+    }
+    print("OpenMP report: threadCount = \(b), then a calculation: team \(api)")
+    XCTAssertEqual(api, b, "swift-xtb didn't reach omp_set_num_threads.")
   }
 }

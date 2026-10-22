@@ -79,11 +79,33 @@ public struct xTB_Library {
         return unsafeBitCast(symbol, to: UnsafeMutableRawPointer?.self)
       }
     }
+    // Any other runtime: the first loaded DLL that exports the symbol.
+    for module in loadedModules() {
+      if let symbol = GetProcAddress(module, name) {
+        return unsafeBitCast(symbol, to: UnsafeMutableRawPointer?.self)
+      }
+    }
     return nil
     #else
     #error("Linux is no longer supported.")
     #endif
   }
+
+  #if os(Windows)
+  /// Every module (DLL or executable) loaded in this process.
+  static func loadedModules() -> [HMODULE] {
+    var modules = [HMODULE?](repeating: nil, count: 1024)
+    var needed: DWORD = 0
+    let size = DWORD(MemoryLayout<HMODULE?>.stride * modules.count)
+    // BOOL imports as WindowsBool.
+    guard K32EnumProcessModules(
+      GetCurrentProcess(), &modules, size, &needed).boolValue else {
+      return []
+    }
+    let count = min(Int(needed) / MemoryLayout<HMODULE?>.stride, modules.count)
+    return modules[0..<count].compactMap { $0 }
+  }
+  #endif
 }
 
 // Methods of `xTB_Library` required to load the xTB library.
