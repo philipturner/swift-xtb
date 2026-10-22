@@ -105,6 +105,28 @@ public struct xTB_Library {
     return modules[0..<count].compactMap { $0 }
   }
   #endif
+  
+  /// Loads a symbol that some xTB libraries don't export, returning nil when
+  /// it is missing.
+  static func loadOptionalSymbol<T>(
+    name: String,
+    type: T.Type = T.self
+  ) -> T? {
+    guard let symbol = self.loadSymbol(self.xtbLibraryHandle, name) else {
+      return nil
+    }
+    return unsafeBitCast(symbol, to: type)
+  }
+  
+  /// Whether the xTB library can run FP32 eigensolves (``xTB_Precision``).
+  ///
+  /// The SCC precision API (`xtb_setSCCPrecision`, `xtb_getSCCPrecision`)
+  /// exists only in xTB builds from the `diagonalization` branch. Other
+  /// libraries run every eigensolve in FP64. A library that exports only one
+  /// of the two functions is a fatal error.
+  public static var supportsFP32: Bool {
+    xtb_supportsSCCPrecision
+  }
 }
 
 // Methods of `xTB_Library` required to load the xTB library.

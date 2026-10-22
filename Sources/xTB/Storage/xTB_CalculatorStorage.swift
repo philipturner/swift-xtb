@@ -12,6 +12,7 @@ struct xTB_CalculatorStorage {
   var accuracy: Float = 1.0
   var electronicTemperature: Float = 300
   var maximumIterations: Int = 250
+  var precision: xTB_Precision = .fp64
   
   // Lazily synchronized properties.
   var molecule: xTB_Molecule!

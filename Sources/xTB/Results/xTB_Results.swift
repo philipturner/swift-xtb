@@ -24,6 +24,8 @@ class xTB_Results {
   
   var orbitalCoefficients: [Float]?
   
+  var precisionReport: xTB_PrecisionReport?
+  
   init() {
     self.tResults = xTB_Results.createObject()
   }
