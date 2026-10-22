@@ -271,11 +271,19 @@ final class OpenMPTests: XCTestCase {
           "test's: \(String(describing: setter))")
     XCTAssertEqual(librarySetter, setter, "The library found a different symbol.")
     xTB_Environment.threadCount = b
-    let applied = try OpenMPTests.onNewThread {
-      xTB_Environment.applyThreadCount()
-      return try OpenMPTests.teamSize()
+    typealias Count = @convention(c) () -> Int32
+    let maxAddress = Int(bitPattern: try XCTUnwrap(
+      OpenMPTests.openMPSymbol("omp_get_max_threads")))
+    let (seen, passed, maximum, applied) = try OpenMPTests.onNewThread {
+      let seen = xTB_Environment.threadCount
+      let passed = xTB_Environment.applyThreadCount()
+      let maxThreads = UnsafeMutableRawPointer(bitPattern: maxAddress)!
+      let maximum = unsafeBitCast(maxThreads, to: Count.self)()
+      return (seen, passed, maximum, try OpenMPTests.teamSize())
     }
-    print("OpenMP report: threadCount = \(b), applyThreadCount alone: team \(applied)")
+    print("OpenMP report: on a fresh thread, threadCount reads \(String(describing: seen)), " +
+          "applyThreadCount passed \(String(describing: passed)), " +
+          "omp_get_max_threads then \(maximum), team \(applied)")
     XCTAssertEqual(applied, b, "applyThreadCount didn't set the count.")
     let afterLoad = try OpenMPTests.onNewThread {
       let calculator = OpenMPTests.createCalculator()

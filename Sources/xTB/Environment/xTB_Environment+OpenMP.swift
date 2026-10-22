@@ -44,13 +44,16 @@ extension xTB_Environment {
   }
 
   /// Sets the calling thread's OpenMP thread count to `threadCount`, if it is
-  /// set. Call only with the xTB library loaded.
-  static func applyThreadCount() {
+  /// set. Call only with the xTB library loaded. Returns the count passed to
+  /// omp_set_num_threads, or nil if it wasn't called.
+  @discardableResult
+  static func applyThreadCount() -> Int32? {
     typealias Function = @convention(c) (Int32) -> Void
     guard let threadCount = _threadCount,
           let symbol = xTB_Library.loadOpenMPSymbol("omp_set_num_threads") else {
-      return
+      return nil
     }
     unsafeBitCast(symbol, to: Function.self)(Int32(threadCount))
+    return Int32(threadCount)
   }
 }
