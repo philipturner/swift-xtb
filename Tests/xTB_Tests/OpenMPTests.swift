@@ -4,7 +4,7 @@ import Foundation
 import WinSDK
 #endif
 import XCTest
-import xTB
+@testable import xTB
 
 // `xTB_Environment.threadCount`. The OpenMP runtime reads OMP_NUM_THREADS when
 // it loads; the count is per thread afterward, and swift-xtb sets it on the
@@ -264,8 +264,28 @@ final class OpenMPTests: XCTestCase {
     print("OpenMP report: direct omp_set_num_threads(\(a)): team \(direct)")
     XCTAssertEqual(direct, a, "The runtime ignored omp_set_num_threads.")
     
-    // Through the API, on a fresh thread.
+    // The library's own steps (internal API), each on a fresh thread.
+    print("OpenMP report: library sees xTB loaded: \(xTB_Library.isLoaded)")
+    let librarySetter = xTB_Library.loadOpenMPSymbol("omp_set_num_threads")
+    print("OpenMP report: library's omp_set_num_threads: \(String(describing: librarySetter)), " +
+          "test's: \(String(describing: setter))")
+    XCTAssertEqual(librarySetter, setter, "The library found a different symbol.")
     xTB_Environment.threadCount = b
+    let applied = try OpenMPTests.onNewThread {
+      xTB_Environment.applyThreadCount()
+      return try OpenMPTests.teamSize()
+    }
+    print("OpenMP report: threadCount = \(b), applyThreadCount alone: team \(applied)")
+    XCTAssertEqual(applied, b, "applyThreadCount didn't set the count.")
+    let afterLoad = try OpenMPTests.onNewThread {
+      let calculator = OpenMPTests.createCalculator()
+      let team = try OpenMPTests.teamSize()
+      _ = calculator.energy
+      return team
+    }
+    print("OpenMP report: after creating a calculator (no singlepoint yet): team \(afterLoad)")
+    
+    // Through the API, on a fresh thread.
     let api = try OpenMPTests.onNewThread {
       _ = OpenMPTests.createCalculator().energy
       return try OpenMPTests.teamSize()
