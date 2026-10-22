@@ -33,6 +33,8 @@ extension xTB_Calculator {
     } else {
       results = xTB_Results()
     }
+    // The OpenMP thread count is per thread: set it on this one.
+    xTB_Environment.applyThreadCount()
     xtb_singlepoint(
       xTB_Environment.tEnvironment,
       tMolecule,

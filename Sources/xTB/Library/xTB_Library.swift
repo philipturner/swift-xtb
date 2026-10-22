@@ -54,6 +54,36 @@ public struct xTB_Library {
     return unsafeBitCast(
       self.loadSymbol(self.xtbLibraryHandle, name), to: type)
   }
+
+  /// Whether the xTB library is loaded. Doesn't load it.
+  static var isLoaded: Bool { isXTBLibraryLoaded }
+
+  /// A symbol of the OpenMP runtime the xTB library loaded (`omp_*`), or nil
+  /// if the xTB library isn't loaded yet or the runtime doesn't export it.
+  /// Never loads anything.
+  ///
+  /// macOS: `dlsym` on the xTB library's handle also searches the libraries it
+  /// depends on, so this finds the runtime xTB actually uses (GCC's libgomp in
+  /// the default build). Windows: `GetProcAddress` only searches one DLL's own
+  /// exports, so the runtime is found by name among the loaded DLLs
+  /// (`GetModuleHandleA` never loads one).
+  static func loadOpenMPSymbol(_ name: String) -> UnsafeMutableRawPointer? {
+    guard isXTBLibraryLoaded else { return nil }
+    #if os(macOS)
+    return dlsym(_xtbLibraryHandle, name)
+    #elseif os(Windows)
+    // MSYS2 GCC's libgomp, then Intel's and Microsoft's runtimes.
+    for dll in ["libgomp-1.dll", "libiomp5md.dll", "vcomp140.dll"] {
+      if let module = GetModuleHandleA(dll),
+         let symbol = GetProcAddress(module, name) {
+        return unsafeBitCast(symbol, to: UnsafeMutableRawPointer?.self)
+      }
+    }
+    return nil
+    #else
+    #error("Linux is no longer supported.")
+    #endif
+  }
 }
 
 // Methods of `xTB_Library` required to load the xTB library.
